@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Indicator } from '../components/Indicator'
 import { PieceCard } from '../components/PieceCard'
 import { ReserveSheet } from '../components/ReserveSheet'
 import { KERF, KINDS, findMatches, nearMatches, needsPhoto, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
@@ -36,6 +37,12 @@ export default function Stock() {
   const [params, setParams] = useSearchParams()
   const { pieces, loading, error } = useStore()
   const [reserving, setReserving] = useState<Piece | null>(null)
+  // Cards stagger in when the page opens. After that, new results just appear.
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setSettled(true), 700)
+    return () => window.clearTimeout(t)
+  }, [])
 
   const text = params.get('q') ?? ''
   const kindPick = params.get('k') ?? ''
@@ -69,10 +76,13 @@ export default function Stock() {
       <div className="page__head">
         <h1 className="page__title">Stock</h1>
         <div className="page__actions">
-          <Link to="/stock/photos" className="q-btn">
-            Needs photo <span className="count num">{photoCount}</span>
+          <Link to="/stock/cut" className="q-btn">
+            Cut list
           </Link>
-          <Link to="/stock/add" className="q-btn">
+          <Link to="/stock/photos" className="q-btn">
+            Needs photo <span className="badge num">{photoCount}</span>
+          </Link>
+          <Link to="/stock/add" className="q-btn q-btn--main">
             Add stock
           </Link>
         </div>
@@ -92,6 +102,7 @@ export default function Stock() {
         />
         <div className="finder__row">
           <div className="picks picks--seg" role="radiogroup" aria-label="Shape">
+            <Indicator />
             {KIND_PICKS.map((k) => (
               <button
                 key={k.value}
@@ -106,6 +117,7 @@ export default function Stock() {
             ))}
           </div>
           <div className="picks picks--seg" role="radiogroup" aria-label="Size tolerance">
+            <Indicator />
             {TOLS.map((t) => (
               <button
                 key={t}
@@ -144,9 +156,16 @@ export default function Stock() {
         <p className="empty">Nothing in stock fits exactly.{near.length ? ' Close sizes below.' : ''}</p>
       )}
 
-      <div className="cards">
+      <div className="cards" data-settled={settled || undefined}>
         {matches.map((m, i) => (
-          <PieceCard key={m.piece.id} piece={m.piece} leftover={m.leftover} main={i === 0 && words.length > 0} onReserve={setReserving} />
+          <PieceCard
+            key={m.piece.id}
+            index={i}
+            piece={m.piece}
+            leftover={m.leftover}
+            main={i === 0 && words.length > 0}
+            onReserve={setReserving}
+          />
         ))}
       </div>
 

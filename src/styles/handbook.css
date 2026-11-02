@@ -1,0 +1,290 @@
+/* Handbook. Read mode in Hebrew: Frank Ruhl Libre speaks (titles), Heebo works (text).
+   Night Machine, Newsreader and Instrument Sans have no Hebrew letters, so this page swaps
+   the pair while keeping the same sizes, surfaces and colours as the rest of Steamhub. */
+
+.hb {
+  --font-voice: 'Frank Ruhl Libre', 'Newsreader', Georgia, serif;
+  --font-work: 'Heebo', 'Instrument Sans', system-ui, sans-serif;
+  font-family: var(--font-work);
+}
+
+.hb h2,
+.hb h3,
+.hb-title {
+  font-family: var(--font-voice);
+  letter-spacing: 0;
+}
+
+.hb-head {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 44rem;
+  margin-bottom: 2.5rem;
+}
+
+.hb-title {
+  margin: 0;
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--brand);
+}
+
+.hb-sub {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.hb .chip[aria-pressed='true'] {
+  background: var(--surface-2);
+  border-color: var(--ink-soft);
+}
+
+.hb-body {
+  display: grid;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .hb-body {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+
+  .hb-toc {
+    position: sticky;
+    top: 1.5rem;
+    max-height: calc(100dvh - 3rem);
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 999px) {
+  /* On phones the contents become one sideways row under the search. */
+  .hb-toc {
+    position: sticky;
+    top: 3.6rem;
+    z-index: 5;
+    margin: 0 -1rem;
+    padding: 0.4rem 1rem;
+    overflow-x: auto;
+    background: var(--surface-0);
+    scrollbar-width: none;
+  }
+
+  .hb-toc .picks--stack {
+    flex-direction: row;
+    width: max-content;
+  }
+
+  .hb-toc .pick {
+    white-space: nowrap;
+  }
+}
+
+.hb-toc .pick {
+  text-align: right;
+  min-height: 2.4rem;
+}
+
+/* ----- Text ----- */
+.hb-text {
+  max-width: 42rem;
+}
+
+.hb-sec {
+  scroll-margin-top: 1.5rem;
+  padding-bottom: 1rem;
+}
+
+@media (max-width: 999px) {
+  .hb-sec {
+    scroll-margin-top: 7.5rem;
+  }
+}
+
+.hb-sec + .hb-sec {
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.hb-sec h2 {
+  margin-bottom: 1rem;
+  font-size: clamp(1.7rem, 4vw, 2.1rem);
+  font-weight: 700;
+}
+
+.hb-block + .hb-block {
+  margin-top: 1.5rem;
+}
+
+.hb-block__title {
+  margin-bottom: 0.4rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.hb-prose {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+.hb-prose p {
+  margin: 0 0 0.75rem;
+}
+
+.hb-prose ol,
+.hb-prose ul {
+  margin: 0 0 0.75rem;
+  padding-inline-start: 1.4rem;
+}
+
+.hb-prose li + li {
+  margin-top: 0.3rem;
+}
+
+.hb-prose a {
+  color: var(--ink);
+  text-decoration-color: var(--brand);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.hb-prose b {
+  font-weight: 700;
+}
+
+/* ----- Option cards with pros and cons ----- */
+.hb-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.hb-card {
+  padding: 1rem 1.1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.hb-card h3 {
+  margin-bottom: 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.hb-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0.2rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.hb-card h4::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+}
+
+.hb-card .hb-pros {
+  color: var(--meaning-b);
+}
+
+.hb-card .hb-pros::before {
+  background: var(--meaning-b);
+}
+
+.hb-card .hb-cons {
+  color: var(--meaning-c);
+}
+
+.hb-card .hb-cons::before {
+  background: var(--meaning-c);
+}
+
+.hb-card ul {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* ----- Checklist ----- */
+.hb-check {
+  margin-top: 0.5rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.hb-check__head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.hb-check__bar {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  background: var(--surface-3);
+  border-radius: 3px;
+}
+
+.hb-check__bar > span {
+  display: block;
+  height: 100%;
+  margin-inline-start: 0;
+  background: var(--brand);
+  border-radius: 3px;
+  transition: width 240ms var(--ease-out);
+}
+
+.hb-check__list {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hb-check__list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.55rem 0.6rem;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.hb-check__list input {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.25rem;
+  accent-color: var(--brand);
+}
+
+.hb-check__list label.is-done {
+  color: var(--ink-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hb-check__list label:hover {
+    background: var(--surface-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-check__bar > span {
+    transition: none;
+  }
+}

@@ -1,0 +1,678 @@
+/* Calculator. Tool mode: inputs and results on one screen, the answer is the biggest thing,
+   numbers line up, nothing animates when a value changes. */
+
+/* Chart colours, validated for colour-blind separation on both surfaces (dataviz validator). */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+}
+
+:root[data-theme='dark'] {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+}
+
+.page--wide {
+  max-width: 84rem;
+}
+
+.calc-saved {
+  margin: 0;
+}
+
+.tag--bad {
+  color: var(--meaning-c);
+  background: var(--meaning-c-soft);
+}
+
+.is-bad {
+  color: var(--meaning-c);
+}
+
+.is-ok {
+  color: var(--meaning-b);
+}
+
+.calc-note {
+  margin: 0.25rem 0 1rem;
+  font-size: 0.9375rem;
+}
+
+.calc-tabs {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.calc-tabs {
+  flex-wrap: nowrap;
+}
+
+.calc-tabs .pick {
+  flex: none;
+}
+
+.calc-section {
+  margin-bottom: 2.25rem;
+}
+
+/* ----- Draft bar ----- */
+.draft {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0.8rem 1rem;
+  background: var(--meaning-a-soft);
+  border-radius: var(--radius-panel);
+}
+
+@media (max-width: 899px) {
+  .draft {
+    top: 4rem;
+  }
+}
+
+.draft__text {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.draft__warn {
+  color: var(--meaning-a);
+}
+
+.draft__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ----- Number fields ----- */
+.num-field {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.num-field__label {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.num-field__box {
+  display: flex;
+  align-items: center;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.num-field__box:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.num-field__input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.7rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.num-field__unit {
+  padding-right: 0.7rem;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* In tables the label is already the column header. */
+.ctable .num-field__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.ctable .num-field {
+  min-width: 5.5rem;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  align-content: start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.fields .num-field__box,
+.fields .field {
+  background: var(--surface-0);
+}
+
+.fields__title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.fields > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* ----- Budget ----- */
+.budget__inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.75rem;
+  max-width: 40rem;
+  margin-bottom: 1.25rem;
+}
+
+.budget__stats {
+  margin-bottom: 0.75rem;
+}
+
+.stat__u {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.sets {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.set {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(6rem, 1fr) 4.5rem 7.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+}
+
+.set__name {
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  margin-left: -0.5rem;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.set__name:hover,
+.set__name:focus {
+  background: var(--surface-1);
+  border-color: var(--line);
+  outline: none;
+}
+
+.set__bar {
+  position: relative;
+  height: 10px;
+  background: var(--surface-2);
+  border-radius: 5px;
+}
+
+.set__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ink-soft);
+  border-radius: 5px;
+}
+
+.set__fill.is-bad {
+  background: var(--meaning-c);
+}
+
+/* The budget line. */
+.set__budget {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+.set__value {
+  text-align: right;
+  font-weight: 600;
+}
+
+@media (max-width: 599px) {
+  .set {
+    grid-template-columns: 1fr auto;
+    gap: 0.3rem 0.75rem;
+    padding: 0.4rem 0;
+  }
+
+  .set__bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .set__state {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ----- Mechanisms: list on the left, editor on the right ----- */
+.mechs {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .mechs {
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+  }
+
+  .mechs__list {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+.mech-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.1rem 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.55rem 0.75rem;
+  color: var(--ink);
+}
+
+.mech-row__name {
+  font-weight: 500;
+}
+
+.mech-row__ratio {
+  font-weight: 600;
+  text-align: right;
+}
+
+.mech-row__amps {
+  font-size: 0.875rem;
+}
+
+.mech-row .tag {
+  justify-self: end;
+}
+
+.mechs__add {
+  margin-top: 0.4rem;
+}
+
+.mech {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  background: var(--surface-1);
+  border-radius: var(--radius-shell);
+}
+
+.mech__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.mech__name {
+  min-width: 0;
+  flex: 1;
+  padding: 0.2rem 0.4rem;
+  margin-left: -0.4rem;
+  font-family: var(--font-voice);
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+input.mech__name:hover,
+input.mech__name:focus {
+  background: var(--surface-0);
+  border-color: var(--line);
+  outline: none;
+}
+
+.mech__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mech__hero > div {
+  display: grid;
+}
+
+/* The answer: biggest thing on the screen, sans, proportional figures. */
+.mech__ratio {
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.05;
+  font-variant-numeric: proportional-nums;
+  letter-spacing: -0.02em;
+}
+
+.mech .calc-note {
+  margin: -0.5rem 0 0;
+}
+
+.mech__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mech__controls .picks--seg,
+.mech .fields {
+  background: var(--surface-2);
+}
+
+.mech .picks--seg > .indicator {
+  background: var(--surface-0);
+}
+
+.mech .fields .num-field__box,
+.mech .fields .field {
+  background: var(--surface-0);
+}
+
+.mech__grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 1200px) {
+  .mech__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.mech__sets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chip--check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--surface-0);
+}
+
+.chip--check input {
+  accent-color: var(--ink);
+}
+
+.chip--check:has(input:checked) {
+  border-color: var(--ink-soft);
+}
+
+.mech__results {
+  padding: 1rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-panel);
+}
+
+.mech__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.text-btn--danger {
+  color: var(--meaning-c);
+}
+
+/* ----- Two columns: inputs left, results right ----- */
+.calc-two {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .calc-two {
+    grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);
+  }
+}
+
+.fields-col {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.swerve-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.swerve-head .section__title {
+  margin: 0;
+}
+
+/* ----- Tables ----- */
+.table-wrap {
+  max-width: 100%;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+}
+
+.ctable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctable th,
+.ctable td {
+  padding: 0.45rem 0.75rem;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+.ctable th:first-child,
+.ctable td:first-child {
+  text-align: left;
+  white-space: normal;
+}
+
+.ctable th {
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.ctable .is-sel {
+  background: var(--surface-1);
+}
+
+.ctable th.is-sel {
+  color: var(--ink);
+}
+
+/* ----- Curves and voltage map ----- */
+.curves__pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.charts-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ----- Chart ----- */
+.chart {
+  margin: 0;
+  padding: 1rem 1rem 0.5rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.mech .chart {
+  background: var(--surface-0);
+}
+
+.chart__title {
+  margin-bottom: 0.35rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  list-style: none;
+}
+
+.chart__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chart__key {
+  display: inline-block;
+  width: 0.9rem;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.chart__plot {
+  position: relative;
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.chart__grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart__tick {
+  font-size: 11px;
+  fill: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__tick--strong {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+.chart__axis {
+  font-size: 11px;
+  fill: var(--ink-soft);
+}
+
+.chart__band {
+  fill: var(--meaning-b-soft);
+}
+
+.chart__marker {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+
+.chart__cross {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+}
+
+.chart__dot {
+  stroke: var(--surface-1);
+  stroke-width: 2;
+}
+
+.chart__tip {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  min-width: 8rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  background: var(--surface-0);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.chart__tip-x {
+  color: var(--ink-soft);
+}
+
+.chart__tip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}

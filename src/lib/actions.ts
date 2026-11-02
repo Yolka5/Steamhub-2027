@@ -60,6 +60,12 @@ export async function updatePiece(id: string, patch: Partial<Piece>, who: Who) {
   return { piece: data as Piece }
 }
 
+/** Permanently removes a piece and its history. The UI asks twice before calling this. */
+export async function deletePiece(id: string) {
+  const { error } = await supabase.from('pieces').delete().eq('id', id)
+  return error ? { error: error.message } : {}
+}
+
 export async function nextId(prefix: string): Promise<string> {
   const { data } = await supabase.rpc('next_piece_id', { prefix })
   return (data as string) ?? `${prefix}-001`

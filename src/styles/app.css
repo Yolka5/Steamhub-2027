@@ -39,6 +39,7 @@
 }
 
 .brand__name {
+  color: var(--brand);
   font-family: var(--font-display);
   font-size: 1.35rem;
   line-height: 1;
@@ -75,7 +76,6 @@
 
 .tab[aria-current='page'] {
   color: var(--ink);
-  background: var(--surface-2);
 }
 
 .tab--add[aria-current='page'] {
@@ -329,6 +329,7 @@ select.field {
 
 .page__title {
   font-size: clamp(2rem, 6vw, 2.75rem);
+  color: var(--brand);
 }
 
 .page__actions {
@@ -337,7 +338,7 @@ select.field {
   gap: 0.5rem;
 }
 
-.count {
+.badge {
   padding: 0 0.45rem;
   font-size: 0.8125rem;
   background: var(--surface-0);
@@ -378,6 +379,7 @@ select.field {
 
 .hero__title {
   font-size: clamp(3rem, 12vw, 5.5rem);
+  color: var(--brand);
 }
 
 .hero__sub {
@@ -397,8 +399,14 @@ select.field {
 
 .quick {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
   gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .quick {
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  }
 }
 
 .quick__item {
@@ -781,7 +789,9 @@ dialog {
 
 .sheet::backdrop,
 .palette-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(20, 20, 19, 0.22);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
 }
 
 .sheet__head {
@@ -845,7 +855,7 @@ dialog {
   color: var(--ink-soft);
 }
 
-/* ===== Toast ===== */
+/* ===== Toast, motion in motion.css ===== */
 .toast {
   position: fixed;
   left: 50%;
@@ -857,67 +867,17 @@ dialog {
   background: var(--ink);
   border-radius: var(--radius-pill);
   opacity: 0;
-  transform: translate(-50%, 0.5rem);
-  transition: opacity 160ms ease, transform 200ms var(--ease-out);
   pointer-events: none;
 }
 
 .toast[data-open='true'] {
   opacity: 1;
-  transform: translate(-50%, 0);
 }
 
 @media (min-width: 900px) {
   .toast {
     bottom: 2rem;
   }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .toast {
-    transition: opacity 160ms ease;
-    transform: translate(-50%, 0);
-  }
-}
-
-/* ===== Heading samples ===== */
-.samples {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.sample {
-  display: grid;
-  align-content: start;
-  justify-items: start;
-  gap: 0.9rem;
-  padding: 1.25rem;
-  background: var(--surface-1);
-  border-radius: var(--radius-panel);
-}
-
-.sample__h1 {
-  font-size: 2.6rem;
-}
-
-.sample__h2 {
-  font-size: 1.6rem;
-}
-
-.sample__sans {
-  font-family: var(--font-work);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-.sample__sans em {
-  font-weight: 500;
-}
-
-.sample p {
-  margin: 0;
 }
 
 /* ===== Phone ===== */
@@ -968,8 +928,436 @@ dialog {
   }
 }
 
-/* The logo's outer gear is black, so it gets a light disc on dark backgrounds. */
-:root[data-theme='dark'] .brand img {
-  background: #efefef;
+/* The logo's outer gear is black, so dark mode swaps in a copy with a light gear. */
+.logo--dark,
+:root[data-theme='dark'] .logo--light {
+  display: none;
+}
+
+:root[data-theme='dark'] .logo--dark {
+  display: block;
+}
+
+/* ===== Home: season ===== */
+/* Countdown: full width, digits big and orange, info to the side. */
+.countdown {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+  align-items: center;
+  gap: 1.5rem 2.5rem;
+  margin: 0.5rem 0 1.5rem;
+  padding: clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 3vw, 2.25rem);
+  background: var(--surface-1);
+  border-radius: var(--radius-shell);
+}
+
+.countdown__units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem clamp(1rem, 3.5vw, 3rem);
+}
+
+.countdown__unit {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.countdown__unit:first-child .roll {
+  color: var(--brand);
+}
+
+.countdown__label {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+.countdown__info {
+  display: grid;
+  justify-items: start;
+  gap: 0.6rem;
+}
+
+.countdown__info p {
+  margin: 0;
+}
+
+.countdown__title {
+  font-size: 1.75rem;
+}
+
+/* Odometer digits: each column is a strip of 0 to 9, shifted to the current digit. */
+.roll {
+  display: flex;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 7vw, 5.25rem);
+  line-height: 1;
+}
+
+.roll__col {
+  display: block;
+  height: 1em;
+  overflow: hidden;
+}
+
+.roll__strip {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(calc(var(--d) * -1em));
+}
+
+.roll__strip > span {
+  display: block;
+  height: 1em;
+  text-align: center;
+}
+
+@media (max-width: 899px) {
+  .countdown {
+    grid-template-columns: 1fr;
+  }
+}
+
+.season__days {
+  display: flex;
+  gap: 4px;
+}
+
+.season__day {
+  width: 1.5rem;
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 3px;
+}
+
+.season__day[data-state='done'] {
+  background: var(--ink-soft);
+}
+
+.season__day[data-state='today'] {
+  background: var(--brand);
+}
+
+/* ===== Account menu ===== */
+.account {
+  position: relative;
+}
+
+.account > .pick {
+  width: 100%;
+}
+
+.account__menu {
+  position: absolute;
+  z-index: 30;
+  display: grid;
+  gap: 0.25rem;
+  min-width: 15rem;
+  background: var(--surface-0);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.account__menu--up {
+  bottom: calc(100% + 0.4rem);
+  left: 0;
+}
+
+.account__menu--down {
+  top: calc(100% + 0.4rem);
+  right: 0;
+}
+
+.account__who {
+  display: grid;
+  padding: 0.5rem 0.75rem 0.4rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.account__out {
+  color: var(--meaning-c);
+}
+
+
+/* ===== Home layout =====
+   Desktop: search on the left, team activity beside it, everything else full width below.
+   Phone: activity drops under the quick links, since searching comes first. */
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'hero'
+    'count'
+    'quick'
+    'activity'
+    'mine';
+  align-items: start;
+}
+
+.home > .hero {
+  grid-area: hero;
+}
+
+.home > .activity {
+  grid-area: activity;
+  margin-top: 1.5rem;
+}
+
+.home > .countdown {
+  grid-area: count;
+}
+
+.home > .quick {
+  grid-area: quick;
+}
+
+.home > .section {
+  grid-area: mine;
+}
+
+@media (min-width: 1100px) {
+  .home {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+    grid-template-areas:
+      'hero activity'
+      'count count'
+      'quick quick'
+      'mine mine';
+    column-gap: 2.5rem;
+  }
+
+  .home > .activity {
+    margin-top: clamp(1rem, 6vw, 3.5rem);
+  }
+}
+
+/* ===== Team activity ===== */
+.activity {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.activity__title {
+  font-size: 1.35rem;
+}
+
+.activity__list {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.activity__text strong {
+  font-weight: 600;
+}
+
+.activity__text a {
+  font-weight: 500;
+  text-decoration-color: var(--surface-3);
+  text-underline-offset: 2px;
+}
+
+.activity__when {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.avatar--soft {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+/* ===== Locations editor ===== */
+.ctl__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.text-btn {
+  padding: 0.25rem 0;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--surface-3);
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.places {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+  padding: 0.75rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.places__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.places__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-right: 0.35rem;
+  cursor: default;
+}
+
+.places__x {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
   border-radius: 50%;
+  cursor: pointer;
+}
+
+.places__x:hover {
+  color: var(--meaning-c);
+  background: var(--meaning-c-soft);
+}
+
+/* ===== Cut list ===== */
+.cut-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cut-missing {
+  padding: 0.75rem 1rem;
+  color: var(--ink);
+  background: var(--meaning-c-soft);
+  border-radius: var(--radius-control);
+}
+
+.cut-plan {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.cut-card {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.cut-card__photo {
+  position: relative;
+}
+
+.cut-card__photo .photo {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.cut-card__photo .photo--empty span {
+  display: none;
+}
+
+.cut-card__body {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
+}
+
+/* The piece to scale. Cuts are solid, the leftover is a lighter step. */
+.cut-bar {
+  display: flex;
+  gap: 3px;
+  height: 1.75rem;
+}
+
+.cut-bar > span {
+  display: grid;
+  place-items: center;
+  min-width: 2.25rem;
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 6px;
+}
+
+.cut-bar__cut {
+  color: var(--on-main);
+  background: var(--brand);
+}
+
+.cut-bar__left {
+  color: var(--ink-soft);
+  background: var(--surface-3);
+}
+
+.cut-reserve {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 34rem;
+}
+
+.cut-reserve .field {
+  flex: 1;
+  min-width: 12rem;
+}
+
+/* ===== Piece editor ===== */
+.piece-edit {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.piece-edit .field,
+.piece-edit .picks--seg > .indicator {
+  background: var(--surface-0);
+}
+
+.piece-edit__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.piece-edit__actions .text-btn {
+  margin-inline-start: auto;
+}
+
+.q-btn--danger {
+  color: #fff;
+  background: var(--meaning-c);
 }

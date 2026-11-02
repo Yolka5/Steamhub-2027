@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { findMatches, parseQuery, queryIsEmpty, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { handbookIndex } from '../pages/Handbook'
 
-// Opened constantly with Ctrl K, so it never animates.
+// Opened constantly with Ctrl K, so that never animates. A click on the search box gets a short drop-in.
 
 interface Item {
   key: string
@@ -16,12 +17,13 @@ const PAGES: Item[] = [
   { key: 'p-home', label: 'Home', to: '/' },
   { key: 'p-stock', label: 'Find stock', to: '/stock' },
   { key: 'p-add', label: 'Add stock', to: '/stock/add' },
+  { key: 'p-cut', label: 'Cut list: lengths for a mechanism', to: '/stock/cut' },
   { key: 'p-photos', label: 'Pieces that need a photo', to: '/stock/photos' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },
   { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook' },
 ]
 
-export function Palette({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Palette({ open, animated, onClose }: { open: boolean; animated: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const [text, setText] = useState('')
@@ -45,6 +47,9 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
     const t = text.trim().toLowerCase()
     const pages = PAGES.filter((p) => !t || p.label.toLowerCase().includes(t))
     if (!t) return pages
+    const chapters: Item[] = handbookIndex()
+      .filter((c) => c.title.toLowerCase().includes(t))
+      .map((c) => ({ key: `h-${c.id}`, label: c.title, hint: 'Handbook', to: `/handbook#${c.id}` }))
     const q = parseQuery(text)
     const stock: Item[] = []
     if (!queryIsEmpty(q)) {
@@ -58,7 +63,7 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
         })
       }
     }
-    return [...stock, ...pages]
+    return [...stock, ...pages, ...chapters]
   }, [text, pieces])
 
   const go = (item?: Item) => {
@@ -71,6 +76,7 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
     <dialog
       ref={ref}
       className="palette-dialog"
+      data-anim={animated || undefined}
       onClose={onClose}
       onClick={(e) => {
         if (e.target === ref.current) onClose()

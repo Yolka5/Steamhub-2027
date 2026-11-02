@@ -2,7 +2,7 @@
 
 Hub for FRC 1577 Steampunk. The goal is to save CAD members minutes and energy during build season. Every screen is judged on how many clicks it saves.
 
-Status: foundation and the first version of Stock are built (2026-11-02). Next: Google sign-in setup, Drive photos, then the calculator.
+Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Next: deploy on Vercel, then Manufacturing with Tom's tool.
 
 ## Decisions
 
@@ -11,7 +11,7 @@ Status: foundation and the first version of Stock are built (2026-11-02). Next: 
 - **Fonts**: Night Machine for big page titles, Newsreader serif for section titles, Instrument Sans for everything else.
 - **Data**: Supabase (database, photo storage, auth), imported once from the Google Sheet.
 - **Sign-in**: Google. The session refreshes on its own, so people sign in once and stay signed in. Anyone signed in can edit. Reading works without signing in.
-- **Hosting**: Vercel unless we decide otherwise.
+- **Hosting**: Vercel, building from the GitHub repo on every push (vercel.json handles page routes).
 - **IDs**: TB for round tube and rod (as in the sheet), PR profile, AN angle, FB flat bar, HX hex, OT other.
 - **Repo**: GitHub `Steamhub 2027`, pushed from this folder.
 - **CAD**: Onshape.
@@ -68,6 +68,17 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 - Center distance (belt, chain, gear) and cheat sheets (clearance holes, tap drills, bearings, hex shaft).
 - Weight per mechanism from reserved stock.
 - Later: Onshape integration that reads part lengths from the document and matches them to stock.
+
+## Done in V1
+
+- Stock: find, reserve, add from phone, needs photo, cut list, full edit and delete, editable locations, history, live team activity on Home.
+- Calculator: whole workbook ported (`src/lib/calc.ts`), checked against the spreadsheet with `npx tsx scripts/verify-calc.ts` (136 checks). One shared team robot in Supabase; edits are a private draft until "Save to team robot".
+- Handbook: Hebrew, RTL, contents rail, search, pros/cons cards, working checklist, in Ctrl K.
+- Kickoff countdown on Home (9 Jan 2027, BIOCORE).
+
+## Still open
+
+- Copy stock photos from Drive into Supabase storage, so photos don't depend on the Drive folder staying shared. Needs a server-side step (Supabase edge function) since the browser can't write without signing in.
 
 ## Build order
 

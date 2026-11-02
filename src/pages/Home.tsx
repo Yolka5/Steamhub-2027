@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Activity } from '../components/Activity'
 import { Icon, type IconName } from '../components/Icon'
+import { Season } from '../components/Season'
 import { useAuth } from '../lib/auth'
 import { sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
@@ -12,6 +14,37 @@ const QUICK: { to: string; label: string; hint: string; icon: IconName }[] = [
   { to: '/handbook', label: 'Handbook', hint: 'המדריך למתכנן המכני', icon: 'book' },
 ]
 
+/**
+ * The title flips up letter by letter, the TTM letters pattern. It plays once per visit to the
+ * site, not on every trip back to Home, so it stays a greeting and never becomes a wait.
+ */
+const firstVisit = (() => {
+  try {
+    const first = !sessionStorage.getItem('hero-played')
+    sessionStorage.setItem('hero-played', '1')
+    return first
+  } catch {
+    return true
+  }
+})()
+let played = false
+
+function Letters({ text }: { text: string }) {
+  const [play] = useState(() => firstVisit && !played)
+  useEffect(() => {
+    played = true
+  }, [])
+  return (
+    <h1 className="hero__title letters" data-play={play || undefined} aria-label={text}>
+      {[...text].map((ch, i) => (
+        <span key={i} className="letters__ch" style={{ '--i': i } as CSSProperties} aria-hidden="true">
+          {ch}
+        </span>
+      ))}
+    </h1>
+  )
+}
+
 export default function Home() {
   const navigate = useNavigate()
   const { pieces } = useStore()
@@ -22,9 +55,9 @@ export default function Home() {
   const available = pieces.filter((p) => p.status === 'available').length
 
   return (
-    <div className="page">
+    <div className="page home">
       <section className="hero">
-        <h1 className="hero__title">Steamhub</h1>
+        <Letters text="Steamhub" />
         <p className="hero__sub soft">{name ? `Hi ${name.split(' ')[0]}. ` : ''}What do you need?</p>
         <form
           className="hero__search"
@@ -50,6 +83,10 @@ export default function Home() {
           {available} pieces in stock. Press <kbd>Ctrl K</kbd> anywhere to search.
         </p>
       </section>
+
+      <Activity />
+
+      <Season />
 
       <div className="quick">
         {QUICK.map((q) => (

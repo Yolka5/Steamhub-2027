@@ -49,11 +49,13 @@
 
   .q-btn--main:hover {
     background: var(--main);
-    opacity: 0.88;
   }
 
-  .pick:not([aria-selected='true'], [aria-current='true'], [aria-checked='true']):hover {
-    background: var(--surface-1);
+  /* Hover sits between the surface and the selection fill, so it shows on any surface.
+     The selected item is left alone, otherwise hovering it would erase the selection. */
+  .pick:not([aria-selected='true'], [aria-current='true'], [aria-current='page'], [aria-checked='true']):hover {
+    color: var(--ink);
+    background: color-mix(in srgb, var(--surface-2) 70%, transparent);
   }
 
 }
@@ -84,6 +86,11 @@
   border: 0;
   border-radius: var(--radius-control);
   cursor: pointer;
+  transition: background 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+}
+
+.pick:active {
+  transform: scale(0.97);
 }
 
 .pick[aria-selected='true'],

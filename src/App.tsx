@@ -1,42 +1,64 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Icon, type IconName } from './components/Icon'
+import { AccountMenu } from './components/AccountMenu'
+import { Indicator } from './components/Indicator'
 import { Palette } from './components/Palette'
 import { ToastProvider } from './components/ui'
 import { useAuth } from './lib/auth'
+import { switchTheme } from './lib/motion'
 import Home from './pages/Home'
 import Stock from './pages/Stock'
 import PiecePage from './pages/Piece'
 import AddStock from './pages/AddStock'
 import NeedsPhoto from './pages/NeedsPhoto'
-import { Calculators, Handbook } from './pages/Later'
-import Samples from './pages/Samples'
+import CutList from './pages/CutList'
+import Handbook from './pages/Handbook'
+import Calculator from './pages/Calculator'
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: '/', label: 'Home', icon: 'home', end: true },
   { to: '/stock', label: 'Stock', icon: 'stock' },
-  { to: '/calculators', label: 'Calculators', icon: 'calc' },
+  { to: '/calculators', label: 'Calculator', icon: 'calc' },
   { to: '/handbook', label: 'Handbook', icon: 'book' },
 ]
 
 function useTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? 'light')
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0c0c0c' : '#fbfbf9')
+
+  const toggle = (e: MouseEvent) => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    // The DOM has to change inside the transition callback, so the theme is applied right there.
+    switchTheme(
+      () => {
+        document.documentElement.dataset.theme = next
+        flushSync(() => setTheme(next))
+      },
+      r.left + r.width / 2,
+      r.top + r.height / 2,
+    )
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'dark' ? '#0c0c0c' : '#fbfbf9')
     try {
-      localStorage.setItem('theme', theme)
+      localStorage.setItem('theme', next)
     } catch {
       /* private mode */
     }
-  }, [theme])
-  return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))] as const
+  }
+  return [theme, toggle] as const
 }
 
 export default function App() {
   const [theme, toggleTheme] = useTheme()
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const { session, name, signIn, signOut } = useAuth()
+  // Opened by a click it drops in; opened by Ctrl K it appears instantly, since that happens constantly.
+  const [paletteAnim, setPaletteAnim] = useState(false)
+  const openPalette = () => {
+    setPaletteAnim(true)
+    setPaletteOpen(true)
+  }
+  const { session, signIn } = useAuth()
   const [authError, setAuthError] = useState<string | null>(null)
   const location = useLocation()
 
@@ -44,6 +66,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
+        setPaletteAnim(false)
         setPaletteOpen((o) => !o)
       }
     }
@@ -54,10 +77,7 @@ export default function App() {
   useEffect(() => setPaletteOpen(false), [location.pathname, location.search])
 
   const account = session ? (
-    <button type="button" className="pick" onClick={signOut} title="Sign out">
-      <span className="avatar">{name?.[0]?.toUpperCase()}</span>
-      <span className="rail__label">{name}</span>
-    </button>
+    <AccountMenu placement="up" />
   ) : (
     <button
       type="button"
@@ -75,15 +95,17 @@ export default function App() {
       <div className="app">
         <aside className="rail" aria-label="Main">
           <NavLink to="/" className="brand">
-            <img src="/logo-256.png" alt="" width="36" height="36" />
+            <img className="logo logo--light" src="/logo-256.png" alt="" width="36" height="36" />
+            <img className="logo logo--dark" src="/logo-dark-256.png" alt="" width="36" height="36" />
             <span className="brand__name">Steamhub</span>
           </NavLink>
-          <button type="button" className="rail__search" onClick={() => setPaletteOpen(true)}>
+          <button type="button" className="rail__search" onClick={openPalette}>
             <Icon name="search" size={18} />
             <span>Search</span>
             <kbd>Ctrl K</kbd>
           </button>
           <nav className="picks picks--stack">
+            <Indicator selector='[aria-current="page"]' />
             {NAV.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className="pick">
                 <Icon name={n.icon} />
@@ -93,7 +115,9 @@ export default function App() {
           </nav>
           <div className="rail__foot picks picks--stack">
             <button type="button" className="pick" onClick={toggleTheme}>
-              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+              <span className="swap" key={theme}>
+                <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+              </span>
               <span className="rail__label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
             </button>
             {account}
@@ -103,20 +127,21 @@ export default function App() {
 
         <header className="topbar">
           <NavLink to="/" className="brand">
-            <img src="/logo-256.png" alt="" width="32" height="32" />
+            <img className="logo logo--light" src="/logo-256.png" alt="" width="32" height="32" />
+            <img className="logo logo--dark" src="/logo-dark-256.png" alt="" width="32" height="32" />
             <span className="brand__name">Steamhub</span>
           </NavLink>
           <div className="topbar__end">
-            <button type="button" className="icon-btn" aria-label="Search" onClick={() => setPaletteOpen(true)}>
+            <button type="button" className="icon-btn" aria-label="Search" onClick={openPalette}>
               <Icon name="search" />
             </button>
             <button type="button" className="icon-btn" aria-label="Toggle dark mode" onClick={toggleTheme}>
-              <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+              <span className="swap" key={theme}>
+                <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+              </span>
             </button>
             {session ? (
-              <button type="button" className="icon-btn" onClick={signOut} aria-label="Sign out">
-                <span className="avatar">{name?.[0]?.toUpperCase()}</span>
-              </button>
+              <AccountMenu placement="down" compact />
             ) : (
               <button type="button" className="q-btn q-btn--small" onClick={async () => setAuthError(await signIn())}>
                 Sign in
@@ -131,14 +156,15 @@ export default function App() {
             <Route path="/stock" element={<Stock />} />
             <Route path="/stock/add" element={<AddStock />} />
             <Route path="/stock/photos" element={<NeedsPhoto />} />
+            <Route path="/stock/cut" element={<CutList />} />
             <Route path="/stock/:id" element={<PiecePage />} />
-            <Route path="/calculators" element={<Calculators />} />
+            <Route path="/calculators" element={<Calculator />} />
             <Route path="/handbook" element={<Handbook />} />
-            <Route path="/samples" element={<Samples />} />
           </Routes>
         </main>
 
         <nav className="tabbar" aria-label="Main">
+          <Indicator selector='.tab:not(.tab--add)[aria-current="page"]' />
           {NAV.slice(0, 2).map((n) => (
             <NavLink
               key={n.to}
@@ -159,12 +185,12 @@ export default function App() {
           {NAV.slice(2).map((n) => (
             <NavLink key={n.to} to={n.to} className="tab">
               <Icon name={n.icon} size={22} />
-              {n.label === 'Calculators' ? 'Calc' : n.label}
+              {n.label === 'Calculator' ? 'Calc' : n.label}
             </NavLink>
           ))}
         </nav>
       </div>
-      <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <Palette open={paletteOpen} animated={paletteAnim} onClose={() => setPaletteOpen(false)} />
     </ToastProvider>
   )
 }

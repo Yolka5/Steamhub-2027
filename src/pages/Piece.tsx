@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { Photo, StatusTag } from '../components/PieceCard'
+import { PieceEditor } from '../components/PieceEditor'
 import { ReserveSheet } from '../components/ReserveSheet'
 import { Copy, useToast } from '../components/ui'
 import { markUsed, releasePiece, updatePiece, uploadPhoto } from '../lib/actions'
@@ -36,7 +37,6 @@ export default function PiecePage() {
   const [reserving, setReserving] = useState(false)
   const [events, setEvents] = useState<Event[]>([])
   const [editing, setEditing] = useState(false)
-  const [len, setLen] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -193,35 +193,14 @@ export default function PiecePage() {
                   />
                   <Icon name="camera" size={18} /> {piece.photo_url ? 'New photo' : 'Add photo'}
                 </label>
-                <button
-                  type="button"
-                  className="q-btn"
-                  onClick={() => {
-                    setLen(String(piece.length))
-                    setEditing((v) => !v)
-                  }}
-                >
-                  Change length
+                <button type="button" className="q-btn" aria-expanded={editing} onClick={() => setEditing((v) => !v)}>
+                  Edit details
                 </button>
               </>
             )}
           </div>
 
-          {editing && who && (
-            <form
-              className="inline-form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                const n = Number(len)
-                if (n > 0) run(() => updatePiece(piece.id, { length: n }, who), 'Length saved').then(() => setEditing(false))
-              }}
-            >
-              <input className="field num" inputMode="decimal" value={len} onChange={(e) => setLen(e.target.value)} autoFocus />
-              <button type="submit" className="q-btn">
-                Save
-              </button>
-            </form>
-          )}
+          {editing && who && <PieceEditor piece={piece} who={who} onDone={() => setEditing(false)} />}
         </div>
       </div>
 

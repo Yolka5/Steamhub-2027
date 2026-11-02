@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icon'
+import { Indicator } from '../components/Indicator'
+import { LocationsEditor } from '../components/LocationsEditor'
 import { useToast } from '../components/ui'
 import { addPiece, nextId, updatePiece, uploadPhoto } from '../lib/actions'
 import { useAuth } from '../lib/auth'
@@ -39,6 +41,7 @@ export default function AddStock() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<Piece[]>([])
+  const [editingPlaces, setEditingPlaces] = useState(false)
 
   const prefix = KINDS[kind].prefix
   const id = localNextId(pieces, prefix)
@@ -162,6 +165,7 @@ export default function AddStock() {
         )}
 
         <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label="Shape">
+          <Indicator />
           {KIND_ORDER.filter((k) => k !== 'round_rod').map((k) => (
             <button
               key={k}
@@ -238,8 +242,15 @@ export default function AddStock() {
             </select>
           </label>
           <div className="ctl">
-            <span className="ctl__name">Location</span>
+            <span className="ctl__name ctl__row">
+              Location
+              <button type="button" className="text-btn" onClick={() => setEditingPlaces((v) => !v)}>
+                {editingPlaces ? 'Done' : 'Edit places'}
+              </button>
+            </span>
+            {editingPlaces && <LocationsEditor />}
             <div className="picks picks--seg picks--wrap">
+              <Indicator />
               {['', ...locations].map((l) => (
                 <button key={l || 'none'} type="button" className="pick" aria-checked={location === l} onClick={() => setLocation(l)}>
                   {l || 'Not set'}

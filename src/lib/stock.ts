@@ -271,3 +271,58 @@ export function nearMatches(pieces: Piece[], q: Query, tol: number, exclude: Set
   if (q.id || (q.a == null && q.b == null)) return []
   return findMatches(pieces, q, Math.max(tol * 4, 2)).filter((m) => !exclude.has(m.piece.id)).slice(0, 8)
 }
+
+// ---------- Cut list ----------
+
+export interface CutPlan {
+  piece: Piece
+  cuts: number[]
+  leftover: number
+}
+
+export interface CutResult {
+  plans: CutPlan[]
+  unplaced: number[]
+}
+
+/**
+ * Cuts several lengths from the fewest, shortest pieces. Longest cut first; each goes into the
+ * piece where it leaves the least over (best fit), opening a new piece only when none fits.
+ * Every cut costs KERF, except one that uses up a piece exactly.
+ */
+export function planCuts(candidates: Piece[], lengths: number[]): CutResult {
+  const pool = [...candidates].sort((a, b) => a.length - b.length)
+  const open: { piece: Piece; cuts: number[]; left: number }[] = []
+  const unplaced: number[] = []
+  const fits = (left: number, len: number) => left >= len + KERF || Math.abs(left - len) < 0.5
+  const after = (left: number, len: number) => Math.max(0, left - len - (Math.abs(left - len) < 0.5 ? 0 : KERF))
+
+  for (const len of [...lengths].sort((a, b) => b - a)) {
+    let best: (typeof open)[number] | null = null
+    for (const o of open) if (fits(o.left, len) && (!best || o.left < best.left)) best = o
+    if (!best) {
+      const i = pool.findIndex((p) => fits(p.length, len))
+      if (i === -1) {
+        unplaced.push(len)
+        continue
+      }
+      best = { piece: pool[i], cuts: [], left: pool[i].length }
+      pool.splice(i, 1)
+      open.push(best)
+    }
+    best.cuts.push(len)
+    best.left = after(best.left, len)
+  }
+  return { plans: open.map((o) => ({ piece: o.piece, cuts: o.cuts, leftover: o.left })), unplaced }
+}
+
+/** "700 x4, 350x2 120" becomes [700,700,700,700,350,350,120]. */
+export function parseLengths(text: string): number[] {
+  const out: number[] = []
+  for (const m of text.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*(?:[x×*]\s*(\d+))?/gi)) {
+    const len = Number(m[1].replace(',', '.'))
+    const n = m[2] ? Math.min(50, Number(m[2])) : 1
+    if (len > 0) for (let i = 0; i < n; i++) out.push(len)
+  }
+  return out
+}

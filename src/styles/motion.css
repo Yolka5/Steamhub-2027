@@ -1,0 +1,467 @@
+/* Steamhub motion.
+   Rules: nothing opened from the keyboard animates (the Ctrl K palette).
+   Things people touch answer in under 200ms. Entrances ease out, exits are
+   faster than entrances. Hover effects only on real pointers. Only
+   transform, opacity and clip-path move, except the small indicator. */
+
+/* ----- Sliding selection ----- */
+.picks:has(> .indicator),
+.tabbar {
+  position: relative;
+}
+
+.indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  pointer-events: none;
+}
+
+.indicator[data-hidden] {
+  opacity: 0;
+}
+
+.indicator[data-ready] {
+  transition:
+    transform 320ms var(--ease-drawer),
+    width 320ms var(--ease-drawer),
+    height 320ms var(--ease-drawer),
+    opacity 150ms ease;
+}
+
+.picks--seg > .indicator {
+  background: var(--surface-0);
+}
+
+.picks:has(> .indicator) > .pick {
+  position: relative;
+  z-index: 1;
+}
+
+.picks:has(> .indicator) > .pick:is([aria-current='page'], [aria-checked='true'], [aria-selected='true']) {
+  background: transparent;
+}
+
+.tabbar > .tab {
+  position: relative;
+  z-index: 1;
+}
+
+/* ----- Press feedback ----- */
+.q-btn,
+.icon-btn,
+.chip,
+.tab,
+.quick__item,
+.row:is(a),
+.back {
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    transform 160ms var(--ease-out);
+}
+
+.icon-btn:active,
+.chip:active,
+.tab:active,
+.back:active {
+  transform: scale(0.95);
+}
+
+.quick__item:active,
+.row:is(a):active {
+  transform: scale(0.98);
+}
+
+/* ----- Main button: lift and a glow that follows the pointer, from the TTM site ----- */
+.q-btn--main {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    transform 350ms var(--ease-spring),
+    background 150ms ease;
+}
+
+.q-btn--main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle 7rem at var(--px, 50%) var(--py, 50%), rgba(255, 255, 255, 0.42), transparent 70%);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+
+.q-btn--main:active {
+  transform: scale(0.97);
+  transition-duration: 120ms;
+}
+
+.q-btn--main:disabled::before {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .q-btn--main:not(:disabled):hover {
+    transform: translateY(-2px);
+  }
+
+  .q-btn--main:not(:disabled):hover::before {
+    opacity: 1;
+  }
+
+  .q-btn--main:not(:disabled):active {
+    transform: translateY(0) scale(0.97);
+  }
+}
+
+/* ----- Pages come in softly ----- */
+.page {
+  animation: page-in 280ms var(--ease-out) both;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* ----- Cards: stagger in when a page opens, lift and sweep on hover, from the TTM site ----- */
+.card {
+  animation: card-in 420ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+.cards[data-settled] .card {
+  animation-delay: 0ms;
+  animation-duration: 260ms;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(2px);
+  }
+}
+
+.card__link {
+  position: relative;
+  overflow: hidden;
+}
+
+.card .photo {
+  transition: transform 700ms var(--ease-out);
+}
+
+/* A band of light that sweeps across once. */
+.card__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.32) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card {
+    transition: transform 450ms var(--ease-out);
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+  }
+
+  .card:hover .photo {
+    transform: scale(1.05);
+  }
+
+  .card:hover .card__link::after {
+    animation: sheen 900ms var(--ease-out);
+  }
+
+  .quick__item:hover {
+    transform: translateY(-2px);
+  }
+
+  .quick__item svg {
+    transition:
+      transform 350ms var(--ease-spring),
+      color 150ms ease;
+  }
+
+  .quick__item:hover svg {
+    color: var(--brand);
+    transform: scale(1.12);
+  }
+}
+
+@keyframes sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+/* ----- Title flips up letter by letter, the TTM letters pattern ----- */
+.letters {
+  perspective: 1100px;
+}
+
+.letters__ch {
+  display: inline-block;
+  transform-origin: 50% 88%;
+}
+
+.letters[data-play] .letters__ch {
+  animation: letter-up 900ms var(--ease-out) both;
+  animation-delay: calc(120ms + var(--i) * 55ms);
+}
+
+@keyframes letter-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.42em, 0) rotateX(-82deg) scale(0.92);
+  }
+}
+
+/* The rest of the hero follows the title in. */
+.letters[data-play] ~ * {
+  animation: page-in 600ms var(--ease-out) both;
+  animation-delay: 520ms;
+}
+
+.letters[data-play] ~ .hero__search {
+  animation-delay: 600ms;
+}
+
+.letters[data-play] ~ .small {
+  animation-delay: 680ms;
+}
+
+.page:has(.letters[data-play]) .quick__item {
+  animation: card-in 520ms var(--ease-out) both;
+  animation-delay: calc(720ms + var(--i, 0) * 60ms);
+}
+
+.quick__item:nth-child(2) {
+  --i: 1;
+}
+
+.quick__item:nth-child(3) {
+  --i: 2;
+}
+
+.quick__item:nth-child(4) {
+  --i: 3;
+}
+
+/* ----- Sheet: scales up in the middle on desktop, slides up from the bottom on phones ----- */
+.sheet {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 260ms var(--ease-out),
+    overlay 260ms allow-discrete,
+    display 260ms allow-discrete;
+}
+
+.sheet:not([open]) {
+  opacity: 0;
+  transform: scale(0.97);
+  transition-duration: 150ms;
+}
+
+@starting-style {
+  .sheet[open] {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+}
+
+.sheet::backdrop {
+  background: rgba(0, 0, 0, 0);
+  transition:
+    background 220ms ease,
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+}
+
+.sheet[open]::backdrop {
+  background: rgba(20, 20, 19, 0.22);
+}
+
+@starting-style {
+  .sheet[open]::backdrop {
+    background: rgba(0, 0, 0, 0);
+  }
+}
+
+@media (max-width: 599px) {
+  .sheet {
+    transition:
+      opacity 200ms ease,
+      transform 380ms var(--ease-drawer),
+      overlay 380ms allow-discrete,
+      display 380ms allow-discrete;
+  }
+
+  .sheet:not([open]) {
+    opacity: 1;
+    transform: translateY(100%);
+    transition-duration: 220ms;
+  }
+
+  @starting-style {
+    .sheet[open] {
+      opacity: 1;
+      transform: translateY(100%);
+    }
+  }
+}
+
+/* ----- Search palette: drops from the search box when clicked, instant from Ctrl K ----- */
+.palette-dialog[data-anim] .palette {
+  transform-origin: 50% 0;
+  animation: palette-in 200ms var(--ease-out) both;
+}
+
+.palette-dialog[data-anim]::backdrop {
+  animation: fade-in 200ms ease both;
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+}
+
+/* ----- Team activity: a new event slides in at the top ----- */
+.activity__item {
+  animation: activity-in 360ms var(--ease-out) both;
+}
+
+@keyframes activity-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ----- Countdown digits roll to the next number ----- */
+.roll__strip {
+  transition: transform 550ms var(--ease-drawer);
+}
+
+/* ----- Account menu grows from the avatar ----- */
+.account__menu {
+  animation: menu-in 180ms var(--ease-out) both;
+}
+
+.account__menu--up {
+  transform-origin: 1.25rem 100%;
+}
+
+.account__menu--down {
+  transform-origin: calc(100% - 1.25rem) 0;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* ----- Toast: springs up, leaves quicker than it came ----- */
+.toast {
+  transform: translate(-50%, 0.75rem) scale(0.96);
+  transition:
+    opacity 150ms ease,
+    transform 150ms var(--ease-out);
+}
+
+.toast[data-open='true'] {
+  transform: translate(-50%, 0) scale(1);
+  transition:
+    opacity 200ms ease,
+    transform 400ms var(--ease-spring);
+}
+
+/* ----- Theme switch: a circle grows from the toggle, see switchTheme ----- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+.swap {
+  display: grid;
+  animation: swap-in 420ms var(--ease-spring) both;
+}
+
+@keyframes swap-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+    filter: blur(2px);
+  }
+}
+
+/* ----- Reduced motion: keep the fades, drop the movement ----- */
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .card,
+  .letters[data-play] .letters__ch,
+  .letters[data-play] ~ *,
+  .page:has(.letters[data-play]) .quick__item,
+  .swap,
+  .account__menu,
+  .activity__item {
+    animation-name: fade-in;
+    animation-delay: 0ms;
+  }
+
+  .roll__strip {
+    transition: none;
+  }
+
+  .indicator[data-ready] {
+    transition: opacity 150ms ease;
+  }
+
+  .card:hover,
+  .quick__item:hover,
+  .card:hover .photo,
+  .q-btn--main:not(:disabled):hover {
+    transform: none;
+  }
+
+  .card:hover .card__link::after {
+    animation: none;
+  }
+
+  .sheet,
+  .sheet:not([open]) {
+    transform: none;
+  }
+
+  .toast,
+  .toast[data-open='true'] {
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}

@@ -552,7 +552,39 @@
       "ספריה",
       "library"
      ],
-     "html": "<ul><li><a href=\"https://docs.google.com/document/d/15dCi7mCz1MMGu5hNg-U9F9ZVTWOjVHxh-stfU3fop1M/edit?tab=t.0\" rel=\"noopener noreferrer\" target=\"_blank\">מאגר מקורות מידע</a> - בסיסי</li></ul>\n<p>מחשבונים שונים לחישובי תמסורות ועוד</p>\n<ul>\n<li><a href=\"https://ambcalc.com/\" rel=\"noopener noreferrer\" target=\"_blank\">amb calculator</a></li>\n<li><a href=\"https://docs.google.com/spreadsheets/d/1ElLzEAFQ6bOfMaG-2MHQiVw8LJReAszcMQgOhjoOM1Q/edit?gid=2103172023#gid=2103172023\" rel=\"noopener noreferrer\" target=\"_blank\">jvn</a></li>\n<li><a href=\"https://docs.google.com/spreadsheets/d/1acT6PpdR5l3zVhPqrehgamPsnUbk6yg-2JC5FcwIbb4/edit?gid=0#gid=0\" rel=\"noopener noreferrer\" target=\"_blank\">רשימה מרוכזת של שרטוטי רובוטים</a></li>\n<li>תוספים לאונשייפ שמיוחדים לפירסט <a href=\"https://frcdesign.org/resources/featurescripts/\" rel=\"noopener noreferrer\" target=\"_blank\">Feature Scripts מאגר</a></li>\n<li>תוסף לאונשייפ שנותן להכניס מוצרי מדף בקלות <a href=\"https://cad.onshape.com/appstore/apps/Manufacturers%20Models/6004ec5e83c40b107c183347\" rel=\"noopener noreferrer\" target=\"_blank\">frc design ספריית</a></li>\n</ul>"
+     "html": "",
+     "links": [
+      {
+       "title": "מאגר מקורות מידע",
+       "href": "https://docs.google.com/document/d/15dCi7mCz1MMGu5hNg-U9F9ZVTWOjVHxh-stfU3fop1M/edit?tab=t.0",
+       "note": "בסיסי"
+      },
+      {
+       "title": "amb calculator",
+       "href": "https://ambcalc.com/",
+       "note": "מחשבון תמסורות ועוד"
+      },
+      {
+       "title": "jvn",
+       "href": "https://docs.google.com/spreadsheets/d/1ElLzEAFQ6bOfMaG-2MHQiVw8LJReAszcMQgOhjoOM1Q/edit?gid=2103172023#gid=2103172023",
+       "note": "מחשבון תמסורות ועוד"
+      },
+      {
+       "title": "רשימה מרוכזת של שרטוטי רובוטים",
+       "href": "https://docs.google.com/spreadsheets/d/1acT6PpdR5l3zVhPqrehgamPsnUbk6yg-2JC5FcwIbb4/edit?gid=0#gid=0",
+       "note": ""
+      },
+      {
+       "title": "Feature Scripts מאגר",
+       "href": "https://frcdesign.org/resources/featurescripts/",
+       "note": "תוספים לאונשייפ שמיוחדים לפירסט"
+      },
+      {
+       "title": "frc design ספריית",
+       "href": "https://cad.onshape.com/appstore/apps/Manufacturers%20Models/6004ec5e83c40b107c183347",
+       "note": "תוסף לאונשייפ שנותן להכניס מוצרי מדף בקלות"
+      }
+     ]
     }
    ]
   }

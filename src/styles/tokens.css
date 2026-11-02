@@ -1,0 +1,134 @@
+/* Steamhub tokens. Built on ttm-design, with the Steampunk 1577 black and orange. */
+
+@font-face {
+  font-family: 'Night Machine';
+  src: url('/fonts/NightMachine.otf') format('opentype');
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Night Machine only for big page titles. Serif for section titles. Sans for work. */
+  --font-display: 'Night Machine', 'Newsreader', Georgia, serif;
+  --font-voice: 'Newsreader', Georgia, serif;
+  --font-work: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --surface-0: #fbfbf9;
+  --surface-1: #f3f3ef;
+  --surface-2: #e9e9e4;
+  --surface-3: #dcdcd6;
+  --ink: #141413;
+  --ink-soft: #5f5f5a;
+  --line: rgba(0, 0, 0, 0.09);
+
+  /* The one bright button per view. Orange with black text passes contrast. */
+  --main: #fe6a00;
+  --on-main: #141413;
+  --brand: #fe6a00;
+
+  /* Meaning colours, only in content.
+     a = reserved (orange), b = available (green), c = problem (red). */
+  --meaning-a: #b54b00;
+  --meaning-a-soft: #ffe8d6;
+  --meaning-b: #2f7d32;
+  --meaning-b-soft: #e1f2e1;
+  --meaning-c: #c9341f;
+  --meaning-c-soft: #fdeae7;
+  --on-meaning: #ffffff;
+  --focus: #fe6a00;
+
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --radius-shell: 24px;
+  --radius-pill: 999px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-0: #0c0c0c;
+  --surface-1: #161616;
+  --surface-2: #262626;
+  --surface-3: #3d3d3d;
+  --ink: #efefef;
+  --ink-soft: #a3a3a3;
+  --line: rgba(255, 255, 255, 0.1);
+  --main: #fe6a00;
+  --on-main: #0c0c0c;
+  --meaning-a: #ff9a4d;
+  --meaning-a-soft: #3a2111;
+  --meaning-b: #7fd283;
+  --meaning-b-soft: #17301a;
+  --meaning-c: #ff7d6b;
+  --meaning-c-soft: #351a16;
+  --on-meaning: #0c0c0c;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--surface-0);
+  font-family: var(--font-work);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* Big page titles. */
+h1,
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+}
+
+/* Regular titles. */
+h2,
+.voice {
+  font-family: var(--font-voice);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+}

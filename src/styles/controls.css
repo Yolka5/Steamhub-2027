@@ -1,0 +1,290 @@
+/* Quiet controls for Tool and Read mode. Needs tokens.css.
+   Rank comes from brightness, not borders, shadows or gradients. */
+
+/* ===== Buttons ===== */
+.q-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background 120ms ease, transform 120ms ease-out;
+}
+
+/* One per view. */
+.q-btn--main {
+  color: var(--on-main);
+  background: var(--main);
+}
+
+.q-btn--wide {
+  width: 100%;
+}
+
+.q-btn:active {
+  transform: scale(0.97);
+}
+
+.q-btn:focus-visible,
+.pick:focus-visible,
+.field:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .q-btn:hover {
+    background: var(--surface-3);
+  }
+
+  .q-btn--main:hover {
+    background: var(--main);
+    opacity: 0.88;
+  }
+
+  .pick:not([aria-selected='true'], [aria-current='true'], [aria-checked='true']):hover {
+    background: var(--surface-1);
+  }
+
+}
+
+/* ===== Selection =====
+   One move everywhere: the chosen item gets a rounded fill, the rest stay bare.
+   Works on tabs, menus, settings lists and search results. */
+.picks {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.picks--stack {
+  flex-direction: column;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--ink-soft);
+  text-align: left;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.pick[aria-selected='true'],
+.pick[aria-current='true'],
+.pick[aria-checked='true'] {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.pick__end {
+  margin-left: auto;
+}
+
+/* ===== Menu ===== */
+.menu {
+  padding: 0.35rem;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+
+/* ===== Inputs ===== */
+.field {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--ink);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.field::placeholder {
+  color: var(--ink-soft);
+}
+
+/* ===== Sign-in shell =====
+   Keep the buttons grey so a provider's logo is the only colour on screen. */
+.shell {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-shell);
+}
+
+.shell__or {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+/* ===== Search palette =====
+   People open this constantly, so it never animates. */
+.palette {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-shell);
+}
+
+kbd {
+  padding: 0.05rem 0.35rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+/* ===== Sliders and readouts =====
+   For sims and calculators. Keep --p on each range input as a percentage, so the
+   filled part follows the value: input.style.setProperty('--p', percent + '%') */
+.ctls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem 1.25rem;
+  align-items: end;
+}
+
+.ctl {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.ctl__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.9375rem;
+}
+
+.ctl__name {
+  min-width: 0;
+  color: var(--ink-soft);
+}
+
+.ctl__val {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 1.75rem;
+  margin: 0;
+  background: none;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--ink) var(--p, 0%), var(--surface-3) var(--p, 0%));
+}
+
+input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+
+input[type='range']::-moz-range-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ink);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: calc(3px - 0.625rem);
+  background: var(--ink);
+  border: 3px solid var(--surface-1);
+  border-radius: 50%;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 0.9rem;
+  height: 0.9rem;
+  background: var(--ink);
+  border: 3px solid var(--surface-1);
+  border-radius: 50%;
+}
+
+input[type='range']:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Two to four options side by side. Add to .picks and mark the choice with aria-checked. */
+.picks--seg {
+  flex-wrap: wrap;
+  padding: 0.2rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+.picks--seg .pick {
+  min-height: 2.1rem;
+  padding: 0.25rem 0.7rem;
+}
+
+.picks--seg .pick[aria-checked='true'] {
+  background: var(--surface-0);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.stat__l {
+  display: block;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  color: var(--ink-soft);
+}
+
+.stat__v {
+  display: block;
+  font-size: 1.3125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-btn {
+    transition: none;
+  }
+
+  .q-btn:active {
+    transform: none;
+  }
+}

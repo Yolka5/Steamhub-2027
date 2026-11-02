@@ -4,9 +4,10 @@
    faster than entrances. Hover effects only on real pointers. Only
    transform, opacity and clip-path move, except the small indicator. */
 
-/* ----- Sliding selection ----- */
-.picks:has(> .indicator),
-.tabbar {
+/* ----- Sliding selection -----
+   The indicator positions itself inside its group. The tab bar is already position: fixed,
+   which works as the reference too, so it must not be listed here. */
+.picks:has(> .indicator) {
   position: relative;
 }
 

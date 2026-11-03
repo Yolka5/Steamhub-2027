@@ -6,15 +6,39 @@ import { updatePiece, uploadPhoto } from '../lib/actions'
 import { useAuth } from '../lib/auth'
 import { needsPhoto, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { supabase } from '../lib/supabase'
 
 // Walk the racks with a phone: tap, shoot, next. Each photo uploads on its own.
 
 export default function NeedsPhoto() {
-  const { pieces, upsertLocal } = useStore()
+  const { pieces, upsertLocal, reload } = useStore()
   const { userId, name, session, signIn } = useAuth()
   const toast = useToast()
   const [busyId, setBusyId] = useState<string | null>(null)
   const list = pieces.filter((p) => p.status !== 'used' && needsPhoto(p))
+  const onDrive = pieces.filter((p) => p.photo_url?.includes('drive.google.com')).length
+  const [copying, setCopying] = useState<string | null>(null)
+
+  // Moves Drive photos into Steamhub's own storage, a batch at a time, so they survive the Drive folder.
+  const copyFromDrive = async () => {
+    let total = 0
+    let failed = 0
+    setCopying('Starting')
+    for (;;) {
+      const { data, error } = await supabase.functions.invoke('copy-drive-photos', { body: { batch: 10 } })
+      if (error || !data) {
+        toast(error?.message ?? 'Could not copy photos')
+        break
+      }
+      total += data.copied.length
+      failed = data.failed.length
+      setCopying(`${total} copied, ${data.remaining} left`)
+      if (data.remaining === 0 || data.copied.length === 0) break
+    }
+    setCopying(null)
+    await reload()
+    toast(failed ? `${total} photos copied, ${failed} couldn't be read from Drive` : `${total} photos copied`)
+  }
 
   return (
     <div className="page page--narrow">
@@ -29,6 +53,18 @@ export default function NeedsPhoto() {
         <button type="button" className="q-btn q-btn--main" onClick={() => signIn()}>
           Sign in with Google to add photos
         </button>
+      )}
+      {session && onDrive > 0 && (
+        <div className="draft" role="status">
+          <div className="draft__text">
+            <strong>{onDrive} photos still live on Google Drive.</strong> Copy them into Steamhub so they keep working if the folder stops being shared.
+          </div>
+          <div className="draft__actions">
+            <button type="button" className="q-btn" onClick={copyFromDrive} disabled={!!copying}>
+              {copying ?? 'Copy from Drive'}
+            </button>
+          </div>
+        </div>
       )}
       <ul className="rows">
         {list.map((p) => (

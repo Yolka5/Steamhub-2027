@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Piece } from './stock'
+import { KERF, type Piece } from './stock'
 
 // Every change goes through here so it always gets a history row.
 
@@ -51,6 +51,24 @@ export async function markUsed(id: string, who: Who) {
   if (error) return { error: error.message }
   await log(id, 'used', who)
   return { piece: data as Piece }
+}
+
+/**
+ * The part is made: cut `final` mm off. Whatever is left (minus the saw kerf) goes back to
+ * Available under the same ID, because nothing is ever thrown out. Only succeeds if the piece
+ * still has the length the person saw, so a double tap can't cut it twice.
+ */
+export async function cutPiece(piece: Piece, final: number, who: Who) {
+  const leftover = Math.round((piece.length - final - KERF) * 10) / 10
+  const patch =
+    leftover > 0
+      ? { status: 'available', length: leftover, reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null }
+      : { status: 'used' }
+  const { data, error } = await supabase.from('pieces').update(patch).eq('id', piece.id).eq('length', piece.length).select().maybeSingle()
+  if (error) return { error: error.message }
+  if (!data) return { error: 'This piece changed while you were cutting. Reload and try again.' }
+  await log(piece.id, 'cut', who, { final, leftover: Math.max(0, leftover), for: piece.reserved_for, from: piece.length })
+  return { piece: data as Piece, leftover: Math.max(0, leftover) }
 }
 
 export async function updatePiece(id: string, patch: Partial<Piece>, who: Who) {

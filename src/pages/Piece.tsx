@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CutSheet } from '../components/CutSheet'
 import { Icon } from '../components/Icon'
 import { Photo, StatusTag } from '../components/PieceCard'
 import { PieceEditor } from '../components/PieceEditor'
@@ -25,6 +26,8 @@ const WORDS: Record<string, string> = {
   released: 'Released',
   used: 'Marked used',
   edited: 'Edited',
+  cut: 'Cut',
+  photo_copied: 'Photo copied from Drive',
 }
 
 export default function PiecePage() {
@@ -35,6 +38,7 @@ export default function PiecePage() {
   const toast = useToast()
   const piece = byId(id.toUpperCase())
   const [reserving, setReserving] = useState(false)
+  const [cutting, setCutting] = useState(false)
   const [events, setEvents] = useState<Event[]>([])
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -159,6 +163,9 @@ export default function PiecePage() {
             )}
             {piece.status === 'reserved' && who && (
               <>
+                <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={() => setCutting(true)}>
+                  Cut
+                </button>
                 <button type="button" className="q-btn" disabled={busy} onClick={() => run(() => releasePiece(piece.id, who), 'Released')}>
                   Release
                 </button>
@@ -214,6 +221,7 @@ export default function PiecePage() {
                 <span className="soft">
                   {e.by_name}
                   {e.action === 'reserved' && e.details?.for ? ` for ${e.details.for}` : ''}
+                  {e.action === 'cut' && e.details ? ` ${e.details.final} mm${e.details.for ? ` for ${e.details.for}` : ''}, ${e.details.leftover} mm left` : ''}
                 </span>
                 <span className="soft num row__end">{new Date(e.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
               </li>
@@ -223,6 +231,7 @@ export default function PiecePage() {
       )}
 
       <ReserveSheet piece={reserving ? piece : null} plannedLength={null} onClose={() => setReserving(false)} />
+      <CutSheet piece={cutting ? piece : null} onClose={() => setCutting(false)} />
     </div>
   )
 }

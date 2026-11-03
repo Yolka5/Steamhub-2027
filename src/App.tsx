@@ -1,8 +1,9 @@
 import { useEffect, useState, type MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Icon, type IconName } from './components/Icon'
 import { AccountMenu } from './components/AccountMenu'
+import { BackButton } from './components/BackButton'
 import { Indicator } from './components/Indicator'
 import { Palette } from './components/Palette'
 import { ToastProvider } from './components/ui'
@@ -16,14 +17,32 @@ import NeedsPhoto from './pages/NeedsPhoto'
 import CutList from './pages/CutList'
 import Mechanisms from './pages/Mechanisms'
 import Handbook from './pages/Handbook'
+import HandbookHub from './pages/HandbookHub'
 import Calculator from './pages/Calculator'
+import Tools from './pages/Tools'
 
-const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
+interface NavItem {
+  to: string
+  label: string
+  icon: IconName
+  end?: boolean
+  /** Other pages that belong to this item, so it stays selected there. */
+  also?: string[]
+}
+
+const NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: 'home', end: true },
   { to: '/stock', label: 'Stock', icon: 'stock' },
-  { to: '/calculators', label: 'Calculator', icon: 'calc' },
+  { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] },
   { to: '/handbook', label: 'Handbook', icon: 'book' },
 ]
+
+/** Stock stays unselected on Add, which has its own tab on phones. */
+function isActive(n: NavItem, path: string, phone = false) {
+  if (phone && path === '/stock/add') return false
+  if (n.end) return path === n.to
+  return [n.to, ...(n.also ?? [])].some((p) => path === p || path.startsWith(`${p}/`))
+}
 
 function useTheme() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme ?? 'light')
@@ -108,10 +127,10 @@ export default function App() {
           <nav className="picks picks--stack">
             <Indicator selector='[aria-current="page"]' />
             {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end} className="pick">
+              <Link key={n.to} to={n.to} className="pick" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
                 <Icon name={n.icon} />
                 {n.label}
-              </NavLink>
+              </Link>
             ))}
           </nav>
           <div className="rail__foot picks picks--stack">
@@ -152,6 +171,7 @@ export default function App() {
         </header>
 
         <main className="main">
+          <BackButton />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/stock" element={<Stock />} />
@@ -160,23 +180,21 @@ export default function App() {
             <Route path="/stock/cut" element={<CutList />} />
             <Route path="/stock/mechanisms" element={<Mechanisms />} />
             <Route path="/stock/:id" element={<PiecePage />} />
+            <Route path="/tools" element={<Tools />} />
             <Route path="/calculators" element={<Calculator />} />
-            <Route path="/handbook" element={<Handbook />} />
+            <Route path="/handbook" element={<HandbookHub />} />
+            <Route path="/handbook/design" element={<Handbook key="design" part="design" />} />
+            <Route path="/handbook/sources" element={<Handbook key="sources" part="sources" />} />
           </Routes>
         </main>
 
         <nav className="tabbar" aria-label="Main">
           <Indicator selector='.tab:not(.tab--add)[aria-current="page"]' />
           {NAV.slice(0, 2).map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end || location.pathname === '/stock/add'}
-              className="tab"
-            >
+            <Link key={n.to} to={n.to} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
               <Icon name={n.icon} size={22} />
               {n.label}
-            </NavLink>
+            </Link>
           ))}
           <NavLink to="/stock/add" className="tab tab--add">
             <span className="tab__plus">
@@ -185,10 +203,10 @@ export default function App() {
             Add
           </NavLink>
           {NAV.slice(2).map((n) => (
-            <NavLink key={n.to} to={n.to} className="tab">
+            <Link key={n.to} to={n.to} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
               <Icon name={n.icon} size={22} />
-              {n.label === 'Calculator' ? 'Calc' : n.label}
-            </NavLink>
+              {n.label}
+            </Link>
           ))}
         </nav>
       </div>

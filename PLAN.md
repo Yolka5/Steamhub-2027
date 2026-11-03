@@ -2,7 +2,7 @@
 
 Hub for FRC 1577 Steampunk. The goal is to save CAD members minutes and energy during build season. Every screen is judged on how many clicks it saves.
 
-Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut). Next: deploy on Vercel and the photo copy function, then Manufacturing with Tom's tool.
+Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: deploy on Vercel and the photo copy function, then Manufacturing with Tom's tool.
 
 ## Decisions
 
@@ -25,8 +25,8 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 |---|---|---|
 | Home | Tool | Search, your reservations, quick actions |
 | Stock | Tool | Find, Browse, Add (phone), Needs photo, History |
-| Calculators | Tool | Motor and gearbox, later center distance and cheat sheets |
-| Handbook | Read (Hebrew) | Chapters, mechanism comparisons, approval checklist |
+| Tools | Tool | Hub for every tool: motor and gearbox calculator, tap drill lookup, center distance, swerve, curves, cut list, weight per mechanism, plus links to JVN, AMB and ReCalc |
+| Handbook | Read (Hebrew) | Chapters, mechanism comparisons, approval checklist, and the FRC information sources (מקורות מידע) |
 | Manufacturing | Tool | Later: Tom's tool and the part-done flow |
 
 ## Stock

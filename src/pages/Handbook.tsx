@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import handbook from '../content/handbook.json'
 
-// The mechanical design handbook, in Hebrew. Read mode: a cover, one calm reading column, and
-// colour that means something. Each topic owns one colour, and the chapter openers, the
-// contents rail and the reading progress bar all wear the colour of the part you are in.
+// The handbook, in Hebrew: the design book and the FRC sources, each its own page. Read mode in
+// the same calm language as the rest of Steamhub: a plain title, one reading column, a contents
+// rail that follows you, and colour only where it means something (pros and cons).
 
 interface Link {
   title: string
@@ -25,28 +25,69 @@ interface Section {
   blocks: Block[]
 }
 
-type Topic = 'intro' | 'climb' | 'mech' | 'process'
-
-/** Which topic each chapter belongs to. Up to three meaning colours, plus neutral for the intro. */
-const TOPIC_OF: Record<string, Topic> = {
-  s1: 'intro',
-  s2: 'intro',
-  s3: 'climb',
-  s4: 'climb',
-  s5: 'climb',
-  s6: 'mech',
-  s7: 'mech',
-  s8: 'mech',
-  s9: 'process',
-  s10: 'process',
-  s11: 'process',
+interface Group {
+  name: string
+  ids: string[]
 }
 
-const TOPIC_NAME: Record<Topic, string> = { intro: 'פתיחה', climb: 'טיפוס', mech: 'מכלולים', process: 'תהליך ומקורות' }
+export type PartId = 'design' | 'sources'
 
-const SECTIONS = handbook.sections as Section[]
+interface Part {
+  path: string
+  title: string
+  sub: string
+  source: string
+  chips: string[]
+  searchLabel: string
+  groups: Group[]
+}
+
+/** The handbook is two things: the design book, and the list of FRC information sources. */
+export const PARTS: Record<PartId, Part> = {
+  design: {
+    path: '/handbook/design',
+    title: 'המדריך למתכנן המכני',
+    sub: 'מה שלמדנו על תכנון מכלולים, כדי שלא נחזור על אותן טעויות.',
+    source: handbook.source,
+    chips: ['טיפוס', 'דריבלר', 'מעלית', 'סלאפ דאון', 'זיוות', 'חוט', 'ברגים', 'צ’ק ליסט'],
+    searchLabel: 'חיפוש במדריך',
+    groups: [
+      { name: 'פתיחה', ids: ['s1', 's2'] },
+      { name: 'טיפוס', ids: ['s3', 's4', 's5'] },
+      { name: 'מכלולים', ids: ['s6', 's7', 's8'] },
+      { name: 'תהליך', ids: ['s9', 's10'] },
+    ],
+  },
+  sources: {
+    path: '/handbook/sources',
+    title: 'מקורות מידע FRC',
+    sub: 'איפה להתעדכן, ממי ללמוד ואיפה למצוא שרטוטים, תמונות ורעיונות.',
+    source: 'https://docs.google.com/document/d/1ldRky1iBNBNYaJcKOrZJt3OyTUTHN-enqyGK3UnQYRU/edit?usp=sharing',
+    chips: ['TBA', 'Chief Delphi', '254', 'CAD', 'בלוג', 'יוטיוב', 'גלריה', 'מחשבון'],
+    searchLabel: 'חיפוש במקורות',
+    groups: [
+      { name: 'קהילה ותחרויות', ids: ['s12', 's18'] },
+      { name: 'תכנון ושרטוטים', ids: ['s11', 's13', 's14', 's15'] },
+      { name: 'ללמוד מאחרים', ids: ['s16', 's17', 's19'] },
+    ],
+  },
+}
+
+const ALL = handbook.sections as Section[]
+const byId = new Map(ALL.map((s) => [s.id, s]))
+const GROUP_OF = new Map<string, Group>()
+const PART_OF = new Map<string, PartId>()
+for (const [pid, p] of Object.entries(PARTS) as [PartId, Part][])
+  for (const g of p.groups)
+    for (const id of g.ids) {
+      GROUP_OF.set(id, g)
+      PART_OF.set(id, pid)
+    }
+
+/** A part's chapters, in the order of its groups. */
+export const sectionsOf = (pid: PartId) => PARTS[pid].groups.flatMap((g) => g.ids.map((id) => byId.get(id)).filter(Boolean) as Section[])
+
 const CHECK_KEY = 'handbook-checklist'
-const TOPICS = ['טיפוס', 'דריבלר', 'מעלית', 'סלאפ דאון', 'זיוות', 'חוט', 'ברגים', 'צ’ק ליסט']
 
 const plain = (html: string) => html.replace(/<[^>]+>/g, ' ')
 const host = (url: string) => {
@@ -60,8 +101,20 @@ const host = (url: string) => {
 /** The last chapter is too short to reach the top of the screen, so the bottom of the page selects it. */
 const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4
 
+/** For Ctrl K: each chapter with the words it should be found by (tags, link names, topic). */
 export function handbookIndex() {
-  return SECTIONS.map((s) => ({ id: s.id, title: s.title }))
+  return ALL.filter((s) => PART_OF.has(s.id)).map((s) => {
+    const part = PARTS[PART_OF.get(s.id)!]
+    return {
+      id: s.id,
+      title: s.title,
+      path: part.path,
+      part: part.title,
+      words: [part.title, GROUP_OF.get(s.id)?.name ?? '', ...s.blocks.flatMap((b) => [b.title, ...b.tags, ...(b.links ?? []).map((l) => l.title)])]
+        .join(' ')
+        .toLowerCase(),
+    }
+  })
 }
 
 // ---------- Parts ----------
@@ -119,6 +172,9 @@ function Links({ links }: { links: Link[] }) {
     <div className="hb-links">
       {links.map((l) => (
         <a key={l.href} className="hb-link" href={l.href} target="_blank" rel="noopener noreferrer">
+          <span className="hb-link__icon" aria-hidden="true">
+            <img src={`https://www.google.com/s2/favicons?domain=${host(l.href)}&sz=64`} alt="" width="20" height="20" loading="lazy" />
+          </span>
           <span className="hb-link__title" dir="auto">
             {l.title}
           </span>
@@ -132,34 +188,14 @@ function Links({ links }: { links: Link[] }) {
   )
 }
 
-/** Fades content up the first time it scrolls into view. Content is visible without JS. */
-function useReveal(deps: unknown[]) {
-  useEffect(() => {
-    const els = document.querySelectorAll<HTMLElement>('.hb [data-reveal]:not([data-in])')
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries)
-          if (e.isIntersecting) {
-            ;(e.target as HTMLElement).dataset.in = 'true'
-            io.unobserve(e.target)
-          }
-      },
-      { rootMargin: '0px 0px -8% 0px' },
-    )
-    els.forEach((el) => io.observe(el))
-    return () => io.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
-}
-
 // ---------- Page ----------
 
-export default function Handbook() {
+export default function Handbook({ part: pid }: { part: PartId }) {
+  const part = PARTS[pid]
+  const SECTIONS = useMemo(() => sectionsOf(pid), [pid])
   const [q, setQ] = useState('')
   const [active, setActive] = useState(SECTIONS[0]?.id)
   const { hash } = useLocation()
-  const root = useRef<HTMLDivElement>(null)
-  const bar = useRef<HTMLDivElement>(null)
 
   const query = q.trim().toLowerCase()
   const visible = useMemo(() => {
@@ -172,14 +208,11 @@ export default function Handbook() {
         ),
       ),
     })).filter((s) => s.blocks.length > 0)
-  }, [query])
+  }, [query, SECTIONS])
 
-  const blockCount = SECTIONS.reduce((n, s) => n + s.blocks.length, 0)
-  const checkCount = SECTIONS.flatMap((s) => s.blocks).find((b) => b.checklist)?.checklist?.length ?? 0
-
-  // The contents rail and the colour follow the chapter being read.
+  // The contents rail follows the chapter being read.
   useEffect(() => {
-    const els = SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[]
+    const els = visible.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[]
     const io = new IntersectionObserver(
       (entries) => {
         if (atBottom()) return setActive(els[els.length - 1]?.id)
@@ -189,79 +222,37 @@ export default function Handbook() {
       { rootMargin: '-15% 0px -70% 0px' },
     )
     els.forEach((el) => io.observe(el))
-    return () => io.disconnect()
-  }, [visible])
-
-  // Reading progress and the cover's blueprint drift, both from one scroll listener.
-  useEffect(() => {
-    let queued = false
-    const paint = () => {
-      queued = false
-      const el = root.current
-      if (!el) return
-      const r = el.getBoundingClientRect()
-      const total = r.height - window.innerHeight
-      const p = total > 0 ? Math.min(1, Math.max(0, -r.top / total)) : 0
-      bar.current?.style.setProperty('transform', `scaleX(${p.toFixed(4)})`)
-      el.style.setProperty('--drift', `${Math.min(window.scrollY, 600) * 0.25}px`)
-      if (atBottom()) {
-        const last = el.querySelector<HTMLElement>('.hb-sec:last-of-type')
-        if (last) setActive(last.id)
-      }
-    }
     const onScroll = () => {
-      if (!queued) {
-        queued = true
-        requestAnimationFrame(paint)
-      }
+      if (atBottom()) setActive(els[els.length - 1]?.id)
     }
-    paint()
     window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
     return () => {
+      io.disconnect()
       window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
     }
-  }, [])
-
-  useReveal([visible])
+  }, [visible])
 
   useEffect(() => {
     if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
   }, [hash])
 
-  const activeTopic = TOPIC_OF[active ?? 's1'] ?? 'intro'
-
   return (
-    <div ref={root} className="page page--wide hb" dir="rtl" lang="he" data-topic={activeTopic}>
-      <div className="hb-progress" aria-hidden="true">
-        <div ref={bar} className="hb-progress__bar" />
-      </div>
-
-      <header className="hb-cover">
-        <div className="hb-cover__grid" aria-hidden="true" />
-        <img className="hb-cover__logo" src="/logo-dark-256.png" alt="Steampunk 1577" width="112" height="112" />
-        <div className="hb-cover__text">
-          <h1 className="hb-title">המדריך למתכנן המכני</h1>
-          <p className="hb-cover__sub">
-            מה שלמדנו על תכנון מכלולים, כדי שלא נחזור על אותן טעויות.{' '}
-            <a href={handbook.source} target="_blank" rel="noopener noreferrer">
-              המסמך המקורי
-            </a>
-          </p>
-          <p className="hb-cover__facts num">
-            {SECTIONS.length} פרקים · {blockCount} נושאים · צ’ק ליסט של {checkCount} בדיקות
-          </p>
-        </div>
-        <div className="hb-cover__search">
-          <input className="hb-search" type="search" placeholder="חיפוש: מילה, נושא או שנה" value={q} onChange={(e) => setQ(e.target.value)} aria-label="חיפוש במדריך" />
-          <div className="hb-cover__chips">
-            {TOPICS.map((t) => (
-              <button key={t} type="button" className="hb-chip" aria-pressed={q === t} onClick={() => setQ(q === t ? '' : t)}>
-                {t}
-              </button>
-            ))}
-          </div>
+    <div className="page page--wide hb" dir="rtl" lang="he">
+      <header className="hb-head">
+        <h1 className="hb-title">{part.title}</h1>
+        <p className="hb-sub soft">
+          {part.sub}{' '}
+          <a href={part.source} target="_blank" rel="noopener noreferrer">
+            המסמך המקורי
+          </a>
+        </p>
+        <input className="field field--big hb-search" type="search" placeholder="חיפוש: מילה, נושא או שנה" value={q} onChange={(e) => setQ(e.target.value)} aria-label={part.searchLabel} />
+        <div className="chips">
+          {part.chips.map((t) => (
+            <button key={t} type="button" className="chip" aria-pressed={q === t} onClick={() => setQ(q === t ? '' : t)}>
+              {t}
+            </button>
+          ))}
         </div>
       </header>
 
@@ -270,13 +261,12 @@ export default function Handbook() {
           <div className="picks picks--stack">
             <Indicator selector='[aria-current="true"]' />
             {visible.map((s, i) => {
-              const topic = TOPIC_OF[s.id] ?? 'intro'
-              const newGroup = i === 0 || TOPIC_OF[visible[i - 1].id] !== topic
+              const group = GROUP_OF.get(s.id)
+              const newGroup = i === 0 || GROUP_OF.get(visible[i - 1].id) !== group
               return (
                 <div key={s.id} className="hb-toc__item">
-                  {newGroup && <span className="hb-toc__group">{TOPIC_NAME[topic]}</span>}
-                  <a href={`#${s.id}`} className="pick" data-topic={topic} aria-current={active === s.id ? 'true' : undefined}>
-                    <span className="hb-dot" aria-hidden="true" />
+                  {newGroup && <span className="hb-toc__group">{group?.name}</span>}
+                  <a href={`#${s.id}`} className="pick" aria-current={active === s.id ? 'true' : undefined}>
                     {s.title}
                   </a>
                 </div>
@@ -287,28 +277,19 @@ export default function Handbook() {
 
         <article className="hb-text">
           {visible.length === 0 && <p className="soft">לא נמצאו תוצאות. נסו מילה אחרת או אחד מהנושאים למעלה.</p>}
-          {visible.map((s) => {
-            const topic = TOPIC_OF[s.id] ?? 'intro'
-            return (
-              <section key={s.id} id={s.id} className="hb-sec" data-topic={topic}>
-                <header className="hb-sec__head" data-reveal>
-                  <h2>{s.title}</h2>
-                  <span className="hb-sec__meta num">
-                    {TOPIC_NAME[topic]}
-                    {s.blocks.length > 1 ? ` · ${s.blocks.length} נושאים` : ''}
-                  </span>
-                </header>
-                {s.blocks.map((b, i) => (
-                  <div key={i} className="hb-block" data-reveal style={{ '--i': i } as CSSProperties}>
-                    {b.title !== s.title && <h3 className="hb-block__title">{b.title}</h3>}
-                    {b.html && <div className="hb-prose" dangerouslySetInnerHTML={{ __html: b.html }} />}
-                    {b.checklist && <Checklist items={b.checklist} />}
-                    {b.links && <Links links={b.links} />}
-                  </div>
-                ))}
-              </section>
-            )
-          })}
+          {visible.map((s) => (
+            <section key={s.id} id={s.id} className="hb-sec">
+              <h2 className="hb-sec__title">{s.title}</h2>
+              {s.blocks.map((b, i) => (
+                <div key={i} className="hb-block">
+                  {b.title !== s.title && <h3 className="hb-block__title">{b.title}</h3>}
+                  {b.html && <div className="hb-prose" dangerouslySetInnerHTML={{ __html: b.html }} />}
+                  {b.checklist && <Checklist items={b.checklist} />}
+                  {b.links && <Links links={b.links} />}
+                </div>
+              ))}
+            </section>
+          ))}
         </article>
       </div>
     </div>

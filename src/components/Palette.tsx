@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { findMatches, parseQuery, queryIsEmpty, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { findThreads, looksLikeThread } from '../lib/threads'
 import { handbookIndex } from '../pages/Handbook'
+import { OUR_TOOLS, OUTSIDE_TOOLS } from '../pages/Tools'
 
 // Opened constantly with Ctrl K, so that never animates. A click on the search box gets a short drop-in.
 
@@ -11,6 +13,10 @@ interface Item {
   label: string
   hint?: string
   to: string
+  /** Outside links open in a new tab instead of navigating. */
+  external?: boolean
+  /** Extra words that match, English and Hebrew. */
+  keywords?: string
 }
 
 const PAGES: Item[] = [
@@ -26,8 +32,10 @@ const PAGES: Item[] = [
   { key: 'p-voltage', label: 'Voltage map', to: '/calculators?tab=voltage' },
   { key: 'p-motors', label: 'Motors table', to: '/calculators?tab=motors' },
   { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/calculators?tab=center' },
-  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/calculators?tab=sheet' },
-  { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook' },
+  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/calculators?tab=sheet', keywords: 'tap tapping thread הברזה הברזות קידוח מיסב' },
+  { key: 'p-tools', label: 'Tools: every calculator and outside tool', to: '/tools', keywords: 'calculator כלים מחשבון' },
+  { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook/design', keywords: 'המדריך למתכנן המכני' },
+  { key: 'p-sources', label: 'FRC information sources', to: '/handbook/sources', keywords: 'מקורות מידע tba chief delphi' },
 ]
 
 export function Palette({ open, animated, onClose }: { open: boolean; animated: boolean; onClose: () => void }) {
@@ -52,11 +60,27 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
 
   const items = useMemo<Item[]>(() => {
     const t = text.trim().toLowerCase()
-    const pages = PAGES.filter((p) => !t || p.label.toLowerCase().includes(t))
+    const hit = (i: Item) => i.label.toLowerCase().includes(t) || !!i.keywords?.toLowerCase().includes(t)
+    const pages = PAGES.filter((p) => !t || hit(p))
     if (!t) return pages
+    const seen = new Set(pages.map((p) => p.to))
+    const tools: Item[] = [...OUR_TOOLS, ...OUTSIDE_TOOLS]
+      .map((x) => ({ key: `t-${x.name}`, label: x.name, hint: x.href ? 'Opens in a new tab' : 'Tool', to: x.href ?? x.to!, external: !!x.href, keywords: x.keywords }))
+      .filter((x) => hit(x) && !seen.has(x.to))
+    // A thread like M5 or 10-32 jumps straight to its tap drill.
+    const threads: Item[] = looksLikeThread(text)
+      ? findThreads(text)
+          .slice(0, 3)
+          .map((th) => ({
+            key: `th-${th.name}`,
+            label: `${th.name}: tap drill ${th.tap.toFixed(2)} mm`,
+            hint: `clearance ${th.free.toFixed(2)} mm`,
+            to: `/calculators?tab=sheet&t=${encodeURIComponent(th.name)}`,
+          }))
+      : []
     const chapters: Item[] = handbookIndex()
-      .filter((c) => c.title.toLowerCase().includes(t))
-      .map((c) => ({ key: `h-${c.id}`, label: c.title, hint: 'Handbook', to: `/handbook#${c.id}` }))
+      .filter((c) => c.title.toLowerCase().includes(t) || c.words.includes(t))
+      .map((c) => ({ key: `h-${c.id}`, label: c.title, hint: c.part, to: `${c.path}#${c.id}` }))
     const q = parseQuery(text)
     const stock: Item[] = []
     if (!queryIsEmpty(q)) {
@@ -70,12 +94,13 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
         })
       }
     }
-    return [...stock, ...pages, ...chapters]
+    return [...threads, ...stock, ...pages, ...tools, ...chapters]
   }, [text, pieces])
 
   const go = (item?: Item) => {
     if (!item) return
-    navigate(item.to)
+    if (item.external) window.open(item.to, '_blank', 'noopener,noreferrer')
+    else navigate(item.to)
     onClose()
   }
 

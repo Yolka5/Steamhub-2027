@@ -528,36 +528,38 @@
   },
   {
    "id": "s11",
-   "title": "מקורות ידע בקצרה",
+   "title": "אתרים שימושיים בזמן תכנון",
    "blocks": [
     {
      "title": "אתרים שימושיים בזמן תכנון מכלול",
      "tags": [
-      "מקורות",
-      "sources",
-      "resources",
-      "אתרים",
-      "websites",
-      "מחשבון",
-      "calculator",
-      "תמסורת",
-      "gear ratio",
       "amb",
-      "jvn",
-      "onshape",
+      "calculator",
       "featurescripts",
       "frc design",
-      "שרטוטי רובוטים",
+      "gear ratio",
+      "jvn",
+      "library",
+      "onshape",
+      "recalc",
+      "resources",
       "robot cad",
+      "sources",
+      "websites",
+      "אתרים",
+      "מחשבון",
+      "מקורות",
       "ספריה",
-      "library"
+      "שרטוטי רובוטים",
+      "שרטוטים",
+      "תמסורת"
      ],
      "html": "",
      "links": [
       {
-       "title": "מאגר מקורות מידע",
+       "title": "שרטוטים של קבוצות אחרות",
        "href": "https://docs.google.com/document/d/15dCi7mCz1MMGu5hNg-U9F9ZVTWOjVHxh-stfU3fop1M/edit?tab=t.0",
-       "note": "בסיסי"
+       "note": "מאגר שרטוטים של קבוצות אחרות"
       },
       {
        "title": "amb calculator",
@@ -568,6 +570,11 @@
        "title": "jvn",
        "href": "https://docs.google.com/spreadsheets/d/1ElLzEAFQ6bOfMaG-2MHQiVw8LJReAszcMQgOhjoOM1Q/edit?gid=2103172023#gid=2103172023",
        "note": "מחשבון תמסורות ועוד"
+      },
+      {
+       "title": "ReCalc",
+       "href": "https://www.reca.lc/",
+       "note": "מחשבונים למכלולים: זרוע, ליניארי, תותח, רצועות ושרשראות"
       },
       {
        "title": "רשימה מרוכזת של שרטוטי רובוטים",
@@ -585,6 +592,333 @@
        "note": "תוסף לאונשייפ שנותן להכניס מוצרי מדף בקלות"
       }
      ]
+    }
+   ]
+  },
+  {
+   "id": "s12",
+   "title": "תחרויות וקהילה",
+   "blocks": [
+    {
+     "title": "תחרויות וקהילה",
+     "tags": [
+      "tba",
+      "blue alliance",
+      "chief delphi",
+      "cd",
+      "פייסבוק",
+      "תחרויות",
+      "פורום"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "TheBlueAlliance (TBA)",
+       "href": "https://www.thebluealliance.com/",
+       "note": "כל התחרויות: עבר עם תוצאות וסרטונים, הווה עם שידור, דירוג ולו\"ז משחקים, ועתיד עם הקבוצות והתאריכים"
+      },
+      {
+       "title": "Chief Delphi (CD)",
+       "href": "https://www.chiefdelphi.com/",
+       "note": "הפורום המרכזי שבו קבוצות מכל העולם מפרסמות. כדאי להיכנס כמה פעמים בשבוע כדי להישאר בעניינים"
+      },
+      {
+       "title": "FIRST Israel Unofficial",
+       "href": "https://www.facebook.com/groups/100569823370583/?ref=share",
+       "note": "קבוצת הפייסבוק של חברי הקבוצות מישראל. קבוצות מפרסמות שם כשהן רוצות להציג משהו או צריכות עזרה"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s13",
+   "title": "תכנון מכני",
+   "blocks": [
+    {
+     "title": "תכנון מכני",
+     "tags": [
+      "118",
+      "mechanical design",
+      "מקרא",
+      "תכנון"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "Mechanical Design",
+       "href": "https://drive.google.com/drive/folders/1FiBWGAWNF71Bc-H6On_dbuQ2YAYnRx3x?usp=sharing",
+       "note": "ריכוז הכלים שהקבוצה משתמשת בהם לתכנון המערכות. חשוב לקרוא את הקובץ \"מקרא\" לפני שמתחילים לעבוד"
+      },
+      {
+       "title": "המסמך של 118",
+       "href": "https://robotics.nasa.gov/downloads/nasarap-rdc-v101-compressed.pdf",
+       "note": "מסמך מפורט ביותר של 118, עם תמונות וטיפים על מערכות רבות, כמעט מכל סוג"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s14",
+   "title": "רשימות מכלולים",
+   "blocks": [
+    {
+     "title": "רשימות מכלולים",
+     "tags": [
+      "מכלולים",
+      "רשימה",
+      "subsystems"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "רשימת מכלולים לפי סוג",
+       "href": "https://docs.google.com/document/d/1-mGpEfUoaR4_ZPZj0hmCXkiT4ilk6Xy73rJjzAmPfU4/edit?usp=drivesdk",
+       "note": "רשימה שיצרנו בקבוצה, לפי סוגי מכלולים, עם רובוטים משנים קודמות שהציגו פתרון מעניין לכל מכלול"
+      },
+      {
+       "title": "רשימה נוספת",
+       "href": "https://drive.google.com/drive/mobile/folders/1KDnN9-venG5a0sZtMT0qe9H2nJCRfTpX?usp=sharing",
+       "note": "רשימת מכלולים אחרת, בתיקייה בדרייב"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s15",
+   "title": "גלריות ושרטוטים",
+   "blocks": [
+    {
+     "title": "גלריות רובוטים",
+     "tags": [
+      "גלריה",
+      "תמונות",
+      "cad",
+      "grabcad",
+      "שרטוטים",
+      "3847"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "Degoo",
+       "href": "https://cloud.degoo.com/share/ALzxSHpdVbFUDLSXHQiD-g",
+       "note": "גלריית תמונות של רובוטים מכל השנים. עדיין בסידור, קישור כולל יותר יגיע בהמשך"
+      },
+      {
+       "title": "FRC 3847: Robot Mechanisms",
+       "href": "https://photos.spectrum3847.org/Robot-Mechanisms",
+       "note": "תמונות של מכלולים, מסודרות לפי סוג"
+      },
+      {
+       "title": "Michigan",
+       "href": "https://www.flickr.com/photos/danielernst/albums/",
+       "note": "אלבומי תמונות מתחרויות במישיגן"
+      }
+     ]
+    },
+    {
+     "title": "שרטוטים",
+     "tags": [
+      "גלריה",
+      "תמונות",
+      "cad",
+      "grabcad",
+      "שרטוטים",
+      "3847"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "ריכוז שרטוטי עבר",
+       "href": "https://docs.google.com/spreadsheets/d/1acT6PpdR5l3zVhPqrehgamPsnUbk6yg-2JC5FcwIbb4/edit?usp=drivesdk",
+       "note": "שרטוטים של רובוטים, עם לשונית של עלוני מידע. מעבר לזה אפשר לחפש ב-CD או ב-GrabCAD"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s16",
+   "title": "קבוצות ובלוגים",
+   "blocks": [
+    {
+     "title": "קבוצות",
+     "tags": [
+      "254",
+      "2056",
+      "118",
+      "1678",
+      "971",
+      "בלוג",
+      "open alliance",
+      "jvn"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "FRC 254",
+       "href": "https://www.team254.com/first/",
+       "note": "מהקבוצות הטובות בעולם. כל רובוטי העבר שלהם, כל אחד עם מסמך מפורט על הרובוט והמכלולים"
+      },
+      {
+       "title": "FRC 2056",
+       "href": "https://www.flickr.com/photos/team2056/albums/",
+       "note": "מהקבוצות הטובות בעולם. אלבומי תמונות"
+      },
+      {
+       "title": "FRC 118",
+       "href": "https://118robonauts.smugmug.com/",
+       "note": "אלבומי תמונות"
+      },
+      {
+       "title": "FRC 1678",
+       "href": "https://frc1678.smugmug.com/",
+       "note": "אלבומי תמונות"
+      },
+      {
+       "title": "FRC 971",
+       "href": "https://frc971.org/photos",
+       "note": "אלבומי תמונות"
+      },
+      {
+       "title": "FRC 3538",
+       "href": "https://lightbearerphotographer.smugmug.com/3538",
+       "note": "אלבומי תמונות"
+      }
+     ]
+    },
+    {
+     "title": "בלוגים",
+     "tags": [
+      "254",
+      "2056",
+      "118",
+      "1678",
+      "971",
+      "בלוג",
+      "open alliance",
+      "jvn"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "The Open Alliance",
+       "href": "https://www.chiefdelphi.com/t/the-open-alliance-is-officially-open-to-all-teams/397951?u=lidor51",
+       "note": "כמה קבוצות שמפרסמות בלוגים לאורך כל העונה"
+      },
+      {
+       "title": "הבלוג של 254",
+       "href": "https://www.team254.com/blog/",
+       "note": "מפרסמים בדרך כלל רק אחרי העונה"
+      },
+      {
+       "title": "הבלוג של 118",
+       "href": "https://robonauts2019.tumblr.com/",
+       "note": "כדי להגיע לשנה אחרת, משנים את המספר בקישור"
+      },
+      {
+       "title": "JVN",
+       "href": "https://johnvneun.com/",
+       "note": "הבלוג של JVN, מנטור של 148"
+      },
+      {
+       "title": "הבלוג של 3847",
+       "href": "http://blog.spectrum3847.org/?m=1",
+       "note": "לא קבוצת עילית, אבל בדרך כלל משתפים גם במהלך העונה"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s17",
+   "title": "לימוד כללי",
+   "blocks": [
+    {
+     "title": "לימוד כללי",
+     "tags": [
+      "3847",
+      "compass",
+      "neofra",
+      "simple"
+     ],
+     "html": "",
+     "links": [
+      {
+       "title": "FRC 3847: Recommended reading",
+       "href": "http://spectrum3847.org/recommendedreading/",
+       "note": "חומרים וקישורים בהרבה נושאים, כולל מסמכים וסרטונים ללמוד מהם"
+      },
+      {
+       "title": "The Compass Alliance",
+       "href": "https://www.thecompassalliance.org/",
+       "note": "משאבים לקבוצות בכל התחומים"
+      },
+      {
+       "title": "NEOFRA FIRST",
+       "href": "https://docs.google.com/spreadsheets/d/1Ax0gWjRFbhLzJA8fU5zmGA-Goh6Fa3Ia1QpOIlo4KXE/edit?usp=drivesdk",
+       "note": "ריכוז חומרים בגיליון"
+      },
+      {
+       "title": "How to build simple",
+       "href": "https://www.chiefdelphi.com/t/how-to-build-simple/441721/14",
+       "note": "פוסט ב-CD שמציע דרך פשוטה להעריך כמה מסובך מכנית רובוט מסוים"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s18",
+   "title": "וידאו ורשתות",
+   "blocks": [
+    {
+     "title": "וידאו ורשתות",
+     "tags": [
+      "youtube",
+      "יוטיוב",
+      "fun",
+      "instagram",
+      "אינסטגרם",
+      "project b"
+     ],
+     "html": "<p>כדי להישאר מעודכנים ביוטיוב במהלך העונה, מחפשים FRC והשנה (למשל FRC 2027), נכנסים כל יום ומסננים לסרטונים מהיום האחרון.</p>",
+     "links": [
+      {
+       "title": "FUN: FIRST Updates Now",
+       "href": "https://youtube.com/c/FirstUpdatesNow",
+       "note": "דירוג שבועי של 25 הקבוצות הטובות שהתחרו, וראיונות שבהם קבוצות מציגות את הרובוטים שלהן מקרוב"
+      },
+      {
+       "title": "Project B: playlists לפי מכלול",
+       "href": "https://www.projectb.net.au/resources/robot-mechanisms/",
+       "note": "פלייליסטים לפי סוג מכלול. לא מסוננים, אז יש בהם סרטונים טובים וגם פחות"
+      },
+      {
+       "title": "אינסטגרם של הקבוצה",
+       "href": "https://www.instagram.com/steampunk1577/",
+       "note": "קבוצות מפרסמות פוסטים וסטוריז במהלך העונה. אפשר לעבור על מי ש-steampunk1577 עוקב אחריו: קבוצות טובות מהעולם וכל הקבוצות הישראליות"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "s19",
+   "title": "איך לחפש",
+   "blocks": [
+    {
+     "title": "איך לחפש",
+     "tags": [
+      "חיפוש",
+      "search",
+      "google",
+      "גוגל"
+     ],
+     "html": "<p>בגוגל וביוטיוב מתחילים במילה <b>FRC</b> ומוסיפים מילות מפתח: שנה, מספר קבוצה, מכלול או כל דבר אחר.</p><ul><li><b>FRC 2018</b>: רובוטים מאותה שנה</li><li><b>FRC 1678 2019</b>: תמונות וסרטונים של הרובוט</li><li><b>FRC 1678 2019 CAD</b>: השרטוט, אם פורסם</li><li><b>FRC swerve CAD</b>: שרטוטים של סוורב</li><li><b>FRC 2018 elevator</b>: מעליות מ-2018</li></ul><p>אפשר לחפש גם ב-CD, ושם לא צריך להוסיף FRC בהתחלה.</p>"
     }
    ]
   }

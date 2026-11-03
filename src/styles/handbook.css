@@ -1,234 +1,50 @@
-/* Handbook. Read mode in Hebrew: Frank Ruhl Libre speaks (titles), Heebo works (text).
-   Night Machine, Newsreader and Instrument Sans have no Hebrew letters, so this page swaps
-   the pair while keeping the same surfaces and orange as the rest of Steamhub.
-
-   Colour carries meaning here: each topic owns one colour, and everything about that topic
-   wears it. --tone is the strong colour, --tone-soft the band behind it. */
+/* Handbook. Read mode in Hebrew, in the same language as the rest of Steamhub: surfaces for
+   depth, an orange page title, quiet controls, and colour only where it means something.
+   Everything is Heebo, an Arial-style sans with real Hebrew letters; the site's own faces
+   (Night Machine, Newsreader, Instrument Sans) have no Hebrew. */
 
 .hb {
-  --font-voice: 'Frank Ruhl Libre', 'Newsreader', Georgia, serif;
-  --font-work: 'Heebo', 'Instrument Sans', system-ui, sans-serif;
-
-  --t-intro: var(--ink-soft);
-  --t-intro-soft: var(--surface-1);
-  --t-climb: #c25400;
-  --t-climb-soft: #ffeadb;
-  --t-mech: #2363b8;
-  --t-mech-soft: #e4eefd;
-  --t-process: #2f7d32;
-  --t-process-soft: #e1f2e1;
-
+  --font-voice: 'Heebo', Arial, system-ui, sans-serif;
+  --font-work: 'Heebo', Arial, system-ui, sans-serif;
   font-family: var(--font-work);
 }
 
-:root[data-theme='dark'] .hb {
-  --t-climb: #ff9a4d;
-  --t-climb-soft: #33200f;
-  --t-mech: #6ba6ff;
-  --t-mech-soft: #142338;
-  --t-process: #7fd283;
-  --t-process-soft: #15291a;
-}
-
-.hb [data-topic='intro'],
-.hb[data-topic='intro'] {
-  --tone: var(--t-intro);
-  --tone-soft: var(--t-intro-soft);
-}
-
-.hb [data-topic='climb'],
-.hb[data-topic='climb'] {
-  --tone: var(--t-climb);
-  --tone-soft: var(--t-climb-soft);
-}
-
-.hb [data-topic='mech'],
-.hb[data-topic='mech'] {
-  --tone: var(--t-mech);
-  --tone-soft: var(--t-mech-soft);
-}
-
-.hb [data-topic='process'],
-.hb[data-topic='process'] {
-  --tone: var(--t-process);
-  --tone-soft: var(--t-process-soft);
-}
-
+.hb h1,
 .hb h2,
-.hb h3,
-.hb-title {
-  font-family: var(--font-voice);
+.hb h3 {
+  font-family: var(--font-work);
   letter-spacing: 0;
 }
 
-/* ----- Reading progress, in the colour of the current topic ----- */
-.hb-progress {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 40;
-  height: 3px;
-  pointer-events: none;
-}
-
-.hb-progress__bar {
-  height: 100%;
-  background: var(--tone, var(--brand));
-  transform: scaleX(0);
-  transform-origin: right center;
-  transition: background-color 400ms ease;
-}
-
-/* ----- Cover ----- */
-.hb-cover {
-  position: relative;
+/* ----- Head ----- */
+.hb-head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 1.25rem 2rem;
+  gap: 0.75rem;
+  max-width: 44rem;
   margin-bottom: 2.5rem;
-  padding: clamp(1.5rem, 5vw, 3.5rem);
-  overflow: hidden;
-  color: #f3f3ef;
-  background: #141413;
-  border-radius: var(--radius-shell);
-  isolation: isolate;
-}
-
-:root[data-theme='dark'] .hb-cover {
-  background: #191918;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-/* Blueprint paper: a fine grid and a coarse grid, drifting a little slower than the page. */
-.hb-cover__grid {
-  position: absolute;
-  inset: -40% 0 -10%;
-  z-index: -1;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size:
-    120px 120px,
-    120px 120px,
-    24px 24px,
-    24px 24px;
-  mask-image: radial-gradient(ellipse at 20% 30%, #000 25%, transparent 75%);
-  transform: translateY(var(--drift, 0px));
-}
-
-.hb-cover__logo {
-  width: clamp(72px, 12vw, 112px);
-  height: auto;
-}
-
-.hb-cover__text {
-  display: grid;
-  gap: 0.5rem;
 }
 
 .hb-title {
   margin: 0;
-  font-size: clamp(2.4rem, 6.5vw, 4.25rem);
-  font-weight: 700;
-  line-height: 1.02;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 800;
+  line-height: 1.1;
   color: var(--brand);
 }
 
-.hb-cover__sub {
-  max-width: 32rem;
+.hb-sub {
   margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.5;
-  color: rgba(243, 243, 239, 0.82);
+  font-size: 1.0625rem;
 }
 
-.hb-cover__sub a {
-  white-space: nowrap;
-  color: inherit;
-  text-decoration-color: var(--brand);
+.hb-sub a {
+  color: var(--ink);
   text-underline-offset: 3px;
 }
 
-.hb-cover__facts {
-  margin: 0;
-  font-size: 0.9375rem;
-  color: rgba(243, 243, 239, 0.6);
-}
-
-.hb-cover__search {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 0.75rem;
-  max-width: 44rem;
-}
-
-.hb-search {
-  width: 100%;
-  min-height: 3.25rem;
-  padding: 0.6rem 1rem;
-  font: inherit;
-  font-size: 1.125rem;
-  color: #f3f3ef;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: var(--radius-control);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-}
-
-.hb-search::placeholder {
-  color: rgba(243, 243, 239, 0.5);
-}
-
-.hb-search:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-.hb-cover__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.hb-chip {
-  min-height: 2.25rem;
-  padding: 0.3rem 0.85rem;
-  font: inherit;
-  font-size: 0.9375rem;
-  color: rgba(243, 243, 239, 0.86);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  transition:
-    background 150ms ease,
-    color 150ms ease,
-    transform 160ms var(--ease-out);
-}
-
-.hb-chip:active {
-  transform: scale(0.96);
-}
-
-.hb-chip[aria-pressed='true'] {
-  color: #141413;
-  background: var(--brand);
-  border-color: var(--brand);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .hb-chip:not([aria-pressed='true']):hover {
-    background: rgba(255, 255, 255, 0.14);
-  }
-}
-
-@media (max-width: 599px) {
-  .hb-cover {
-    grid-template-columns: 1fr;
-  }
+.hb .chip[aria-pressed='true'] {
+  background: var(--surface-2);
+  border-color: var(--ink-soft);
 }
 
 /* ----- Layout ----- */
@@ -240,7 +56,7 @@
 
 @media (min-width: 1000px) {
   .hb-body {
-    grid-template-columns: 15.5rem minmax(0, 1fr);
+    grid-template-columns: 15rem minmax(0, 1fr);
     gap: 3rem;
   }
 
@@ -252,7 +68,7 @@
   }
 }
 
-/* ----- Contents rail, grouped by topic ----- */
+/* ----- Contents rail ----- */
 .hb-toc .picks {
   gap: 0;
 }
@@ -262,7 +78,7 @@
 }
 
 .hb-toc__group {
-  padding: 0.9rem 0.75rem 0.3rem;
+  padding: 1rem 0.75rem 0.3rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--ink-soft);
@@ -284,32 +100,8 @@
   background: transparent;
 }
 
-/* The selection fill takes the colour of the topic being read. */
-.hb-toc .indicator {
-  background: var(--tone-soft, var(--surface-2));
-  transition:
-    transform 320ms var(--ease-drawer),
-    height 320ms var(--ease-drawer),
-    width 320ms var(--ease-drawer),
-    background-color 400ms ease;
-}
-
-.hb-dot {
-  flex: none;
-  width: 0.5rem;
-  height: 0.5rem;
-  background: var(--tone);
-  border-radius: 50%;
-  opacity: 0.5;
-  transition: opacity 200ms ease;
-}
-
-.hb-toc .pick[aria-current='true'] .hb-dot {
-  opacity: 1;
-}
-
 @media (max-width: 999px) {
-  /* On phones the contents become one sideways row under the cover. */
+  /* On phones the contents become one sideways row under the search. */
   .hb-toc {
     position: sticky;
     top: 3.6rem;
@@ -342,7 +134,12 @@
 
 .hb-sec {
   scroll-margin-top: 1.5rem;
-  margin-bottom: 3.5rem;
+}
+
+.hb-sec + .hb-sec {
+  margin-top: 2.5rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--line);
 }
 
 @media (max-width: 999px) {
@@ -351,28 +148,11 @@
   }
 }
 
-/* Chapter opener: a band in the topic's soft colour, with a strong edge on the reading side. */
-.hb-sec__head {
-  display: grid;
-  gap: 0.2rem;
-  margin-bottom: 1.25rem;
-  padding: 1.1rem 1.25rem 1.1rem 1.25rem;
-  background: var(--tone-soft);
-  border-inline-start: 4px solid var(--tone);
-  border-radius: var(--radius-panel);
-}
-
-.hb-sec__head h2 {
-  margin: 0;
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
-  font-weight: 700;
+.hb-sec__title {
+  margin-bottom: 1rem;
+  font-size: clamp(1.6rem, 4vw, 2rem);
+  font-weight: 800;
   line-height: 1.15;
-}
-
-.hb-sec__meta {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--tone);
 }
 
 .hb-block + .hb-block {
@@ -380,26 +160,14 @@
 }
 
 .hb-block__title {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-bottom: 0.45rem;
-  font-size: 1.35rem;
+  margin-bottom: 0.4rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
-.hb-block__title::before {
-  content: '';
-  flex: none;
-  width: 0.9rem;
-  height: 3px;
-  background: var(--tone);
-  border-radius: 2px;
-}
-
 .hb-prose {
-  font-size: 1.0625rem;
-  line-height: 1.8;
+  font-size: 1.125rem;
+  line-height: 1.75;
 }
 
 .hb-prose p {
@@ -416,25 +184,16 @@
   margin-top: 0.3rem;
 }
 
-.hb-prose li::marker {
-  color: var(--tone);
-  font-weight: 600;
-}
-
 .hb-prose a {
   color: var(--ink);
-  text-decoration-color: var(--tone);
-  text-decoration-thickness: 2px;
   text-underline-offset: 3px;
 }
 
-/* The key sentence in a section gets a highlighter in the topic colour. */
 .hb-prose b {
   font-weight: 700;
-  background: linear-gradient(transparent 62%, var(--tone-soft) 62%);
 }
 
-/* ----- Option cards with pros and cons ----- */
+/* ----- Option cards: colour only on pros and cons, where it means something ----- */
 .hb-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
@@ -443,55 +202,29 @@
 }
 
 .hb-card {
-  padding: 1rem 1.1rem;
+  padding: 1.1rem 1.2rem;
   background: var(--surface-1);
-  border-top: 3px solid var(--tone);
   border-radius: var(--radius-panel);
-  transition: transform 450ms var(--ease-out);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .hb-card:hover {
-    transform: translateY(-3px);
-  }
 }
 
 .hb-card h3 {
-  margin-bottom: 0.4rem;
-  font-size: 1.25rem;
+  margin-bottom: 0.3rem;
+  font-size: 1.2rem;
   font-weight: 700;
 }
 
 .hb-card h4 {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0.6rem 0 0.2rem;
+  margin: 0.7rem 0 0.15rem;
   font-size: 0.9375rem;
   font-weight: 600;
-}
-
-.hb-card h4::before {
-  content: '';
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
 }
 
 .hb-card .hb-pros {
   color: var(--meaning-b);
 }
 
-.hb-card .hb-pros::before {
-  background: var(--meaning-b);
-}
-
 .hb-card .hb-cons {
   color: var(--meaning-c);
-}
-
-.hb-card .hb-cons::before {
-  background: var(--meaning-c);
 }
 
 .hb-card ul {
@@ -504,14 +237,9 @@
 /* ----- Checklist ----- */
 .hb-check {
   margin-top: 0.75rem;
-  padding: 1.1rem 1.2rem;
+  padding: 1rem 1.1rem;
   background: var(--surface-1);
   border-radius: var(--radius-panel);
-  transition: background-color 400ms ease;
-}
-
-.hb-check.is-complete {
-  background: var(--t-process-soft);
 }
 
 .hb-check__head {
@@ -522,9 +250,8 @@
 }
 
 .hb-check__count {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1;
 }
 
 .hb-check__count .soft {
@@ -534,24 +261,27 @@
 
 .hb-check__bar {
   flex: 1;
-  height: 8px;
+  height: 6px;
   overflow: hidden;
   background: var(--surface-3);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .hb-check__bar > span {
   display: block;
   height: 100%;
-  background: var(--t-process);
-  border-radius: 4px;
-  transition: width 320ms var(--ease-out);
+  background: var(--ink);
+  border-radius: 3px;
+}
+
+.hb-check.is-complete .hb-check__bar > span {
+  background: var(--meaning-b);
 }
 
 .hb-check__done {
   margin: 0 0 0.5rem;
   font-weight: 600;
-  color: var(--t-process);
+  color: var(--meaning-b);
 }
 
 .hb-check__list {
@@ -571,26 +301,19 @@
   line-height: 1.55;
   border-radius: var(--radius-control);
   cursor: pointer;
-  transition:
-    background 150ms ease,
-    color 150ms ease;
+  transition: background 150ms ease;
 }
 
 .hb-check__list input {
   flex: none;
   width: 1.2rem;
   height: 1.2rem;
-  margin-top: 0.25rem;
-  accent-color: var(--t-process);
+  margin-top: 0.2rem;
+  accent-color: var(--ink);
 }
 
 .hb-check__list label.is-done {
   color: var(--ink-soft);
-}
-
-.hb-check__list label.is-done span {
-  text-decoration: line-through;
-  text-decoration-color: var(--surface-3);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -599,7 +322,7 @@
   }
 }
 
-/* ----- Sources as link cards ----- */
+/* ----- Link cards, the same as the Tools cards ----- */
 .hb-links {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
@@ -608,20 +331,36 @@
 
 .hb-link {
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-content: start;
-  gap: 0.2rem;
-  padding: 0.9rem 1rem;
+  gap: 0.15rem 0.8rem;
+  padding: 0.95rem 1rem;
   color: var(--ink);
   text-decoration: none;
-  background: var(--tone-soft);
+  background: var(--surface-1);
   border-radius: var(--radius-panel);
   transition:
-    transform 160ms var(--ease-out),
-    background-color 150ms ease;
+    background 150ms ease,
+    transform 160ms var(--ease-out);
 }
 
 .hb-link:active {
   transform: scale(0.98);
+}
+
+.hb-link__icon {
+  grid-row: span 3;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.hb-link__icon img {
+  width: 20px;
+  height: 20px;
 }
 
 .hb-link__title {
@@ -631,47 +370,45 @@
 
 .hb-link__note {
   font-size: 0.9375rem;
+  line-height: 1.5;
   color: var(--ink-soft);
 }
 
 .hb-link__host {
-  margin-top: 0.35rem;
+  margin-top: 0.3rem;
   font-size: 0.8125rem;
-  color: var(--tone);
+  color: var(--ink-soft);
   text-align: right;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .hb-link:hover {
-    transform: translateY(-2px);
+    background: var(--surface-2);
   }
 }
 
-/* ----- Content rises in as it scrolls into view ----- */
-.hb [data-reveal] {
-  transition:
-    opacity 600ms var(--ease-out),
-    transform 600ms var(--ease-out);
+/* ----- Selection page: Tools cards, a little roomier, in Hebrew ----- */
+.tools.hb-hub {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  font-family: 'Heebo', Arial, system-ui, sans-serif;
 }
 
-/* Never fully transparent, so fast scrolling never shows an empty page. */
-.hb [data-reveal]:not([data-in]) {
-  opacity: 0.15;
-  transform: translateY(18px);
+.hb-hub .tool {
+  padding: 1.3rem 1.3rem 1.2rem;
+}
+
+.hb-hub .tool__name {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.hb-hub .tool__what {
+  font-size: 1rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hb-cover__grid {
-    transform: none;
-  }
-
-  .hb [data-reveal]:not([data-in]) {
-    transform: none;
-  }
-
-  .hb-check__bar > span,
-  .hb-card,
-  .hb-link {
+  .hb-link,
+  .hb-check__list label {
     transition: none;
   }
 }

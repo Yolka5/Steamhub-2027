@@ -10,8 +10,8 @@ import { useStore } from '../lib/store'
 const QUICK: { to: string; label: string; hint: string; icon: IconName }[] = [
   { to: '/stock', label: 'Find stock', hint: 'By size and length', icon: 'search' },
   { to: '/stock/add', label: 'Add stock', hint: 'From your phone', icon: 'plus' },
-  { to: '/calculators', label: 'Motor calculator', hint: 'Ratios and current', icon: 'calc' },
-  { to: '/handbook', label: 'Handbook', hint: 'המדריך למתכנן המכני', icon: 'book' },
+  { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench' },
+  { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
 ]
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { CutSheet } from '../components/CutSheet'
 import { Icon } from '../components/Icon'
 import { Photo, StatusTag } from '../components/PieceCard'
@@ -32,7 +32,6 @@ const WORDS: Record<string, string> = {
 
 export default function PiecePage() {
   const { id = '' } = useParams()
-  const navigate = useNavigate()
   const { byId, densities, locations, loading, upsertLocal } = useStore()
   const { session, userId, name } = useAuth()
   const toast = useToast()
@@ -79,10 +78,6 @@ export default function PiecePage() {
 
   return (
     <div className="page page--narrow">
-      <button type="button" className="back" onClick={() => (history.length > 1 ? navigate(-1) : navigate('/stock'))}>
-        <Icon name="back" size={18} /> Back
-      </button>
-
       <div className="piece">
         <Photo piece={piece} width={1200} className="piece__photo" />
         <div className="piece__info">

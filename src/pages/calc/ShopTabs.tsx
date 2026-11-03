@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { NumField } from '../../components/NumField'
 import { Copy } from '../../components/ui'
 import {
@@ -11,6 +12,7 @@ import {
   sprocketPitchDiameter,
   type DriveType,
 } from '../../lib/centers'
+import { COMMON_ORDER, THREADS, findThreads, threadDepth, threadsInWall, type Thread } from '../../lib/threads'
 import { f, Seg } from './shared'
 
 // ---------- Center distance ----------
@@ -169,7 +171,7 @@ function GearResult({ drive, a, b }: { drive: DriveType; a: number; b: number })
 
 type Row = (string | number)[]
 
-function SheetTable({ title, head, rows, note }: { title: string; head: string[]; rows: Row[]; note?: string }) {
+function SheetTable({ title, head, rows, note, highlight }: { title: string; head: string[]; rows: Row[]; note?: string; highlight?: Set<string> }) {
   return (
     <section>
       <h2 className="section__title">{title}</h2>
@@ -184,7 +186,7 @@ function SheetTable({ title, head, rows, note }: { title: string; head: string[]
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={String(r[0])}>
+              <tr key={String(r[0])} className={highlight?.has(String(r[0])) ? 'is-sel' : undefined}>
                 {r.map((c, i) => (
                   <td key={i}>{i === 0 || typeof c === 'string' ? c : <Copy value={c} />}</td>
                 ))}
@@ -198,28 +200,8 @@ function SheetTable({ title, head, rows, note }: { title: string; head: string[]
   )
 }
 
-// ISO 273 clearance (close / normal) and ISO coarse tap drills.
-const METRIC: Row[] = [
-  ['M2', 1.6, 2.2, 2.4],
-  ['M2.5', 2.05, 2.7, 2.9],
-  ['M3', 2.5, 3.2, 3.4],
-  ['M4', 3.3, 4.3, 4.5],
-  ['M5', 4.2, 5.3, 5.5],
-  ['M6', 5.0, 6.4, 6.6],
-  ['M8', 6.8, 8.4, 9.0],
-  ['M10', 8.5, 10.5, 11.0],
-]
-
-// Machinery's Handbook drill sizes, converted to mm.
-const IMPERIAL: Row[] = [
-  ['#4-40', '2.26 (#43)', '2.87 (#33)', '2.95 (#32)'],
-  ['#6-32', '2.71 (#36)', '3.57 (#28)', '3.80 (#25)'],
-  ['#8-32', '3.45 (#29)', '4.22 (#19)', '4.50 (#16)'],
-  ['#10-24', '3.80 (#25)', '4.85 (#11)', '5.11 (#7)'],
-  ['#10-32', '4.04 (#21)', '4.85 (#11)', '5.11 (#7)'],
-  ['1/4-20', '5.11 (#7)', '6.53 (F)', '6.76 (H)'],
-  ['1/4-28', '5.41 (#3)', '6.53 (F)', '6.76 (H)'],
-]
+const withDrill = (mmv: number, drill?: string): string | number => (drill ? `${mmv.toFixed(2)} (${drill})` : mmv)
+const threadRow = (t: Thread): Row => [t.name, `${+t.pitch.toFixed(3)}`, withDrill(t.tap, t.tapDrill), withDrill(t.close, t.closeDrill), withDrill(t.free, t.freeDrill)]
 
 const BEARINGS: Row[] = [
   ['R6-2RS / FR6-2RS', 9.525, 22.225, 7.142],
@@ -244,13 +226,157 @@ const HEX: Row[] = [
   ['1/2 in hex', 12.7, 14.66, 28.58],
 ]
 
-export function SheetTab() {
+/** Type a thread, get the holes. The answer is the biggest thing on the screen. */
+function TapLookup({ text, setText, matches }: { text: string; setText: (s: string) => void; matches: Thread[] }) {
+  const [wall, setWall] = useState('')
+  const [pick, setPick] = useState(0)
+  const t = matches.length ? matches[Math.min(pick, matches.length - 1)] : undefined
+  const wallMm = Number(wall.replace(',', '.'))
+  const fits = t && wall.trim() && wallMm > 0 ? threadsInWall(t, wallMm) : null
+
   return (
-    <div className="sheet-grid">
-      <SheetTable title="Metric screws" head={['Thread', 'Tap drill (mm)', 'Close fit (mm)', 'Normal fit (mm)']} rows={METRIC} note="Clearance from ISO 273. Use normal fit unless the part locates on the screw." />
-      <SheetTable title="Imperial screws" head={['Thread', 'Tap drill (mm)', 'Close fit (mm)', 'Free fit (mm)']} rows={IMPERIAL} note="Drill size in brackets. #10-32 and 1/4-20 are most of what goes on the robot." />
+    <section className="tap">
+      <div className="tap__inputs">
+        <label className="ctl tap__thread">
+          <span className="ctl__name">Thread</span>
+          <input
+            className="field field--big num"
+            placeholder="10-32, M5, 1/4-20"
+            value={text}
+            autoFocus={window.matchMedia('(pointer: fine)').matches}
+            onChange={(e) => {
+              setText(e.target.value)
+              setPick(0)
+            }}
+          />
+        </label>
+        <label className="ctl tap__wall">
+          <span className="ctl__name">Wall thickness, optional</span>
+          <span className="num-field__box">
+            <input className="num-field__input num" inputMode="decimal" placeholder="1.6" value={wall} onChange={(e) => setWall(e.target.value)} />
+            <span className="num-field__unit">mm</span>
+          </span>
+        </label>
+      </div>
+      <div className="chips">
+        {COMMON_ORDER.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className="chip num"
+            aria-pressed={t?.name === n}
+            onClick={() => {
+              setText(n)
+              setPick(0)
+            }}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+
+      {text.trim() && !t && <p className="soft">No thread called "{text.trim()}". Try 10-32, 1/4-20 or M5.</p>}
+
+      {t && (
+        <div className="tap__card">
+          <div className="tap__head">
+            <span className="tap__name num">{t.name}</span>
+            <span className="soft small num">
+              {t.system === 'metric' ? 'Metric coarse' : 'Imperial'}, pitch {+t.pitch.toFixed(3)} mm
+            </span>
+            {matches.length > 1 && (
+              <span className="tap__others small">
+                Also:
+                {matches.map((m, i) =>
+                  m === t ? null : (
+                    <button key={m.name} type="button" className="text-btn num" onClick={() => setPick(i)}>
+                      {m.name}
+                    </button>
+                  ),
+                )}
+              </span>
+            )}
+          </div>
+          <div className="tap__stats">
+            <div className="tap__stat">
+              <span className="stat__l">Tap drill</span>
+              <span className="tap__value num">
+                <Copy value={t.tap}>{t.tap.toFixed(2)}</Copy>
+                <span className="stat__u"> mm</span>
+              </span>
+              <span className="soft small num">{t.tapDrill ? `${t.tapDrill} drill, 75% thread` : 'ISO coarse'}</span>
+            </div>
+            <div className="tap__stat">
+              <span className="stat__l">Clearance hole</span>
+              <span className="tap__value tap__value--sm num">
+                <Copy value={t.free}>{t.free.toFixed(2)}</Copy>
+                <span className="stat__u"> mm free fit</span>
+              </span>
+              <span className="soft small num">
+                close fit {t.close.toFixed(2)} mm{t.closeDrill ? ` (${t.closeDrill})` : ''}
+                {t.freeDrill ? `, free is ${t.freeDrill}` : ''}
+              </span>
+            </div>
+            <div className="tap__stat">
+              <span className="stat__l">Tap at least</span>
+              <span className="tap__value tap__value--sm num">
+                <Copy value={+threadDepth(t).toFixed(1)}>{threadDepth(t).toFixed(1)}</Copy>
+                <span className="stat__u"> mm deep</span>
+              </span>
+              <span className="soft small">1.5 × diameter, full strength in aluminum</span>
+            </div>
+          </div>
+          {fits != null && (
+            <p className={`tap__wall-note ${fits < 2 ? 'is-bad' : fits < 3 ? 'is-warn' : 'is-ok'}`}>
+              {fits < 2
+                ? `Too thin to tap: only ${fits.toFixed(1)} threads fit in ${wallMm} mm. Use a rivnut, a threaded insert, or a through bolt with a nut.`
+                : fits < 3
+                  ? `On the edge: ${fits.toFixed(1)} threads fit in ${wallMm} mm. Fine for light loads; use a rivnut or a through bolt for anything that carries load.`
+                  : `Fits ${Math.floor(fits)} threads in ${wallMm} mm.`}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+export function SheetTab() {
+  const [params, setParams] = useSearchParams()
+  const text = params.get('t') ?? ''
+  const setText = (v: string) => {
+    const next = new URLSearchParams(params)
+    if (v) next.set('t', v)
+    else next.delete('t')
+    setParams(next, { replace: true })
+  }
+  const matches = findThreads(text)
+  const highlight = new Set(matches.map((m) => m.name))
+  const head = ['Thread', 'Pitch (mm)', 'Tap drill (mm)', 'Close fit (mm)', 'Free fit (mm)']
+
+  return (
+    <>
+      <TapLookup text={text} setText={setText} matches={matches} />
+      <div className="sheet-threads">
+      <SheetTable
+        title="Imperial screws"
+        head={head}
+        rows={THREADS.filter((t) => t.system === 'imperial').map(threadRow)}
+        highlight={highlight}
+        note="Drill size in brackets. Tap drills for 75% thread, clearance from the machinist chart. #10-32 and 1/4-20 are most of what goes on the robot."
+      />
+      <SheetTable
+        title="Metric screws"
+        head={head}
+        rows={THREADS.filter((t) => t.system === 'metric').map(threadRow)}
+        highlight={highlight}
+        note="ISO coarse threads. Clearance from ISO 273: close is the fine series, free the medium series."
+      />
+      </div>
+      <div className="sheet-grid">
       <SheetTable title="Bearings" head={['Bearing', 'ID (mm)', 'OD (mm)', 'Width (mm)']} rows={BEARINGS} note="R6 and R8 widths are for sealed bearings (open ones are thinner). Flanged versions add a flange, so check the vendor drawing for the flange size before cutting a pocket." />
       <SheetTable title="Hex shaft" head={['Shaft', 'Across flats (mm)', 'Across corners (mm)', 'Hex bearing OD (mm)']} rows={HEX} note="Hex bearing ODs are 7/8 in and 1.125 in (same as R8). Width changes by vendor, so check the drawing." />
-    </div>
+      </div>
+    </>
   )
 }

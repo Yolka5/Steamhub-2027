@@ -14,6 +14,14 @@ const PATHS = {
   close: 'M6 6l12 12M18 6 6 18',
   copy: 'M9 9h10v12H9zM5 15H4V3h12v1',
   check: 'M5 12.5l4.5 4.5L19 7',
+  wrench: 'M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z',
+  ruler: 'M3 17 17 3l4 4L7 21zM7 13l2 2M10 10l2 2M13 7l2 2',
+  screw: 'M9 3h6v4H9zM10 7v12l2 2 2-2V7M10 10l4-1M10 13l4-1M10 16l4-1',
+  chart: 'M4 20V4M4 20h16M7 15l4-5 3 3 5-7',
+  wheel: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  scale: 'M12 3v18M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0zM8 21h8',
+  cut: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.1 7.9 20 20M8.1 16.1 20 4',
+  external: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
 } as const
 
 export type IconName = keyof typeof PATHS

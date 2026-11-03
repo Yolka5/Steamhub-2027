@@ -76,6 +76,7 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 - Handbook: Hebrew, RTL, contents rail, search, pros/cons cards, working checklist, in Ctrl K.
 - Kickoff countdown on Home (9 Jan 2027, BIOCORE).
 - Calculator: Center distance tab (HTD 5 mm and GT2 3 mm belts, #25 and #35 chain, 20 and 32 DP gears) that lists the nearest belts or chains around the distance you want, and a Cheat sheet tab (tap drills, clearance holes, bearings, hex shaft). Both in Ctrl K.
+- Stock: Mechanisms page (`/stock/mechanisms`) with reserved stock grouped by mechanism and raw-material weight per mechanism, using planned length when set.
 
 ## Still open
 

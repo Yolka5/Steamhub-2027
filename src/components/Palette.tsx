@@ -18,6 +18,7 @@ const PAGES: Item[] = [
   { key: 'p-stock', label: 'Find stock', to: '/stock' },
   { key: 'p-add', label: 'Add stock', to: '/stock/add' },
   { key: 'p-cut', label: 'Cut list: lengths for a mechanism', to: '/stock/cut' },
+  { key: 'p-mech', label: 'Mechanisms: reserved stock and weight', to: '/stock/mechanisms' },
   { key: 'p-photos', label: 'Pieces that need a photo', to: '/stock/photos' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },
   { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/calculators?tab=center' },

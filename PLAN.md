@@ -75,6 +75,7 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 - Calculator: whole workbook ported (`src/lib/calc.ts`), checked against the spreadsheet with `npx tsx scripts/verify-calc.ts` (136 checks). One shared team robot in Supabase; edits are a private draft until "Save to team robot".
 - Handbook: Hebrew, RTL, contents rail, search, pros/cons cards, working checklist, in Ctrl K.
 - Kickoff countdown on Home (9 Jan 2027, BIOCORE).
+- Calculator: Center distance tab (HTD 5 mm and GT2 3 mm belts, #25 and #35 chain, 20 and 32 DP gears) that lists the nearest belts or chains around the distance you want, and a Cheat sheet tab (tap drills, clearance holes, bearings, hex shaft). Both in Ctrl K.
 
 ## Still open
 

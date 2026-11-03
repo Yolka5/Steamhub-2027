@@ -20,6 +20,8 @@ const PAGES: Item[] = [
   { key: 'p-cut', label: 'Cut list: lengths for a mechanism', to: '/stock/cut' },
   { key: 'p-photos', label: 'Pieces that need a photo', to: '/stock/photos' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },
+  { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/calculators?tab=center' },
+  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/calculators?tab=sheet' },
   { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook' },
 ]
 

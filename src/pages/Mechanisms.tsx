@@ -85,14 +85,14 @@ export default function Mechanisms() {
           </p>
 
           {groups.map((g) => (
-            <section key={g.name} className="mech">
-              <div className="mech__head">
+            <section key={g.name} className="mw">
+              <div className="mw__head">
                 <h2 className="section__title">{g.name}</h2>
-                <span className="mech__kg num">
+                <span className="mw__kg num">
                   <Copy value={kg(g.grams)} /> kg
                 </span>
               </div>
-              <div className="mech__bar" aria-hidden="true">
+              <div className="mw__bar" aria-hidden="true">
                 <span style={{ width: `${(g.grams / max) * 100}%` }} />
               </div>
               {(g.unplanned > 0 || g.unknown > 0) && (

@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Indicator } from '../../components/Indicator'
 import { LineChart } from '../../components/LineChart'
+import { Help } from '../../components/Help'
 import { NumField } from '../../components/NumField'
+import { HELP, STATUS_HELP } from '../../lib/calcHelp'
 import { Copy } from '../../components/ui'
 import { computeRobot, type Mechanism, type MechType, type Robot, type RobotResult } from '../../lib/calc'
 import { newMechanism } from '../../lib/calcDefaults'
@@ -99,14 +101,14 @@ function Budget({ robot, res, update }: { robot: Robot; res: RobotResult; update
   return (
     <section className="calc-section budget">
       <div className="budget__inputs">
-        <NumField label="Max battery draw" unit="A" value={robot.maxDraw} min={1} step={5} onChange={(v) => update((r) => ({ ...r, maxDraw: v }))} />
-        <NumField label="Max motors" value={robot.maxMotors} min={1} step={1} onChange={(v) => update((r) => ({ ...r, maxMotors: v }))} />
-        <NumField label="Battery voltage" unit="V" value={robot.voltage} min={1} step={0.5} onChange={(v) => update((r) => ({ ...r, voltage: v }))} />
+        <NumField help={HELP.maxDraw} label="Max battery draw" unit="A" value={robot.maxDraw} min={1} step={5} onChange={(v) => update((r) => ({ ...r, maxDraw: v }))} />
+        <NumField help={HELP.maxMotors} label="Max motors" value={robot.maxMotors} min={1} step={1} onChange={(v) => update((r) => ({ ...r, maxMotors: v }))} />
+        <NumField help={HELP.voltage} label="Battery voltage" unit="V" value={robot.voltage} min={1} step={0.5} onChange={(v) => update((r) => ({ ...r, voltage: v }))} />
       </div>
 
       <div className="stats budget__stats">
-        <Stat label="Biggest set draw" value={f(res.biggestSet)} unit="A" />
-        <Stat label="Budget scale factor" value={f(res.scale, 2)} />
+        <Stat help={HELP.biggestSet} label="Biggest set draw" value={f(res.biggestSet)} unit="A" />
+        <Stat help={HELP.scale} label="Budget scale factor" value={f(res.scale, 2)} />
         <div className="stat">
           <span className="stat__l">Motors used</span>
           <span className={`stat__v num ${over ? 'is-bad' : ''}`}>
@@ -115,8 +117,9 @@ function Budget({ robot, res, update }: { robot: Robot; res: RobotResult; update
           <span className="soft small">
             {[...res.motorCounts.entries()].map(([k, n]) => `${k} ${n}`).join(' · ')}
           </span>
+          <Help text={HELP.motorsUsed} />
         </div>
-        <Stat label="Everything at once" value={f(res.everything)} unit="A" />
+        <Stat help={HELP.everything} label="Everything at once" value={f(res.everything)} unit="A" />
       </div>
       {res.scale < 1 && (
         <p className="calc-note">
@@ -125,6 +128,7 @@ function Budget({ robot, res, update }: { robot: Robot; res: RobotResult; update
       )}
 
       <h2 className="section__title">Sets that run together</h2>
+      <Help text={HELP.sets} className="help--block" />
       <ul className="sets">
         {robot.setNames.map((name, i) => {
           const draw = res.setDraws[i]
@@ -191,6 +195,7 @@ function MechEditor({
         </div>
         <StatusTag status={r.status} />
       </div>
+      {r.status !== 'OK' && r.status !== 'OFF' && STATUS_HELP[r.status] && <p className="calc-note status-help">{STATUS_HELP[r.status]}</p>}
       <p className="calc-note soft">
         {o
           ? `Motor at ${f(o.motorRpm, 0)} RPM, ${f(r.batteryAll)} A from the battery for all ${m.motors} motor${m.motors > 1 ? 's' : ''}. `
@@ -202,39 +207,40 @@ function MechEditor({
         <Seg label="Type" value={m.type} onChange={(type) => edit({ type })} options={[{ value: 'pivot', label: 'Pivot' }, { value: 'linear', label: 'Linear' }, { value: 'roller', label: 'Roller' }]} />
         <Seg label="Mode" value={m.mode} onChange={(mode) => edit({ mode })} options={[{ value: 1, label: 'Find ratio' }, { value: 2, label: 'Check a ratio' }]} />
       </div>
+      <Help text={`${HELP.type} ${HELP.mode}`} className="help--block" />
 
       <div className="mech__grid">
         <div className="fields" role="group">
           <h3 className="fields__title">{m.type === 'pivot' ? 'Arm' : m.type === 'linear' ? 'Elevator' : 'Roller'}</h3>
           {m.type === 'pivot' && (
             <>
-              <NumField label="Load mass" unit="kg" value={m.pivotMass} min={0} step={0.1} onChange={(v) => edit({ pivotMass: v })} />
-              <NumField label="Distance to centre of mass" unit="cm" value={m.pivotDist} min={0} step={1} onChange={(v) => edit({ pivotDist: v })} />
-              <NumField label="Target speed" unit="deg/s" value={m.pivotSpeed} min={0} step={10} onChange={(v) => edit({ pivotSpeed: v })} />
+              <NumField help={HELP.pivotMass} label="Load mass" unit="kg" value={m.pivotMass} min={0} step={0.1} onChange={(v) => edit({ pivotMass: v })} />
+              <NumField help={HELP.pivotDist} label="Distance to centre of mass" unit="cm" value={m.pivotDist} min={0} step={1} onChange={(v) => edit({ pivotDist: v })} />
+              <NumField help={HELP.pivotSpeed} label="Target speed" unit="deg/s" value={m.pivotSpeed} min={0} step={10} onChange={(v) => edit({ pivotSpeed: v })} />
             </>
           )}
           {m.type === 'linear' && (
             <>
-              <NumField label="Carriage mass" unit="kg" value={m.carriageMass} min={0} step={0.1} onChange={(v) => edit({ carriageMass: v })} />
-              <NumField label="Middle stage mass" unit="kg" value={m.stageMass} min={0} step={0.1} onChange={(v) => edit({ stageMass: v })} />
-              <NumField label="Cascade stages" hint="1 = direct, 2 = two-stage continuous" value={m.stages} min={1} step={1} onChange={(v) => edit({ stages: v })} />
-              <NumField label="Pulley radius" unit="cm" value={m.pulleyRadius} min={0} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
-              <NumField label="Target speed" unit="m/s" value={m.linearSpeed} min={0} step={0.1} onChange={(v) => edit({ linearSpeed: v })} />
+              <NumField help={HELP.carriageMass} label="Carriage mass" unit="kg" value={m.carriageMass} min={0} step={0.1} onChange={(v) => edit({ carriageMass: v })} />
+              <NumField help={HELP.stageMass} label="Middle stage mass" unit="kg" value={m.stageMass} min={0} step={0.1} onChange={(v) => edit({ stageMass: v })} />
+              <NumField help={HELP.stages} label="Cascade stages" value={m.stages} min={1} step={1} onChange={(v) => edit({ stages: v })} />
+              <NumField help={HELP.pulleyRadius} label="Pulley radius" unit="cm" value={m.pulleyRadius} min={0} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
+              <NumField help={HELP.linearSpeed} label="Target speed" unit="m/s" value={m.linearSpeed} min={0} step={0.1} onChange={(v) => edit({ linearSpeed: v })} />
             </>
           )}
           {m.type === 'roller' && (
             <>
-              <NumField label="Wheel diameter" unit="cm" value={m.wheelDiameter} min={0} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
-              <NumField label="Spinning mass" unit="kg" value={m.spinMass} min={0} step={0.05} onChange={(v) => edit({ spinMass: v })} />
-              <NumField label="Drag from game piece" unit="Nm" value={m.dragTorque} min={0} step={0.05} onChange={(v) => edit({ dragTorque: v })} />
-              <NumField label="Spin-up time" unit="s" value={m.spinUp} min={0.01} step={0.05} onChange={(v) => edit({ spinUp: v })} />
-              <NumField label="Target wheel speed" unit="RPM" value={m.wheelRpm} min={0} step={100} onChange={(v) => edit({ wheelRpm: v })} />
+              <NumField help={HELP.wheelDiameter} label="Wheel diameter" unit="cm" value={m.wheelDiameter} min={0} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
+              <NumField help={HELP.spinMass} label="Spinning mass" unit="kg" value={m.spinMass} min={0} step={0.05} onChange={(v) => edit({ spinMass: v })} />
+              <NumField help={HELP.dragTorque} label="Drag from game piece" unit="Nm" value={m.dragTorque} min={0} step={0.05} onChange={(v) => edit({ dragTorque: v })} />
+              <NumField help={HELP.spinUp} label="Spin-up time" unit="s" value={m.spinUp} min={0.01} step={0.05} onChange={(v) => edit({ spinUp: v })} />
+              <NumField help={HELP.wheelRpm} label="Target wheel speed" unit="RPM" value={m.wheelRpm} min={0} step={100} onChange={(v) => edit({ wheelRpm: v })} />
             </>
           )}
           {m.mode === 2 && (
             <>
-              <NumField label="Gear ratio" unit=":1" value={m.ratio} min={0.01} step={1} onChange={(v) => edit({ ratio: v })} />
-              <NumField label="Motor speed" unit="RPM" value={m.motorRpm} min={0} step={100} onChange={(v) => edit({ motorRpm: v })} />
+              <NumField help={HELP.ratio} label="Gear ratio" unit=":1" value={m.ratio} min={0.01} step={1} onChange={(v) => edit({ ratio: v })} />
+              <NumField help={HELP.motorRpm} label="Motor speed" unit="RPM" value={m.motorRpm} min={0} step={100} onChange={(v) => edit({ motorRpm: v })} />
             </>
           )}
         </div>
@@ -248,16 +254,18 @@ function MechEditor({
                 <option key={x.name}>{x.name}</option>
               ))}
             </select>
+            <Help text={HELP.motor} />
           </label>
-          <NumField label="Motors in the gearbox" value={m.motors} min={1} step={1} onChange={(v) => edit({ motors: v })} />
-          <NumField label="Gearbox efficiency" value={m.efficiency} min={0.05} step={0.05} onChange={(v) => edit({ efficiency: Math.min(1, v) })} />
-          <NumField label="Max battery current" unit="A/motor" value={m.maxBattery} min={0} step={1} onChange={(v) => edit({ maxBattery: v })} />
-          <NumField label="Max stator current" unit="A/motor" value={m.maxStator} min={0} step={5} onChange={(v) => edit({ maxStator: v })} />
-          <NumField label="Max duty cycle" value={m.maxDuty} min={0.05} step={0.05} onChange={(v) => edit({ maxDuty: Math.min(1, v) })} />
-          {m.mode === 1 && <NumField label="Max gear ratio" unit=":1" value={m.maxRatio} min={1} step={10} onChange={(v) => edit({ maxRatio: v })} />}
+          <NumField help={HELP.motors} label="Motors in the gearbox" value={m.motors} min={1} step={1} onChange={(v) => edit({ motors: v })} />
+          <NumField help={HELP.efficiency} label="Gearbox efficiency" value={m.efficiency} min={0.05} step={0.05} onChange={(v) => edit({ efficiency: Math.min(1, v) })} />
+          <NumField help={HELP.maxBattery} label="Max battery current" unit="A/motor" value={m.maxBattery} min={0} step={1} onChange={(v) => edit({ maxBattery: v })} />
+          <NumField help={HELP.maxStator} label="Max stator current" unit="A/motor" value={m.maxStator} min={0} step={5} onChange={(v) => edit({ maxStator: v })} />
+          <NumField help={HELP.maxDuty} label="Max duty cycle" value={m.maxDuty} min={0.05} step={0.05} onChange={(v) => edit({ maxDuty: Math.min(1, v) })} />
+          {m.mode === 1 && <NumField help={HELP.maxRatio} label="Max gear ratio" unit=":1" value={m.maxRatio} min={1} step={10} onChange={(v) => edit({ maxRatio: v })} />}
         </div>
       </div>
 
+      <Help text={HELP.runsIn} className="help--block" />
       <div className="mech__sets">
         <span className="soft small">Runs in</span>
         {robot.setNames.map((name, i) => (
@@ -273,18 +281,18 @@ function MechEditor({
       </div>
 
       <div className="stats mech__results">
-        {m.type === 'pivot' && <Stat label="Time for 90°" value={f(r.time90, 2)} unit="s" />}
-        {m.type === 'linear' && <Stat label="Carriage speed" value={f(r.carriageSpeed, 2)} unit="m/s" />}
-        {m.type === 'roller' && <Stat label="Wheel surface speed" value={f(r.surfaceSpeed, 2)} unit="m/s" />}
-        <Stat label="Load torque" value={f(r.load, 2)} unit="Nm" />
-        <Stat label="Torque per motor" value={f(o?.torque, 3)} unit="Nm" />
-        <Stat label="Stator current" value={f(o?.stator)} unit="A" />
-        <Stat label="Duty cycle" value={pct(o?.duty)} />
-        <Stat label="Battery per motor" value={f(o?.battery)} unit="A" />
-        <Stat label="Motor efficiency" value={pct(o?.efficiency)} />
-        <Stat label="Load of stall" value={pct(r.load_)} />
-        <Stat label="Stall torque at output" value={f(r.stallTorqueOut)} unit="Nm" />
-        {r.stallLoad != null && <Stat label="Heaviest it can hold" value={f(r.stallLoad)} unit="kg" />}
+        {m.type === 'pivot' && <Stat help={HELP.time90} label="Time for 90°" value={f(r.time90, 2)} unit="s" />}
+        {m.type === 'linear' && <Stat help={HELP.carriageSpeed} label="Carriage speed" value={f(r.carriageSpeed, 2)} unit="m/s" />}
+        {m.type === 'roller' && <Stat help={HELP.surfaceSpeed} label="Wheel surface speed" value={f(r.surfaceSpeed, 2)} unit="m/s" />}
+        <Stat help={HELP.load} label="Load torque" value={f(r.load, 2)} unit="Nm" />
+        <Stat help={HELP.torque} label="Torque per motor" value={f(o?.torque, 3)} unit="Nm" />
+        <Stat help={HELP.stator} label="Stator current" value={f(o?.stator)} unit="A" />
+        <Stat help={HELP.duty} label="Duty cycle" value={pct(o?.duty)} />
+        <Stat help={HELP.battery} label="Battery per motor" value={f(o?.battery)} unit="A" />
+        <Stat help={HELP.motorEff} label="Motor efficiency" value={pct(o?.efficiency)} />
+        <Stat help={HELP.loadPct} label="Load of stall" value={pct(r.load_)} />
+        <Stat help={HELP.stallOut} label="Stall torque at output" value={f(r.stallTorqueOut)} unit="Nm" />
+        {r.stallLoad != null && <Stat help={HELP.stallLoad} label="Heaviest it can hold" value={f(r.stallLoad)} unit="kg" />}
       </div>
 
       <LineChart
@@ -335,10 +343,10 @@ function SwerveSummary({ robot, res, update }: { robot: Robot; res: RobotResult;
         <StatusTag status={sel.status} />
       </div>
       <div className="stats mech__results">
-        <Stat label="Drive battery, all modules" value={f(res.swerve.driveBattery)} unit="A" />
-        <Stat label="Steer allowance" value={f(res.swerve.steerBattery)} unit="A" />
-        <Stat label="Top speed" value={f(sel.topSpeed, 2)} unit="m/s" />
-        <Stat label="Usable acceleration" value={f(sel.accelUsable)} unit="m/s²" />
+        <Stat help={HELP.swBatteryAll} label="Drive battery, all modules" value={f(res.swerve.driveBattery)} unit="A" />
+        <Stat help={HELP.steerAllowance} label="Steer allowance" value={f(res.swerve.steerBattery)} unit="A" />
+        <Stat help={HELP.topSpeed} label="Top speed" value={f(sel.topSpeed, 2)} unit="m/s" />
+        <Stat help={HELP.accelUsable} label="Usable acceleration" value={f(sel.accelUsable)} unit="m/s²" />
       </div>
       <div className="mech__sets">
         <span className="soft small">Runs in</span>

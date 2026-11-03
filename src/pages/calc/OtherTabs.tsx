@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { LineChart } from '../../components/LineChart'
+import { Help } from '../../components/Help'
 import { NumField } from '../../components/NumField'
+import { HELP } from '../../lib/calcHelp'
 import { computeMechanism, computeSwerve, findMotor, mechanismAtRpm, motorCurve, voltageMap, type Motor, type Robot, type Swerve } from '../../lib/calc'
 import { f, pct, Seg, StatusTag, type Update } from './shared'
 
@@ -12,18 +14,18 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
   const edit = (p: Partial<Swerve>) => update((r) => ({ ...r, swerve: { ...r.swerve, ...p } }))
   const setRatio = (i: number, v: number) => edit({ ratios: s.ratios.map((x, j) => (j === i ? v : x)) as Swerve['ratios'] })
 
-  const rows: { label: string; unit?: string; get: (i: number) => string }[] = [
-    { label: 'Theoretical free speed', unit: 'm/s', get: (i) => f(res.ratios[i].freeSpeed, 2) },
-    { label: 'Top speed at max duty', unit: 'm/s', get: (i) => f(res.ratios[i].topSpeed, 2) },
-    { label: 'Acceleration limit, current', unit: 'm/s²', get: (i) => f(res.ratios[i].accelStator) },
-    { label: 'Acceleration limit, traction', unit: 'm/s²', get: (i) => f(res.ratios[i].accelTraction) },
-    { label: 'Usable acceleration', unit: 'm/s²', get: (i) => f(res.ratios[i].accelUsable) },
-    { label: 'Motor speed at your speed', unit: 'RPM', get: (i) => f(res.ratios[i].motorRpm, 0) },
-    { label: 'Torque per motor', unit: 'Nm', get: (i) => f(res.ratios[i].torque, 3) },
-    { label: 'Stator current per motor', unit: 'A', get: (i) => f(res.ratios[i].stator) },
-    { label: 'Duty cycle', get: (i) => pct(res.ratios[i].duty) },
-    { label: 'Battery current per motor', unit: 'A', get: (i) => f(res.ratios[i].battery) },
-    { label: 'Battery current, all drive motors', unit: 'A', get: (i) => f(res.ratios[i].batteryAll) },
+  const rows: { label: string; help?: string; unit?: string; get: (i: number) => string }[] = [
+    { label: 'Theoretical free speed', help: HELP.freeSpeed, unit: 'm/s', get: (i) => f(res.ratios[i].freeSpeed, 2) },
+    { label: 'Top speed at max duty', help: HELP.topSpeed, unit: 'm/s', get: (i) => f(res.ratios[i].topSpeed, 2) },
+    { label: 'Acceleration limit, current', help: HELP.accelStator, unit: 'm/s²', get: (i) => f(res.ratios[i].accelStator) },
+    { label: 'Acceleration limit, traction', help: HELP.accelTraction, unit: 'm/s²', get: (i) => f(res.ratios[i].accelTraction) },
+    { label: 'Usable acceleration', help: HELP.accelUsable, unit: 'm/s²', get: (i) => f(res.ratios[i].accelUsable) },
+    { label: 'Motor speed at your speed', help: HELP.swMotorRpm, unit: 'RPM', get: (i) => f(res.ratios[i].motorRpm, 0) },
+    { label: 'Torque per motor', help: HELP.swTorque, unit: 'Nm', get: (i) => f(res.ratios[i].torque, 3) },
+    { label: 'Stator current per motor', help: HELP.swStatorOut, unit: 'A', get: (i) => f(res.ratios[i].stator) },
+    { label: 'Duty cycle', help: HELP.swDutyOut, get: (i) => pct(res.ratios[i].duty) },
+    { label: 'Battery current per motor', help: HELP.swBattery, unit: 'A', get: (i) => f(res.ratios[i].battery) },
+    { label: 'Battery current, all drive motors', help: HELP.swBatteryAll, unit: 'A', get: (i) => f(res.ratios[i].batteryAll) },
   ]
 
   return (
@@ -31,8 +33,8 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
       <div className="fields-col">
         <div className="fields" role="group">
           <h3 className="fields__title">Robot</h3>
-          <NumField label="Robot mass" unit="kg" value={s.robotMass} min={1} step={1} onChange={(v) => edit({ robotMass: v })} />
-          <NumField label="Wheel diameter" unit="cm" value={s.wheelDiameter} min={1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
+          <NumField help={HELP.robotMass} label="Robot mass" unit="kg" value={s.robotMass} min={1} step={1} onChange={(v) => edit({ robotMass: v })} />
+          <NumField help={HELP.swWheel} label="Wheel diameter" unit="cm" value={s.wheelDiameter} min={1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
           <label className="num-field">
             <span className="num-field__label">Drive motor</span>
             <select className="field" value={s.motor} onChange={(e) => edit({ motor: e.target.value })}>
@@ -40,30 +42,34 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
                 <option key={m.name}>{m.name}</option>
               ))}
             </select>
+            <Help text={HELP.driveMotor} />
           </label>
-          <NumField label="Drive motors" value={s.driveMotors} min={1} step={1} onChange={(v) => edit({ driveMotors: v })} />
-          <NumField label="Drivetrain efficiency" value={s.efficiency} min={0.05} step={0.05} onChange={(v) => edit({ efficiency: Math.min(1, v) })} />
-          <NumField label="Rolling resistance" hint="Share of the robot's weight" value={s.rolling} min={0} step={0.01} onChange={(v) => edit({ rolling: v })} />
-          <NumField label="Tire friction" value={s.friction} min={0} step={0.1} onChange={(v) => edit({ friction: v })} />
-          <NumField label="Max stator current" unit="A" value={s.maxStator} min={0} step={5} onChange={(v) => edit({ maxStator: v })} />
-          <NumField label="Max duty cycle" value={s.maxDuty} min={0.05} step={0.05} onChange={(v) => edit({ maxDuty: Math.min(1, v) })} />
+          <NumField help={HELP.driveMotors} label="Drive motors" value={s.driveMotors} min={1} step={1} onChange={(v) => edit({ driveMotors: v })} />
+          <NumField help={HELP.swEff} label="Drivetrain efficiency" value={s.efficiency} min={0.05} step={0.05} onChange={(v) => edit({ efficiency: Math.min(1, v) })} />
+          <NumField help={HELP.rolling} label="Rolling resistance" value={s.rolling} min={0} step={0.01} onChange={(v) => edit({ rolling: v })} />
+          <NumField help={HELP.friction} label="Tire friction" value={s.friction} min={0} step={0.1} onChange={(v) => edit({ friction: v })} />
+          <NumField help={HELP.swStator} label="Max stator current" unit="A" value={s.maxStator} min={0} step={5} onChange={(v) => edit({ maxStator: v })} />
+          <NumField help={HELP.swDuty} label="Max duty cycle" value={s.maxDuty} min={0.05} step={0.05} onChange={(v) => edit({ maxDuty: Math.min(1, v) })} />
         </div>
         <div className="fields" role="group">
           <h3 className="fields__title">Operating point</h3>
-          <NumField label="Speed" unit="m/s" value={s.speed} min={0} step={0.5} onChange={(v) => edit({ speed: v })} />
-          <NumField label="Acceleration" unit="m/s²" value={s.accel} min={0} step={0.5} onChange={(v) => edit({ accel: v })} />
+          <NumField help={HELP.speed} label="Speed" unit="m/s" value={s.speed} min={0} step={0.5} onChange={(v) => edit({ speed: v })} />
+          <NumField help={HELP.accel} label="Acceleration" unit="m/s²" value={s.accel} min={0} step={0.5} onChange={(v) => edit({ accel: v })} />
         </div>
         <div className="fields" role="group">
           <h3 className="fields__title">Steering</h3>
-          <NumField label="Steer motors" value={s.steerMotors} min={0} step={1} onChange={(v) => edit({ steerMotors: v })} />
-          <NumField label="Battery allowance" unit="A/motor" value={s.steerAllowance} min={0} step={0.5} onChange={(v) => edit({ steerAllowance: v })} />
+          <NumField help={HELP.steerMotors} label="Steer motors" value={s.steerMotors} min={0} step={1} onChange={(v) => edit({ steerMotors: v })} />
+          <NumField help={HELP.steerAllowance} label="Battery allowance" unit="A/motor" value={s.steerAllowance} min={0} step={0.5} onChange={(v) => edit({ steerAllowance: v })} />
           <p className="soft small">Steering ratio {f(s.steerRatio, 2)}:1, Kraken X44.</p>
         </div>
       </div>
 
       <div>
         <div className="swerve-head">
-          <h2 className="section__title">Compare the three ratios</h2>
+          <div>
+            <h2 className="section__title">Compare the three ratios</h2>
+            <Help text={HELP.selected} className="help--block" />
+          </div>
           <Seg
             label="Ratio used by the robot"
             value={s.selected}
@@ -85,7 +91,10 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
             </thead>
             <tbody>
               <tr>
-                <td>Gear ratio, check on the SDS spec</td>
+                <td>
+                  Gear ratio, check on the SDS spec
+                  <Help text={HELP.swRatio} />
+                </td>
                 {[0, 1, 2].map((i) => (
                   <td key={i} className={s.selected === i ? 'is-sel' : ''}>
                     <NumField label={`R${i + 1}`} value={s.ratios[i]} min={0.1} step={0.01} onChange={(v) => setRatio(i, v)} />
@@ -97,6 +106,7 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
                   <td>
                     {row.label}
                     {row.unit && <span className="soft"> ({row.unit})</span>}
+                    <Help text={row.help} />
                   </td>
                   {[0, 1, 2].map((i) => (
                     <td key={i} className={s.selected === i ? 'is-sel' : ''}>
@@ -106,7 +116,10 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
                 </tr>
               ))}
               <tr>
-                <td>Status</td>
+                <td>
+                  Status
+                  <Help text={HELP.swStatus} />
+                </td>
                 {[0, 1, 2].map((i) => (
                   <td key={i} className={s.selected === i ? 'is-sel' : ''}>
                     <StatusTag status={res.ratios[i].status} />
@@ -141,6 +154,7 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
 
   return (
     <div className="curves">
+      <Help text={HELP.curvesIntro} className="help--block" />
       <div className="curves__pick">
         <label className="num-field">
           <span className="num-field__label">Mechanism</span>
@@ -158,9 +172,10 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
               </option>
             ))}
           </select>
+          <Help text={HELP.curveMech} />
         </label>
-        <NumField label="Gear ratio to test" unit=":1" value={r} min={0.1} step={1} onChange={setRatio} />
-        <NumField label="Voltage for the motor curve" hint="1 = full battery voltage, like a dyno" value={duty} min={0.05} step={0.05} onChange={(v) => setDuty(Math.min(1, v))} />
+        <NumField help={HELP.curveRatio} label="Gear ratio to test" unit=":1" value={r} min={0.1} step={1} onChange={setRatio} />
+        <NumField help={HELP.curveDuty} label="Voltage for the motor curve" value={duty} min={0.05} step={0.05} onChange={(v) => setDuty(Math.min(1, v))} />
       </div>
       <p className="calc-note soft">
         {mech.name}: {motor.name}, {mech.motors} motor{mech.motors > 1 ? 's' : ''}, {f(res.load, 2)} Nm at the output. The load is the same at every speed, so stator current
@@ -183,6 +198,7 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
         />
       </div>
 
+      <Help text={HELP.curveTable} className="help--block" />
       <div className="table-wrap">
         <table className="ctable num">
           <thead>
@@ -217,6 +233,7 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
       </div>
 
       <h2 className="section__title">{motor.name} motor curve</h2>
+      <Help text={HELP.curveMotor} className="help--block" />
       <div className="charts-2">
         <LineChart title="Torque" series={[{ name: 'Torque', slot: 1, points: curve.map((c) => [c.rpm, c.torque]) }]} xLabel="Motor RPM" yLabel="Nm" />
         <LineChart
@@ -261,6 +278,7 @@ export function VoltageTab({ robot }: { robot: Robot }) {
 
   return (
     <div className="curves">
+      <Help text={HELP.voltIntro} className="help--block" />
       <div className="curves__pick">
         <label className="num-field">
           <span className="num-field__label">Motor</span>
@@ -269,9 +287,10 @@ export function VoltageTab({ robot }: { robot: Robot }) {
               <option key={m.name}>{m.name}</option>
             ))}
           </select>
+          <Help text={HELP.voltMotor} />
         </label>
-        <NumField label="Datasheet voltage" unit="V" value={sheetV} min={1} step={0.5} onChange={setSheetV} />
-        <NumField label="Battery voltage" unit="V" value={batV} min={1} step={0.5} onChange={setBatV} />
+        <NumField help={HELP.sheetV} label="Datasheet voltage" unit="V" value={sheetV} min={1} step={0.5} onChange={setSheetV} />
+        <NumField help={HELP.batV} label="Battery voltage" unit="V" value={batV} min={1} step={0.5} onChange={setBatV} />
         {volts.map((v, i) => (
           <NumField key={i} label={`Voltage ${i + 1}`} unit="V" value={v} min={0.5} step={0.5} onChange={(n) => setVolts((vs) => vs.map((x, j) => (j === i ? n : x)))} />
         ))}
@@ -336,6 +355,7 @@ export function MotorsTab({ robot, update }: { robot: Robot; update: Update }) {
   const edit = (i: number, p: Partial<Motor>) => update((r) => ({ ...r, motors: r.motors.map((m, j) => (j === i ? { ...m, ...p } : m)) }))
   return (
     <div>
+      <Help text={HELP.motorsIntro} className="help--block" />
       <p className="calc-note soft">Datasheet numbers at 12 V. Torque in Nm, current in A. Check them against the WCP docs for the exact motor version.</p>
       <div className="table-wrap">
         <table className="ctable num">

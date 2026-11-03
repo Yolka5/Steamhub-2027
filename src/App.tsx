@@ -14,6 +14,7 @@ import PiecePage from './pages/Piece'
 import AddStock from './pages/AddStock'
 import NeedsPhoto from './pages/NeedsPhoto'
 import CutList from './pages/CutList'
+import Mechanisms from './pages/Mechanisms'
 import Handbook from './pages/Handbook'
 import Calculator from './pages/Calculator'
 
@@ -157,6 +158,7 @@ export default function App() {
             <Route path="/stock/add" element={<AddStock />} />
             <Route path="/stock/photos" element={<NeedsPhoto />} />
             <Route path="/stock/cut" element={<CutList />} />
+            <Route path="/stock/mechanisms" element={<Mechanisms />} />
             <Route path="/stock/:id" element={<PiecePage />} />
             <Route path="/calculators" element={<Calculator />} />
             <Route path="/handbook" element={<Handbook />} />

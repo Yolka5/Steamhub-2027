@@ -18,8 +18,15 @@ const PAGES: Item[] = [
   { key: 'p-stock', label: 'Find stock', to: '/stock' },
   { key: 'p-add', label: 'Add stock', to: '/stock/add' },
   { key: 'p-cut', label: 'Cut list: lengths for a mechanism', to: '/stock/cut' },
+  { key: 'p-mech', label: 'Mechanisms: reserved stock and weight', to: '/stock/mechanisms' },
   { key: 'p-photos', label: 'Pieces that need a photo', to: '/stock/photos' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },
+  { key: 'p-swerve', label: 'Swerve: compare drive ratios', to: '/calculators?tab=swerve' },
+  { key: 'p-curves', label: 'Motor curves', to: '/calculators?tab=curves' },
+  { key: 'p-voltage', label: 'Voltage map', to: '/calculators?tab=voltage' },
+  { key: 'p-motors', label: 'Motors table', to: '/calculators?tab=motors' },
+  { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/calculators?tab=center' },
+  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/calculators?tab=sheet' },
   { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook' },
 ]
 

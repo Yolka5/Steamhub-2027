@@ -2,7 +2,7 @@
 
 Hub for FRC 1577 Steampunk. The goal is to save CAD members minutes and energy during build season. Every screen is judged on how many clicks it saves.
 
-Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Next: deploy on Vercel, then Manufacturing with Tom's tool.
+Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut). Next: deploy on Vercel and the photo copy function, then Manufacturing with Tom's tool.
 
 ## Decisions
 
@@ -75,10 +75,19 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 - Calculator: whole workbook ported (`src/lib/calc.ts`), checked against the spreadsheet with `npx tsx scripts/verify-calc.ts` (136 checks). One shared team robot in Supabase; edits are a private draft until "Save to team robot".
 - Handbook: Hebrew, RTL, contents rail, search, pros/cons cards, working checklist, in Ctrl K.
 - Kickoff countdown on Home (9 Jan 2027, BIOCORE).
+- Calculator: Center distance tab (HTD 5 mm and GT2 3 mm belts, #25 and #35 chain, 20 and 32 DP gears) that lists the nearest belts or chains around the distance you want, and a Cheat sheet tab (tap drills, clearance holes, bearings, hex shaft). Both in Ctrl K.
+- Stock: Mechanisms page (`/stock/mechanisms`) with reserved stock grouped by mechanism and raw-material weight per mechanism, using planned length when set.
+- Stock: Cut. On a reserved piece, enter the final length from the drawing; the leftover (minus 3 mm kerf) goes back to Available under the same ID and the new length is shown big to rewrite on the piece. Logged in History. Manufacturing can call the same `cutPiece` action later.
+- Ctrl K also lists every calculator tab.
+- Drive photo copy: edge function `supabase/functions/copy-drive-photos` plus a "Copy from Drive" button on Needs photo. Written, not deployed yet.
 
 ## Still open
 
-- Copy stock photos from Drive into Supabase storage, so photos don't depend on the Drive folder staying shared. Needs a server-side step (Supabase edge function) since the browser can't write without signing in.
+- Deploy the `copy-drive-photos` edge function (`supabase functions deploy copy-drive-photos`), then press "Copy from Drive" on Needs photo once. 80 pieces still point at Drive.
+- Deploy the site on Vercel.
+- Manufacturing with Tom's tool (waiting on Tom).
+- Onshape integration (needs Onshape API keys).
+- QR stickers, if the sharpie labels stop being enough.
 
 ## Build order
 

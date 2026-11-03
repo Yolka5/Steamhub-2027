@@ -473,6 +473,8 @@ input.mech__name:focus {
 /* ----- Two columns: inputs left, results right ----- */
 .calc-two {
   display: grid;
+  /* minmax(0, ...) so wide inputs and tables can't push the column past a phone screen. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -675,4 +677,15 @@ input.mech__name:focus {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+/* ----- Cheat sheets ----- */
+.sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
+  gap: 0.5rem 2rem;
+}
+
+.sheet-grid .section__title {
+  margin-top: 0;
 }

@@ -79,6 +79,9 @@ export default function Stock() {
           <Link to="/stock/cut" className="q-btn">
             Cut list
           </Link>
+          <Link to="/stock/mechanisms" className="q-btn">
+            Mechanisms
+          </Link>
           <Link to="/stock/photos" className="q-btn">
             Needs photo <span className="badge num">{photoCount}</span>
           </Link>

@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { useCalcRobot } from '../lib/useCalcRobot'
 import { CurvesTab, MotorsTab, SwerveTab, VoltageTab } from './calc/OtherTabs'
 import { RobotTab } from './calc/RobotTab'
+import { CenterTab, SheetTab } from './calc/ShopTabs'
 
 const TABS = [
   { id: 'robot', label: 'Robot' },
@@ -11,6 +12,8 @@ const TABS = [
   { id: 'curves', label: 'Motor curves' },
   { id: 'voltage', label: 'Voltage map' },
   { id: 'motors', label: 'Motors' },
+  { id: 'center', label: 'Center distance' },
+  { id: 'sheet', label: 'Cheat sheet' },
 ] as const
 
 function ago(iso: string) {
@@ -86,6 +89,8 @@ export default function Calculator() {
       {tab === 'curves' && <CurvesTab robot={calc.robot} initial={params.get('m')} />}
       {tab === 'voltage' && <VoltageTab robot={calc.robot} />}
       {tab === 'motors' && <MotorsTab robot={calc.robot} update={calc.update} />}
+      {tab === 'center' && <CenterTab />}
+      {tab === 'sheet' && <SheetTab />}
     </div>
   )
 }

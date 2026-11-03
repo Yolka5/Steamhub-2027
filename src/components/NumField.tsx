@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Help } from './Help'
 
 /**
  * A number input that lets people type freely ("0.", "-", "") and only reports a value when it
@@ -12,6 +13,7 @@ export function NumField({
   step,
   min,
   hint,
+  help,
 }: {
   label: string
   unit?: string
@@ -19,7 +21,10 @@ export function NumField({
   onChange: (n: number) => void
   step?: number
   min?: number
+  /** Short reminder that is always shown. */
   hint?: string
+  /** The longer explanation, shown when Explain is on. */
+  help?: string
 }) {
   const [text, setText] = useState(String(value))
 
@@ -30,7 +35,7 @@ export function NumField({
   }, [value])
 
   return (
-    <label className="num-field" title={hint}>
+    <label className="num-field">
       <span className="num-field__label">{label}</span>
       <span className="num-field__box">
         <input
@@ -53,6 +58,8 @@ export function NumField({
         />
         {unit && <span className="num-field__unit">{unit}</span>}
       </span>
+      {hint && <span className="help help--always">{hint}</span>}
+      <Help text={help} />
     </label>
   )
 }

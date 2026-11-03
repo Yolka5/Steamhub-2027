@@ -1,3 +1,4 @@
+import { Help } from '../../components/Help'
 import type { Robot } from '../../lib/calc'
 
 // Bits shared by the calculator tabs.
@@ -15,7 +16,7 @@ export function StatusTag({ status }: { status: string }) {
   return <span className={`tag ${cls}`}>{label}</span>
 }
 
-export function Stat({ label, value, unit }: { label: string; value: string; unit?: string }) {
+export function Stat({ label, value, unit, help }: { label: string; value: string; unit?: string; help?: string }) {
   return (
     <div className="stat">
       <span className="stat__l">{label}</span>
@@ -23,6 +24,7 @@ export function Stat({ label, value, unit }: { label: string; value: string; uni
         {value}
         {unit && value !== '—' && <span className="stat__u"> {unit}</span>}
       </span>
+      <Help text={help} />
     </div>
   )
 }

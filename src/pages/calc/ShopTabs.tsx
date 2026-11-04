@@ -5,7 +5,9 @@ import { Copy } from '../../components/ui'
 import {
   DRIVES,
   GEAR_EXTRA,
+  centerForCount,
   gearCenter,
+  gearPairsNear,
   gearPitchDiameter,
   optionsNear,
   pulleyPitchDiameter,
@@ -20,15 +22,43 @@ import { f, Seg } from './shared'
 const mm = (n: number) => n.toFixed(2)
 const inch = (n: number) => (n / 25.4).toFixed(3)
 
+type CdMode = 'find' | 'have'
+
+const MODE_LABELS: Record<DriveType['kind'], [string, string]> = {
+  belt: ['Find a belt', 'I have a belt'],
+  chain: ['Find a chain', 'I have a chain'],
+  gear: ['Find gears', 'I have gears'],
+}
+
 export function CenterTab() {
+  const [params, setParams] = useSearchParams()
   const [driveId, setDriveId] = useState('htd5')
   const [z1, setZ1] = useState(18)
   const [z2, setZ2] = useState(36)
   const [target, setTarget] = useState(150)
   const [step, setStep] = useState<1 | 5>(1)
+  const [count, setCount] = useState(100)
+  const [beltBy, setBeltBy] = useState<'teeth' | 'mm'>('teeth')
+  const [beltMm, setBeltMm] = useState(500)
+  const [gearTarget, setGearTarget] = useState(47)
+  const [ratio, setRatio] = useState(4)
+  const [minTeeth, setMinTeeth] = useState(12)
   const drive = DRIVES.find((d) => d.id === driveId)!
   const a = Math.round(z1)
   const b = Math.round(z2)
+  // The mode lives in the link, so "I have a belt" can be sent to someone.
+  const mode: CdMode = params.get('cd') === 'have' ? 'have' : 'find'
+  const setMode = (m: CdMode) => {
+    const next = new URLSearchParams(params)
+    if (m === 'have') next.set('cd', 'have')
+    else next.delete('cd')
+    setParams(next, { replace: true })
+  }
+  const gearFind = drive.kind === 'gear' && mode === 'find'
+  const part = drive.kind === 'gear' ? 'Gear' : drive.kind === 'chain' ? 'Sprocket' : 'Pulley'
+  // A belt's printed length is its pitch length, so it is a whole number of teeth.
+  const beltTeeth = beltBy === 'mm' ? Math.round(beltMm / drive.pitch) : Math.round(count)
+  const lengthOff = drive.kind === 'belt' && mode === 'have' && beltBy === 'mm' && Math.abs(beltMm / drive.pitch - beltTeeth) > 0.01
 
   return (
     <div className="calc-two">
@@ -45,10 +75,24 @@ export function CenterTab() {
               ))}
             </select>
           </label>
-          <NumField label={drive.kind === 'gear' ? 'Gear 1 teeth' : drive.kind === 'chain' ? 'Sprocket 1 teeth' : 'Pulley 1 teeth'} value={z1} min={6} step={1} onChange={setZ1} />
-          <NumField label={drive.kind === 'gear' ? 'Gear 2 teeth' : drive.kind === 'chain' ? 'Sprocket 2 teeth' : 'Pulley 2 teeth'} value={z2} min={6} step={1} onChange={setZ2} />
-          {drive.kind !== 'gear' && <NumField label="Center distance you want" unit="mm" value={target} min={1} step={1} onChange={setTarget} />}
-          {drive.kind === 'belt' && (
+          <div className="num-field num-field--wide">
+            <span className="num-field__label">What you know</span>
+            <Seg label="What you know" value={mode} onChange={setMode} options={[{ value: 'find', label: MODE_LABELS[drive.kind][0] }, { value: 'have', label: MODE_LABELS[drive.kind][1] }]} />
+          </div>
+          {gearFind ? (
+            <>
+              <NumField label="Center distance you have" unit="mm" value={gearTarget} min={1} step={0.5} onChange={setGearTarget} />
+              <NumField label="Ratio you want" unit=":1" value={ratio} min={1} step={0.5} onChange={setRatio} />
+              <NumField label="Smallest gear" unit="teeth" value={minTeeth} min={6} step={1} onChange={setMinTeeth} />
+            </>
+          ) : (
+            <>
+              <NumField label={`${part} 1 teeth`} value={z1} min={6} step={1} onChange={setZ1} />
+              <NumField label={`${part} 2 teeth`} value={z2} min={6} step={1} onChange={setZ2} />
+            </>
+          )}
+          {drive.kind !== 'gear' && mode === 'find' && <NumField label="Center distance you want" unit="mm" value={target} min={1} step={1} onChange={setTarget} />}
+          {drive.kind === 'belt' && mode === 'find' && (
             <div className="num-field">
               <span className="num-field__label">Belt sizes</span>
               <Seg
@@ -62,13 +106,50 @@ export function CenterTab() {
               />
             </div>
           )}
-          <p className="soft small">
-            Ratio {f(Math.max(a, b) / Math.min(a, b), 3)}:1. Pitch diameters {f(pitchDia(drive, a), 2)} and {f(pitchDia(drive, b), 2)} mm.
-          </p>
+          {drive.kind === 'belt' && mode === 'have' && (
+            <>
+              <div className="num-field num-field--wide">
+                <span className="num-field__label">Belt size by</span>
+                <Seg
+                  label="Belt size by"
+                  value={beltBy}
+                  onChange={setBeltBy}
+                  options={[
+                    { value: 'teeth', label: 'Teeth' },
+                    { value: 'mm', label: 'Printed length' },
+                  ]}
+                />
+              </div>
+              {beltBy === 'teeth' ? (
+                <NumField label="Belt teeth" value={count} min={10} step={1} onChange={setCount} />
+              ) : (
+                <NumField label="Length on the belt" hint={`Like 500 in "500-5M-15". That's ${beltTeeth} teeth.`} unit="mm" value={beltMm} min={10} step={drive.pitch} onChange={setBeltMm} />
+              )}
+            </>
+          )}
+          {drive.kind === 'chain' && mode === 'have' && <NumField label="Chain links" value={count} min={10} step={1} onChange={setCount} />}
+          {!gearFind && (
+            <p className="soft small">
+              Ratio {f(Math.max(a, b) / Math.min(a, b), 3)}:1. Pitch diameters {f(pitchDia(drive, a), 2)} and {f(pitchDia(drive, b), 2)} mm.
+            </p>
+          )}
+          {lengthOff && <p className="error small">That length isn't a whole number of {drive.pitch} mm teeth. Check the label: the first number is the pitch length.</p>}
         </div>
       </div>
 
-      <div>{drive.kind === 'gear' ? <GearResult drive={drive} a={a} b={b} /> : <BeltChainResult drive={drive} a={a} b={b} target={target} step={drive.kind === 'belt' ? step : 1} />}</div>
+      <div>
+        {drive.kind === 'gear' ? (
+          mode === 'find' ? (
+            <GearFindResult drive={drive} target={gearTarget} ratio={ratio} minTeeth={Math.round(minTeeth)} />
+          ) : (
+            <GearResult drive={drive} a={a} b={b} />
+          )
+        ) : mode === 'find' ? (
+          <BeltChainResult drive={drive} a={a} b={b} target={target} step={drive.kind === 'belt' ? step : 1} />
+        ) : (
+          <HaveResult drive={drive} a={a} b={b} count={drive.kind === 'belt' ? beltTeeth : Math.round(count)} />
+        )}
+      </div>
     </div>
   )
 }
@@ -125,6 +206,133 @@ function BeltChainResult({ drive, a, b, target, step }: { drive: DriveType; a: n
         {drive.kind === 'belt'
           ? 'Exact pitch-line math, no added stretch. Click a distance to copy it into Onshape.'
           : 'Standard chain length formula. Odd link counts need a half link, so pick an even one when you can. Leave room for a tensioner.'}
+      </p>
+    </>
+  )
+}
+
+/** You already have the belt or chain: where to put the shafts. */
+function HaveResult({ drive, a, b, count }: { drive: DriveType; a: number; b: number; count: number }) {
+  const center = centerForCount(drive, a, b, count)
+  const belt = drive.kind === 'belt'
+  const unit = belt ? 'teeth' : 'links'
+  const near = [-2, -1, 1, 2]
+    .map((d) => count + d)
+    .filter((n) => n > 0)
+    .map((n) => ({ n, c: centerForCount(drive, a, b, n) }))
+    .filter((x): x is { n: number; c: number } => x.c != null)
+
+  return (
+    <>
+      <h2 className="section__title">
+        Your {count} {belt ? 'tooth belt' : 'link chain'}
+      </h2>
+      {center == null ? (
+        <p className="soft">
+          Too short: a {count} {belt ? 'tooth belt' : 'link chain'} can't wrap both {belt ? 'pulleys' : 'sprockets'} without them overlapping. You need a longer one or smaller{' '}
+          {belt ? 'pulleys' : 'sprockets'}.
+        </p>
+      ) : (
+        <>
+          <p className="have__big num">
+            <Copy value={mm(center)}>{mm(center)}</Copy> <span className="have__unit">mm</span>
+          </p>
+          <p className="soft num">
+            {inch(center)} in center to center
+            {belt ? ` · pitch length ${f(count * drive.pitch, 0)} mm` : ''}
+            {!belt && count % 2 === 1 && <span className="tag tag--reserved"> Half link</span>}
+          </p>
+          {near.length > 0 && (
+            <div className="table-wrap">
+              <table className="ctable num">
+                <thead>
+                  <tr>
+                    <th>If you had instead</th>
+                    <th>Center distance (mm)</th>
+                    <th>(in)</th>
+                    <th>Change (mm)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {near.map(({ n, c }) => (
+                    <tr key={n}>
+                      <td>
+                        {n} {unit}
+                        {!belt && n % 2 === 1 && <span className="tag tag--reserved"> Half link</span>}
+                      </td>
+                      <td>
+                        <Copy value={mm(c)} />
+                      </td>
+                      <td>{inch(c)}</td>
+                      <td>
+                        {c - center >= 0 ? '+' : ''}
+                        {f(c - center, 2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+      <p className="calc-note soft">
+        {belt
+          ? 'Exact pitch-line math, no added stretch. Click the distance to copy it into Onshape.'
+          : 'Standard chain length formula. Leave room for a tensioner. Click the distance to copy it.'}
+      </p>
+    </>
+  )
+}
+
+/** You have a center distance: which gears fit it, nearest the ratio you want. */
+function GearFindResult({ drive, target, ratio, minTeeth }: { drive: DriveType; target: number; ratio: number; minTeeth: number }) {
+  const pairs = gearPairsNear(drive.pitch, target, ratio, minTeeth).slice(0, 8)
+  return (
+    <>
+      <h2 className="section__title">
+        Gears for {f(target, 1)} mm, near {f(ratio, 2)}:1
+      </h2>
+      {pairs.length === 0 ? (
+        <p className="soft">No pair fits. Try a smaller smallest gear, a different ratio or a bigger distance.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="ctable num">
+            <thead>
+              <tr>
+                <th>Gears</th>
+                <th>Ratio</th>
+                <th>Exact (mm)</th>
+                <th>+0.003 in (mm)</th>
+                <th>Off by (mm)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pairs.map((p, i) => (
+                <tr key={`${p.z1}-${p.z2}`} className={i === 0 ? 'is-sel' : ''}>
+                  <td className="nowrap">
+                    {p.z1}T : {p.z2}T
+                  </td>
+                  <td className={i === 0 ? 'is-sel' : ''}>{f(p.ratio, 3)}:1</td>
+                  <td className={i === 0 ? 'is-sel' : ''}>
+                    <Copy value={mm(p.center)} />
+                  </td>
+                  <td className={i === 0 ? 'is-sel' : ''}>
+                    <Copy value={mm(p.center + GEAR_EXTRA)} />
+                  </td>
+                  <td className={i === 0 ? 'is-sel' : ''}>
+                    {p.delta >= 0 ? '+' : ''}
+                    {f(p.delta, 2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="calc-note soft">
+        Gear center distance only depends on the total teeth, so only a few totals land near your distance. Sorted by closest distance, then closest ratio. Most FRC teams add 0.003
+        in so the gears don't bind.
       </p>
     </>
   )

@@ -32,6 +32,7 @@ const PAGES: Item[] = [
   { key: 'p-voltage', label: 'Voltage map', to: '/calculators?tab=voltage' },
   { key: 'p-motors', label: 'Motors table', to: '/calculators?tab=motors' },
   { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/calculators?tab=center' },
+  { key: 'p-center-have', label: 'Center distance for a belt or chain I have', to: '/calculators?tab=center&cd=have' },
   { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/calculators?tab=sheet', keywords: 'tap tapping thread הברזה הברזות קידוח מיסב' },
   { key: 'p-tools', label: 'Tools: every calculator and outside tool', to: '/tools', keywords: 'calculator כלים מחשבון' },
   { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook/design', keywords: 'המדריך למתכנן המכני' },

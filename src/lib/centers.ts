@@ -6,7 +6,7 @@ export interface DriveType {
   id: string
   kind: DriveKind
   label: string
-  /** Belt or chain pitch, or gear circular module (mm per tooth of pitch diameter). */
+  /** Belt or chain pitch in mm, or the gear module (mm of pitch diameter per tooth). */
   pitch: number
 }
 
@@ -17,6 +17,8 @@ export const DRIVES: DriveType[] = [
   { id: 'c35', kind: 'chain', label: '#35 chain', pitch: 9.525 },
   { id: 'dp20', kind: 'gear', label: '20 DP gear', pitch: 25.4 / 20 },
   { id: 'dp32', kind: 'gear', label: '32 DP gear', pitch: 25.4 / 32 },
+  { id: 'mod1', kind: 'gear', label: 'Module 1 gear', pitch: 1 },
+  { id: 'mod15', kind: 'gear', label: 'Module 1.5 gear', pitch: 1.5 },
 ]
 
 /** Usual FRC gear clearance, 0.003 in. */
@@ -96,4 +98,40 @@ export function optionsNear(drive: DriveType, z1: number, z2: number, target: nu
     out.push({ count, center, delta: center - target })
   }
   return out
+}
+
+/** Exact center distance for a belt or chain you already have. Null if it's too short to fit. */
+export function centerForCount(drive: DriveType, z1: number, z2: number, count: number) {
+  return drive.kind === 'belt' ? beltCenter(drive.pitch, z1, z2, count) : chainCenter(drive.pitch, z1, z2, count)
+}
+
+export interface GearPair {
+  z1: number
+  z2: number
+  ratio: number
+  center: number
+  delta: number
+}
+
+/**
+ * Gear pairs that fit a center distance you already have, closest to the ratio you want.
+ * For a given module the distance only depends on the total teeth, so it tries the tooth totals
+ * around the target and, for each, the split that gets nearest the ratio.
+ */
+export function gearPairsNear(m: number, target: number, ratio: number, minTeeth = 10, maxTeeth = 120, around = 2): GearPair[] {
+  const r = Math.max(1, ratio)
+  const sum0 = Math.round((2 * target) / m)
+  const out: GearPair[] = []
+  for (let s = sum0 - around; s <= sum0 + around; s++) {
+    // Try the two splits either side of the exact ratio, keep both: one a bit under, one a bit over.
+    const ideal = s / (1 + r)
+    for (const z1 of new Set([Math.floor(ideal), Math.ceil(ideal)])) {
+      const z2 = s - z1
+      if (z1 < minTeeth || z2 > maxTeeth || z2 < z1) continue
+      const center = gearCenter(m, z1, z2)
+      out.push({ z1, z2, ratio: z2 / z1, center, delta: center - target })
+    }
+  }
+  // Closest distance first, then closest ratio.
+  return out.sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta) || Math.abs(a.ratio - r) - Math.abs(b.ratio - r))
 }

@@ -1,14 +1,31 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Indicator } from '../../components/Indicator'
-import { LineChart } from '../../components/LineChart'
+import { LineChart, type Series } from '../../components/LineChart'
 import { Help } from '../../components/Help'
 import { NumField } from '../../components/NumField'
 import { HELP, STATUS_HELP } from '../../lib/calcHelp'
 import { Copy } from '../../components/ui'
-import { computeRobot, type Mechanism, type MechType, type Robot, type RobotResult } from '../../lib/calc'
+import { computeRobot, findMotor, type Mechanism, type SweepPoint, type MechType, type Robot, type RobotResult } from '../../lib/calc'
 import { newMechanism } from '../../lib/calcDefaults'
 import { f, pct, Seg, Stat, StatusTag, type Update } from './shared'
+
+const whole = (n: number) => String(Math.round(n))
+
+/**
+ * Lines for the ratio chart. Ratios the motor can't run at all (stalled, or needing more than
+ * the full battery) are left out, so the axes stay on the ratios worth reading.
+ */
+function sweepSeries(points: SweepPoint[], motors: number, stallCurrent: number): Series[] {
+  const runs = (p: SweepPoint) => p.duty <= 1 && p.stator < stallCurrent
+  const line = (pick: (p: SweepPoint) => number) => points.map((p): [number, number] => [p.ratio, runs(p) ? pick(p) : NaN])
+  return [
+    { name: 'Efficiency', slot: 1, unit: '%', fmt: whole, points: line((p) => p.efficiency * 100) },
+    { name: 'Duty cycle', slot: 4, unit: '%', fmt: whole, off: true, points: line((p) => p.duty * 100) },
+    { name: motors > 1 ? 'Battery A, all motors' : 'Battery A', slot: 2, unit: 'A', off: true, points: line((p) => p.battery * motors) },
+    { name: 'Stator A per motor', slot: 3, unit: 'A', off: true, points: line((p) => p.stator) },
+  ]
+}
 
 const TYPE_LABEL: Record<MechType, string> = { pivot: 'Pivot', linear: 'Linear', roller: 'Roller' }
 
@@ -199,7 +216,7 @@ function MechEditor({
       <p className="calc-note soft">
         {o
           ? `Motor at ${f(o.motorRpm, 0)} RPM, ${f(r.batteryAll)} A from the battery for all ${m.motors} motor${m.motors > 1 ? 's' : ''}. `
-          : 'No ratio from 1 to 2000 fits your limits. Relax a limit, lower the speed or add a motor. '}
+          : 'No ratio from 0.25 to 2000 fits your limits. Relax a limit, lower the speed or add a motor. '}
         Assumes {robot.voltage} V and {f(m.efficiency * 100, 0)}% gearbox efficiency.
       </p>
 
@@ -223,7 +240,20 @@ function MechEditor({
             <>
               <NumField help={HELP.carriageMass} label="Carriage mass" unit="kg" value={m.carriageMass} min={0} step={0.1} onChange={(v) => edit({ carriageMass: v })} />
               <NumField help={HELP.stageMass} label="Middle stage mass" unit="kg" value={m.stageMass} min={0} step={0.1} onChange={(v) => edit({ stageMass: v })} />
-              <NumField help={HELP.stages} label="Cascade stages" value={m.stages} min={1} step={1} onChange={(v) => edit({ stages: v })} />
+              <div className="num-field">
+                <span className="num-field__label">Rigging</span>
+                <Seg
+                  label="Rigging"
+                  value={m.rigging ?? 'cascade'}
+                  onChange={(rigging) => edit({ rigging })}
+                  options={[
+                    { value: 'cascade', label: 'Cascade' },
+                    { value: 'continuous', label: 'Continuous' },
+                  ]}
+                />
+                <Help text={HELP.rigging} />
+              </div>
+              <NumField help={HELP.stages} label="Stages" value={m.stages} min={1} step={1} onChange={(v) => edit({ stages: v })} />
               <NumField help={HELP.pulleyRadius} label="Pulley radius" unit="cm" value={m.pulleyRadius} min={0} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
               <NumField help={HELP.linearSpeed} label="Target speed" unit="m/s" value={m.linearSpeed} min={0} step={0.1} onChange={(v) => edit({ linearSpeed: v })} />
             </>
@@ -296,16 +326,14 @@ function MechEditor({
       </div>
 
       <LineChart
-        title="Motor efficiency at every gear ratio. Shaded: ratios that fit every limit."
-        series={[{ name: 'Efficiency', slot: 1, points: r.sweep.map((p) => [p.ratio, p.efficiency * 100]) }]}
+        title="Every gear ratio. Shaded: ratios that fit every limit."
+        series={sweepSeries(r.sweep, m.motors, findMotor(robot.motors, m.motor).stallCurrent)}
         xLabel="Gear ratio"
-        yLabel="Efficiency %"
         xLog
         band={band}
         markerX={o?.ratio}
         markerLabel={o ? `${f(o.ratio)}:1` : undefined}
-        fmtY={(n) => `${Math.round(n)}%`}
-        height={220}
+        empty="No ratio from 0.25 to 2000 can move this load at this speed."
       />
 
       <div className="mech__foot">

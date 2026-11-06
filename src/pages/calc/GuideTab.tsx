@@ -40,7 +40,7 @@ const TABS: Rows = [
   ['Robot', 'The main tab: the budget, five sets, and every mechanism.'],
   ['Swerve', 'The SDS MK5n drive. It compares the three gear ratios and feeds the Robot tab.'],
   ['Motor curves', 'One mechanism: what the motor does at every RPM, plus a table to compare gear ratios.'],
-  ['Voltage map', 'One motor at several voltages: stator current, torque and RPM at every battery current from 1 to 40 A.'],
+  ['Voltage map', 'One motor at several voltages: torque at every speed, and what a battery current from 1 to 40 A gives at each voltage.'],
   ['Motors', 'Motor datasheet numbers. Edit them or add a motor.'],
   ['Center distance', 'Belts, chain and gears: the center distance for real belt and chain sizes.'],
   ['Cheat sheet', 'Tap drills, clearance holes, bearings and hex shaft.'],
@@ -55,13 +55,13 @@ const IDEAS: Rows = [
 ]
 
 const MODES: Rows = [
-  ['Find ratio', 'Tests ratios from 1 to 2000 and keeps the ones inside your limits (battery current, stator current, duty cycle, max ratio). It picks the most efficient one and gives the motor speed.'],
+  ['Find ratio', 'Tests ratios from 0.25 (a step-up) to 2000 and keeps the ones inside your limits (battery current, stator current, duty cycle, max ratio). It picks the most efficient one and gives the motor speed.'],
   ['Check a ratio', 'You type a ratio and motor speed. Use it to test a real gearbox, such as 5:1 x 5:1 x 4:1.'],
 ]
 
 const INPUTS: Rows = [
   ['Pivot', 'Load mass (kg), distance to its center of mass (cm), target speed (deg/s).'],
-  ['Linear', 'Carriage mass, middle stage mass, cascade stages, pulley radius (cm), target speed (m/s).'],
+  ['Linear', 'Rigging (cascade or continuous), carriage mass, middle stage mass, stages, pulley radius (cm), target speed (m/s).'],
   ['Roller', 'Wheel diameter, spinning mass, drag torque, spin-up time, target speed (RPM).'],
 ]
 
@@ -73,10 +73,10 @@ const STATUSES: Rows = [
 ]
 
 const FORMULAS: Rows = [
-  ['Load torque', 'Pivot: mass x 9.81 x distance. Linear: 9.81 x (stages x carriage mass + middle mass) x pulley radius. Roller: inertia x acceleration + drag.'],
+  ['Load torque', 'Pivot: mass x 9.81 x distance. Linear, cascade: 9.81 x (stages x carriage mass + middle mass) x pulley radius, with 3 or more stages counting the middle mass at stages / 2. Linear, continuous: 9.81 x (carriage + middle mass) x pulley radius. Roller: inertia x acceleration + drag.'],
   ['Motor torque', 'Load torque / (gear ratio x motors x efficiency).'],
   ['Stator current', 'Free current + (stall current - free current) x motor torque / stall torque.'],
-  ['Duty cycle', '(Motor RPM / Kv + stator current x resistance) / battery voltage. Kv = free speed / voltage. Resistance = voltage / stall current.'],
+  ['Duty cycle', '(Motor RPM / Kv + stator current x resistance) / battery voltage. Kv = free speed / 12 V. Resistance = 12 V / stall current. Both come from the 12 V datasheet, so they stay the same whatever the battery voltage.'],
   ['Battery current', 'Duty cycle x stator current.'],
   ['Efficiency', 'Mechanical power out / (battery voltage x battery current).'],
 ]

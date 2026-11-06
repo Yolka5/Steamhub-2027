@@ -1,6 +1,7 @@
 // Motor and gearbox calculator engine, ported from robot_design_calculator.xlsx.
-// Every formula matches a cell in the workbook; the cell is named in the comment so the
-// two can be checked against each other. Units follow the sheet: cm for lengths, kg, deg/s.
+// Every formula matches a cell in the workbook, named in the comment so the two can be
+// checked against each other. One deliberate difference: motor constants, see motorConsts.
+// Units follow the sheet: cm for lengths, kg, deg/s.
 
 export interface Motor {
   name: string
@@ -34,7 +35,9 @@ export interface Mechanism {
   // Linear
   carriageMass: number // kg
   stageMass: number // kg
-  stages: number // 1 direct, 2 continuous cascade
+  stages: number // moving stages including the carriage, 1 = direct drive
+  /** Cascade: each stage moves faster than the one below. Continuous: carriage moves at cable speed. Missing means cascade, as the sheet does. */
+  rigging?: 'cascade' | 'continuous'
   pulleyRadius: number // cm
   linearSpeed: number // m/s
   // Roller
@@ -83,10 +86,35 @@ export interface Robot {
 
 export const findMotor = (motors: Motor[], name: string) => motors.find((m) => m.name === name) ?? motors[0]
 
-/** Robot!C88:C89. Kv uses battery voltage, as the sheet does. */
-export function motorConsts(m: Motor, voltage: number) {
-  return { kv: m.freeRpm / voltage, r: voltage / m.stallCurrent, kt: m.stallTorque / (m.stallCurrent - m.freeCurrent) }
+/** Voltage the motor datasheets are measured at. Every motor in the table is a 12 V spec. */
+export const DATASHEET_V = 12
+
+/**
+ * Robot!C88:C89, with one fix. The sheet divided by the battery voltage, which made Kv and
+ * resistance change with the battery, so a sagging battery still showed full free speed and
+ * full stall current. Kv and resistance belong to the motor, so they come from the 12 V
+ * datasheet; the battery voltage then sets how much of that the motor can use.
+ */
+export function motorConsts(m: Motor) {
+  return { kv: m.freeRpm / DATASHEET_V, r: DATASHEET_V / m.stallCurrent, kt: m.stallTorque / (m.stallCurrent - m.freeCurrent) }
 }
+
+/** Stall torque at a voltage. Equals the datasheet stall torque at 12 V. */
+export const stallTorqueAt = (m: Motor, voltage: number) => {
+  const { r, kt } = motorConsts(m)
+  return Math.max(0, kt * (voltage / r - m.freeCurrent))
+}
+
+/**
+ * Elevator gearing from the rigging. Cascade: the drive moves the first stage, and every stage
+ * moves one cable speed faster than the one below, so the carriage moves `stages` times cable
+ * speed and each kilogram counts as many times as its speed multiple. Continuous: the carriage
+ * moves at cable speed and, at worst, the cable lifts carriage and stages together.
+ */
+const speedMult = (x: Mechanism) => (x.rigging === 'continuous' ? 1 : x.stages)
+/** Cascade middle stages move at 1, 2 ... stages-1 times cable speed: on average stages / 2. Exact for two stages. */
+const middleMult = (x: Mechanism) => (x.rigging === 'continuous' ? 1 : Math.max(1, x.stages / 2))
+const liftedMass = (x: Mechanism) => speedMult(x) * x.carriageMass + middleMult(x) * x.stageMass
 
 /** Stator current for a torque, Robot!C74. */
 const statorFor = (m: Motor, torque: number) => m.freeCurrent + ((m.stallCurrent - m.freeCurrent) * torque) / m.stallTorque
@@ -96,7 +124,7 @@ const statorFor = (m: Motor, torque: number) => m.freeCurrent + ((m.stallCurrent
 /** Robot!C63: torque at the output shaft. */
 export function loadTorque(x: Mechanism): number {
   if (x.type === 'pivot') return (x.pivotMass * 9.81 * x.pivotDist) / 100
-  if (x.type === 'linear') return (9.81 * (x.stages * x.carriageMass + x.stageMass) * x.pulleyRadius) / 100
+  if (x.type === 'linear') return (9.81 * liftedMass(x) * x.pulleyRadius) / 100
   const omega = (x.wheelRpm * 2 * Math.PI) / 60
   return ((x.spinMass * (x.wheelDiameter / 200) ** 2) / 2) * (omega / x.spinUp) + x.dragTorque
 }
@@ -104,7 +132,7 @@ export function loadTorque(x: Mechanism): number {
 /** Robot!C64: output speed the mechanism needs, deg/s. */
 export function targetSpeed(x: Mechanism): number {
   if (x.type === 'pivot') return x.pivotSpeed
-  if (x.type === 'linear') return ((x.linearSpeed / ((x.stages * x.pulleyRadius) / 100)) * 180) / Math.PI
+  if (x.type === 'linear') return ((x.linearSpeed / ((speedMult(x) * x.pulleyRadius) / 100)) * 180) / Math.PI
   return x.wheelRpm * 6
 }
 
@@ -120,7 +148,7 @@ export interface Operating {
 
 /** One gear ratio at one motor speed: the Sweep tab row, also Robot!C73:C78. */
 export function operate(x: Mechanism, motor: Motor, voltage: number, ratio: number, motorRpm: number): Operating {
-  const { kv, r } = motorConsts(motor, voltage)
+  const { kv, r } = motorConsts(motor)
   const torque = loadTorque(x) / (ratio * x.motors * x.efficiency)
   const stator = statorFor(motor, torque)
   const duty = (motorRpm / kv + stator * r) / voltage
@@ -129,8 +157,15 @@ export function operate(x: Mechanism, motor: Motor, voltage: number, ratio: numb
   return { ratio, motorRpm, torque, stator, duty, battery, efficiency }
 }
 
-/** Sweep!A2:A201: 200 ratios spread evenly on a log scale from 1 to 2000. */
-export const SWEEP_RATIOS = Array.from({ length: 200 }, (_, i) => 2000 ** (i / 199))
+/**
+ * Sweep!A2:A201 is 200 ratios on a log scale from 1 to 2000. The same spacing continues down to
+ * 0.25 so step-ups (a shooter wheel faster than the motor) can be found too; the sheet's 200
+ * points are unchanged.
+ */
+const SWEEP_STEP = 2000 ** (1 / 199)
+const BELOW_ONE = Math.floor(Math.log(4) / Math.log(SWEEP_STEP))
+export const SWEEP_MIN = SWEEP_STEP ** -BELOW_ONE
+export const SWEEP_RATIOS = Array.from({ length: 200 + BELOW_ONE }, (_, i) => SWEEP_STEP ** (i - BELOW_ONE))
 
 export interface SweepPoint extends Operating {
   feasible: boolean
@@ -145,7 +180,7 @@ export function sweep(x: Mechanism, motor: Motor, voltage: number): SweepPoint[]
       o.battery <= x.maxBattery &&
       o.duty <= x.maxDuty &&
       o.stator <= x.maxStator &&
-      o.torque < motor.stallTorque &&
+      o.torque < stallTorqueAt(motor, voltage) &&
       ratio <= x.maxRatio
     return { ...o, feasible }
   })
@@ -185,17 +220,25 @@ export function computeMechanism(x: Mechanism, motors: Motor[], voltage: number)
   const ratio = x.mode === 1 ? bestRatio(points) : x.ratio // Robot!C66
   const op = ratio == null ? null : operate(x, motor, voltage, ratio, x.mode === 1 ? (target / 6) * ratio : x.motorRpm)
   const out = op ? (op.motorRpm / op.ratio) * 6 : null // Robot!C68
-  const loadFrac = op ? op.torque / motor.stallTorque : null // Robot!C79
-  const stallOut = op ? motor.stallTorque * x.motors * op.ratio * x.efficiency : null // Robot!C80
+  // Robot!C79:C80, at the battery voltage rather than the 12 V datasheet.
+  const stall = stallTorqueAt(motor, voltage)
+  const loadFrac = op ? op.torque / stall : null
+  const stallOut = op ? stall * x.motors * op.ratio * x.efficiency : null
   let stallLoad: number | null = null // Robot!C81
   if (stallOut != null && x.type === 'pivot') stallLoad = stallOut / ((x.pivotDist / 100) * 9.81)
-  if (stallOut != null && x.type === 'linear') stallLoad = stallOut / ((x.pulleyRadius / 100) * 9.81 * x.stages)
+  if (stallOut != null && x.type === 'linear') {
+    // Heaviest carriage, with the middle stages' own weight taken off first.
+    const total = stallOut / ((x.pulleyRadius / 100) * 9.81)
+    stallLoad = Math.max(0, (total - middleMult(x) * x.stageMass) / speedMult(x))
+  }
 
-  // Robot!C82, checks in the same order as the sheet.
+  // Robot!C82. One change from the sheet: a speed the motor can't reach even at full
+  // voltage is reported as that, before the battery check, since its battery number is not real.
   let status: Status = 'OK'
   if (!x.onRobot) status = 'OFF'
   else if (!op) status = 'NO RATIO FITS'
   else if (loadFrac! >= 1) status = 'STALLED'
+  else if (op.duty > 1) status = 'NO VOLTAGE'
   else if (op.battery > x.maxBattery) status = 'OVER BATTERY'
   else if (op.stator > x.maxStator) status = 'OVER STATOR'
   else if (op.duty > x.maxDuty) status = 'NO VOLTAGE'
@@ -207,7 +250,7 @@ export function computeMechanism(x: Mechanism, motors: Motor[], voltage: number)
     op,
     outSpeed: out,
     time90: x.type === 'pivot' && out ? 90 / out : null,
-    carriageSpeed: x.type === 'linear' && out != null ? ((out * Math.PI) / 180) * (x.pulleyRadius / 100) * x.stages : null,
+    carriageSpeed: x.type === 'linear' && out != null ? ((out * Math.PI) / 180) * (x.pulleyRadius / 100) * speedMult(x) : null,
     wheelRpm: x.type === 'roller' && out != null ? out / 6 : null,
     surfaceSpeed: x.type === 'roller' && out != null ? ((out / 6) * Math.PI * x.wheelDiameter) / 100 / 60 : null,
     batteryAll: op ? op.battery * x.motors : null,
@@ -244,11 +287,11 @@ export interface SwerveRatio {
 
 export function computeSwerve(s: Swerve, motors: Motor[], voltage: number): { ratios: SwerveRatio[]; driveBattery: number; steerBattery: number } {
   const m = findMotor(motors, s.motor)
-  const { kv, r } = motorConsts(m, voltage)
+  const { kv, r } = motorConsts(m)
   const wheelR = s.wheelDiameter / 200 // m
   const rollForce = s.rolling * s.robotMass * 9.81
   const ratios = s.ratios.map((g): SwerveRatio => {
-    const freeSpeed = ((m.freeRpm / g) * Math.PI * (s.wheelDiameter / 100)) / 60
+    const freeSpeed = ((voltage * kv) / g) * Math.PI * (s.wheelDiameter / 100) / 60 // C37, at the battery voltage
     const cruiseTorque = (rollForce * wheelR) / (s.driveMotors * g * s.efficiency)
     const cruiseStator = statorFor(m, cruiseTorque)
     const topSpeed = ((((s.maxDuty * voltage - cruiseStator * r) * kv) / g) * Math.PI * (s.wheelDiameter / 100)) / 60
@@ -345,9 +388,9 @@ export function computeRobot(robot: Robot): RobotResult {
 
 /** Curves table A: the motor's dyno curve at a share of battery voltage, 21 points to free speed. */
 export function motorCurve(m: Motor, voltage: number, duty: number, points = 21) {
-  const { kv, r, kt } = motorConsts(m, voltage)
+  const { kv, r, kt } = motorConsts(m)
   return Array.from({ length: points }, (_, i) => {
-    const rpm = m.freeRpm * duty * (i / (points - 1))
+    const rpm = duty * voltage * kv * (i / (points - 1))
     const backEmf = rpm / kv
     const stator = Math.max(0, (duty * voltage - backEmf) / r)
     const battery = duty * stator
@@ -362,7 +405,7 @@ export type CurveCheck = 'OK' | 'CANNOT REACH' | 'OVER DUTY LIMIT' | 'OVER BATTE
 
 /** Curves table B: one mechanism at a fixed ratio across motor speeds. Load is constant, so stator is flat. */
 export function mechanismAtRpm(x: Mechanism, m: Motor, voltage: number, ratio: number, rpms: number[]) {
-  const { kv, r, kt } = motorConsts(m, voltage)
+  const { kv, r, kt } = motorConsts(m)
   const torque = loadTorque(x) / (ratio * x.motors * x.efficiency)
   const stator = m.freeCurrent + torque / kt
   return rpms.map((rpm) => {
@@ -389,6 +432,17 @@ export function mechanismAtRpm(x: Mechanism, m: Motor, voltage: number, ratio: n
 }
 
 // ---------- Voltage map tab ----------
+
+/**
+ * Torque at a speed with `volts` at the motor: T = Kt x ((V - RPM / Kv) / R - free current).
+ * Negative past free speed. Lowering the voltage lowers torque at every speed by the same amount.
+ */
+export function torqueAtSpeed(m: Motor, datasheetV: number, volts: number, rpm: number) {
+  const kv = m.freeRpm / datasheetV
+  const r = datasheetV / m.stallCurrent
+  const kt = m.stallTorque / (m.stallCurrent - m.freeCurrent)
+  return kt * ((volts - rpm / kv) / r - m.freeCurrent)
+}
 
 /**
  * One motor at several applied voltages. For each battery current, the stator current is

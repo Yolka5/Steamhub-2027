@@ -552,27 +552,29 @@ input.mech__name:focus {
   margin-bottom: 0.75rem;
 }
 
-.charts-2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
 /* ----- Chart ----- */
 .chart {
-  margin: 0;
+  margin: 0 0 1.5rem;
   padding: 1rem 1rem 0.5rem;
   background: var(--surface-1);
   border-radius: var(--radius-panel);
 }
 
 .mech .chart {
+  margin-bottom: 0;
   background: var(--surface-0);
 }
 
+.chart__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
 .chart__title {
-  margin-bottom: 0.35rem;
+  flex: 1 1 100%;
   font-size: 0.9375rem;
   font-weight: 600;
 }
@@ -580,25 +582,69 @@ input.mech__name:focus {
 .chart__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  margin: 0 0 0.35rem;
-  padding: 0;
-  font-size: 0.8125rem;
-  color: var(--ink-soft);
-  list-style: none;
+  gap: 0.25rem;
 }
 
-.chart__legend li {
+/* A line's on/off switch. On gets the selection fill, off keeps only an outlined key. */
+.chart__toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.7rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.chart__toggle[aria-pressed='true'] {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.mech .chart__toggle[aria-pressed='true'] {
+  background: var(--surface-1);
+}
+
+@media (hover: hover) {
+  .chart__toggle[aria-pressed='false']:hover {
+    color: var(--ink);
+  }
+}
+
+.chart__toggle:active {
+  transform: scale(0.97);
+}
+
+.chart__toggle:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 .chart__key {
   display: inline-block;
+  flex: none;
   width: 0.9rem;
   height: 3px;
+  background: var(--key);
   border-radius: 2px;
+}
+
+.chart__key[data-dashed] {
+  background: repeating-linear-gradient(90deg, var(--key) 0 4px, transparent 4px 7px);
+}
+
+.chart__toggle[aria-pressed='false'] .chart__key {
+  height: 0.6rem;
+  width: 0.6rem;
+  background: transparent;
+  border: 1.5px solid var(--key);
+  border-radius: 50%;
 }
 
 .chart__plot {
@@ -657,7 +703,7 @@ input.mech__name:focus {
   position: absolute;
   top: 0;
   z-index: 2;
-  min-width: 8rem;
+  min-width: 10rem;
   padding: 0.45rem 0.6rem;
   font-size: 0.8125rem;
   line-height: 1.45;
@@ -677,6 +723,23 @@ input.mech__name:focus {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.chart__tip-name {
+  flex: 1;
+  margin-right: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.chart__note,
+.chart__empty {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.chart__empty {
+  padding: 3rem 0;
+  text-align: center;
 }
 
 /* ----- Cheat sheets ----- */

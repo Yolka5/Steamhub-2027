@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { LineChart } from '../../components/LineChart'
+import { LineChart, type Series } from '../../components/LineChart'
 import { Help } from '../../components/Help'
 import { NumField } from '../../components/NumField'
 import { HELP } from '../../lib/calcHelp'
-import { computeMechanism, computeSwerve, findMotor, mechanismAtRpm, motorCurve, voltageMap, type Motor, type Robot, type Swerve } from '../../lib/calc'
+import { computeMechanism, computeSwerve, findMotor, mechanismAtRpm, motorCurve, torqueAtSpeed, voltageMap, type Motor, type Robot, type Swerve } from '../../lib/calc'
 import { f, pct, Seg, StatusTag, type Update } from './shared'
 
 // ---------- Swerve ----------
@@ -137,6 +137,8 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
   )
 }
 
+const whole = (n: number) => String(Math.round(n))
+
 // ---------- Curves ----------
 
 export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string | null }) {
@@ -175,28 +177,23 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
           <Help text={HELP.curveMech} />
         </label>
         <NumField help={HELP.curveRatio} label="Gear ratio to test" unit=":1" value={r} min={0.1} step={1} onChange={setRatio} />
-        <NumField help={HELP.curveDuty} label="Voltage for the motor curve" value={duty} min={0.05} step={0.05} onChange={(v) => setDuty(Math.min(1, v))} />
+        <NumField help={HELP.curveDuty} label="Duty cycle for the motor curve" value={duty} min={0.05} step={0.05} onChange={(v) => setDuty(Math.min(1, v))} />
       </div>
       <p className="calc-note soft">
         {mech.name}: {motor.name}, {mech.motors} motor{mech.motors > 1 ? 's' : ''}, {f(res.load, 2)} Nm at the output. The load is the same at every speed, so stator current
         stays flat at {f(table[0]?.stator)} A and battery current grows with speed.
       </p>
 
-      <div className="charts-2">
-        <LineChart
-          title="Your mechanism: battery current, all motors"
-          series={[{ name: 'Battery A', slot: 1, points: table.map((t) => [t.rpm, t.batteryAll]) }]}
-          xLabel="Motor RPM"
-          yLabel="Amps"
-        />
-        <LineChart
-          title="Your mechanism: motor efficiency"
-          series={[{ name: 'Efficiency', slot: 3, points: table.map((t) => [t.rpm, t.efficiency * 100]) }]}
-          xLabel="Motor RPM"
-          yLabel="Efficiency %"
-          fmtY={(n) => `${Math.round(n)}`}
-        />
-      </div>
+      <LineChart
+        title={`${mech.name} at ${f(r)}:1, across motor speeds`}
+        series={[
+          { name: mech.motors > 1 ? 'Battery A, all motors' : 'Battery A', slot: 2, unit: 'A', points: table.map((t) => [t.rpm, t.batteryAll]) },
+          { name: 'Stator A per motor', slot: 3, unit: 'A', off: true, points: table.map((t) => [t.rpm, t.stator]) },
+          { name: 'Efficiency', slot: 1, unit: '%', fmt: whole, points: table.map((t) => [t.rpm, t.efficiency * 100]) },
+          { name: 'Duty cycle', slot: 4, unit: '%', fmt: whole, off: true, points: table.map((t) => [t.rpm, t.duty * 100]) },
+        ]}
+        xLabel="Motor RPM"
+      />
 
       <Help text={HELP.curveTable} className="help--block" />
       <div className="table-wrap">
@@ -234,31 +231,23 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
 
       <h2 className="section__title">{motor.name} motor curve</h2>
       <Help text={HELP.curveMotor} className="help--block" />
-      <div className="charts-2">
-        <LineChart title="Torque" series={[{ name: 'Torque', slot: 1, points: curve.map((c) => [c.rpm, c.torque]) }]} xLabel="Motor RPM" yLabel="Nm" />
-        <LineChart
-          title="Current"
-          series={[
-            { name: 'Stator', slot: 1, points: curve.map((c) => [c.rpm, c.stator]) },
-            { name: 'Battery', slot: 2, points: curve.map((c) => [c.rpm, c.battery]) },
-          ]}
-          xLabel="Motor RPM"
-          yLabel="Amps"
-        />
-        <LineChart title="Mechanical power" series={[{ name: 'Power', slot: 3, points: curve.map((c) => [c.rpm, c.power]) }]} xLabel="Motor RPM" yLabel="Watts" />
-        <LineChart
-          title="Efficiency"
-          series={[{ name: 'Efficiency', slot: 6, points: curve.map((c) => [c.rpm, c.efficiency * 100]) }]}
-          xLabel="Motor RPM"
-          yLabel="%"
-          fmtY={(n) => `${Math.round(n)}`}
-        />
-      </div>
+      <LineChart
+        series={[
+          { name: 'Torque', slot: 1, unit: 'Nm', points: curve.map((c) => [c.rpm, c.torque]) },
+          { name: 'Power', slot: 3, unit: 'W', points: curve.map((c) => [c.rpm, c.power]) },
+          { name: 'Stator A', slot: 2, unit: 'A', off: true, points: curve.map((c) => [c.rpm, c.stator]) },
+          { name: 'Battery A', slot: 5, unit: 'A', off: true, points: curve.map((c) => [c.rpm, c.battery]) },
+          { name: 'Efficiency', slot: 6, unit: '%', fmt: whole, off: true, points: curve.map((c) => [c.rpm, c.efficiency * 100]) },
+        ]}
+        xLabel="Motor RPM"
+      />
     </div>
   )
 }
 
 // ---------- Voltage map ----------
+
+const METRIC_UNIT = { stator: 'Stator A', torque: 'Nm', rpm: 'RPM' } as const
 
 const CURRENTS = Array.from({ length: 40 }, (_, i) => i + 1)
 
@@ -269,10 +258,14 @@ export function VoltageTab({ robot }: { robot: Robot }) {
   const [batV, setBatV] = useState(robot.voltage)
   const motor = findMotor(robot.motors, motorName)
   const map = voltageMap(motor, sheetV, batV, volts, CURRENTS)
-  const series = (pick: (c: { stator: number; torque: number; rpm: number }) => number) =>
+  const [view, setView] = useState<'speed' | 'battery'>('speed')
+  const [metric, setMetric] = useState<'stator' | 'torque' | 'rpm'>('torque')
+  const curves = torqueSpeedLines(motor, sheetV, volts)
+  const series = (pick: (c: { stator: number; torque: number; rpm: number }) => number, unit: string): Series[] =>
     volts.map((v, i) => ({
       name: `${v} V`,
       slot: i + 1,
+      unit,
       points: map.rows.map((row) => [row.battery, row.cells[i] ? pick(row.cells[i]!) : NaN] as [number, number]),
     }))
 
@@ -339,13 +332,58 @@ export function VoltageTab({ robot }: { robot: Robot }) {
         </table>
       </div>
 
-      <div className="charts-2">
-        <LineChart title="Stator current" series={series((c) => c.stator)} xLabel="Battery current (A)" yLabel="Stator A" />
-        <LineChart title="Torque" series={series((c) => c.torque)} xLabel="Battery current (A)" yLabel="Nm" />
-        <LineChart title="Motor speed" series={series((c) => c.rpm)} xLabel="Battery current (A)" yLabel="RPM" />
-      </div>
+      <LineChart
+        title={`${motor.name}, one line per voltage at the motor`}
+        controls={
+          <>
+            <Seg
+              label="Compare voltages at"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'speed', label: 'Torque at each speed' },
+                { value: 'battery', label: 'Same battery current' },
+              ]}
+            />
+            {view === 'battery' && (
+              <Seg
+                label="What to plot"
+                value={metric}
+                onChange={setMetric}
+                options={[
+                  { value: 'torque', label: 'Torque' },
+                  { value: 'stator', label: 'Stator current' },
+                  { value: 'rpm', label: 'Speed' },
+                ]}
+              />
+            )}
+          </>
+        }
+        series={view === 'speed' ? curves : series((c) => c[metric], METRIC_UNIT[metric])}
+        xLabel={view === 'speed' ? 'Motor RPM' : 'Battery current (A)'}
+      />
+      <p className="calc-note soft">
+        {view === 'speed'
+          ? 'Lower voltage moves the whole line down: less torque at every speed, a lower stall torque and a lower top speed. Voltage never adds torque.'
+          : 'Each point is a different motor speed. For the same battery current a lower voltage gives more stator current, so more torque, only because the motor is turning slower: the controller trades voltage for current. At the same speed, lower voltage always gives less torque.'}
+      </p>
     </div>
   )
+}
+
+/** One torque-speed line per voltage, on a shared RPM grid so the tooltip can read them together. */
+function torqueSpeedLines(m: Motor, sheetV: number, volts: number[]): Series[] {
+  const top = Math.max(...volts) * (m.freeRpm / sheetV)
+  const rpms = Array.from({ length: 81 }, (_, i) => (top * i) / 80)
+  return volts.map((v, i) => ({
+    name: `${v} V`,
+    slot: i + 1,
+    unit: 'Nm',
+    points: rpms.map((rpm) => {
+      const t = torqueAtSpeed(m, sheetV, v, rpm)
+      return [rpm, t >= 0 ? t : NaN] as [number, number]
+    }),
+  }))
 }
 
 // ---------- Motors ----------

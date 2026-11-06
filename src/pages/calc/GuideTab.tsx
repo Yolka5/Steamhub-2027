@@ -31,7 +31,7 @@ const START: Rows = [
   ['1. Set your limits', 'At the top of the Robot tab, type the max battery draw for the whole robot (A), the max number of motors, and the battery voltage.'],
   ['2. Pick a mechanism', 'Pick one from the list or press Add mechanism. Type a name and tick On the robot.'],
   ['3. Choose its type', 'Pivot (an arm), Linear (an elevator with a pulley) or Roller (a wheel). Only the fields for that type are shown.'],
-  ['4. Choose a mode', 'Find ratio: the calculator finds the best gear ratio and motor speed. Check a ratio: you type a ratio and motor speed and see what happens.'],
+  ['4. Choose a mode', 'Find ratio: the calculator finds the best gear ratio and motor speed. Check a ratio: you type a ratio and see what happens at your target speed.'],
   ['5. Choose its sets', 'Under Runs in, tick each set where it moves at the same time as other mechanisms.'],
   ['6. Read the result', 'A green OK is good. The bars under Sets that run together show each set’s total draw against your budget.'],
 ]
@@ -56,7 +56,7 @@ const IDEAS: Rows = [
 
 const MODES: Rows = [
   ['Find ratio', 'Tests ratios from 0.25 (a step-up) to 2000 and keeps the ones inside your limits (battery current, stator current, duty cycle, max ratio). It picks the most efficient one and gives the motor speed.'],
-  ['Check a ratio', 'You type a ratio and motor speed. Use it to test a real gearbox, such as 5:1 x 5:1 x 4:1.'],
+  ['Check a ratio', 'You type a ratio and it runs at your target speed. Use it to test a real gearbox, such as 5:1 x 5:1 x 4:1 = 100:1.'],
 ]
 
 const INPUTS: Rows = [
@@ -79,6 +79,7 @@ const FORMULAS: Rows = [
   ['Duty cycle', '(Motor RPM / Kv + stator current x resistance) / battery voltage. Kv = free speed / 12 V. Resistance = 12 V / stall current. Both come from the 12 V datasheet, so they stay the same whatever the battery voltage.'],
   ['Battery current', 'Duty cycle x stator current.'],
   ['Efficiency', 'Mechanical power out / (battery voltage x battery current).'],
+  ['Move time', 'Pivots and elevators only. Steps through one move from standing still: full battery voltage, current held to the stator limit, worst-case load the whole way, then cruise at the target speed and slow down as fast as it sped up. Inertia: pivot mass x distance squared; elevator: each moving part times the square of its speed multiple, x pulley radius squared. Motor rotors are left out.'],
 ]
 
 export function GuideTab() {

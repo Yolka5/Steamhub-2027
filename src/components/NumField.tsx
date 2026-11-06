@@ -12,6 +12,8 @@ export function NumField({
   onChange,
   step,
   min,
+  max,
+  whole,
   hint,
   help,
 }: {
@@ -21,12 +23,26 @@ export function NumField({
   onChange: (n: number) => void
   step?: number
   min?: number
+  max?: number
+  /** Only whole numbers, like a count of motors. */
+  whole?: boolean
   /** Short reminder that is always shown. */
   hint?: string
   /** The longer explanation, shown when Explain is on. */
   help?: string
 }) {
   const [text, setText] = useState(String(value))
+
+  /** Why typed text can't be used, or null when it can. The last good value stays in use. */
+  const problem = (t: string): string | null => {
+    const n = Number(t.replace(',', '.'))
+    if (t.trim() === '' || !Number.isFinite(n)) return 'Type a number.'
+    if (min != null && n < min) return `Use ${min} or more.`
+    if (max != null && n > max) return `Use ${max} or less.`
+    if (whole && !Number.isInteger(n)) return 'Use a whole number.'
+    return null
+  }
+  const error = problem(text)
 
   // Follow outside changes (another person's save, a preset) unless the user is mid-edit.
   useEffect(() => {
@@ -42,22 +58,27 @@ export function NumField({
           className="num-field__input num"
           inputMode="decimal"
           value={text}
+          aria-invalid={error ? true : undefined}
           onChange={(e) => {
             const t = e.target.value
             setText(t)
-            const n = Number(t.replace(',', '.'))
-            if (t.trim() !== '' && Number.isFinite(n) && (min == null || n >= min)) onChange(n)
+            if (!problem(t)) onChange(Number(t.replace(',', '.')))
           }}
           onKeyDown={(e) => {
             if (step && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
               e.preventDefault()
               const n = +(value + (e.key === 'ArrowUp' ? step : -step)).toFixed(6)
-              if (min == null || n >= min) onChange(n)
+              if (!problem(String(n))) onChange(n)
             }
           }}
         />
         {unit && <span className="num-field__unit">{unit}</span>}
       </span>
+      {error && (
+        <span className="num-field__error" role="alert">
+          {error} Still using {value}.
+        </span>
+      )}
       {hint && <span className="help help--always">{hint}</span>}
       <Help text={help} />
     </label>

@@ -46,8 +46,11 @@ export interface Mechanism {
   dragTorque: number // Nm
   spinUp: number // s
   wheelRpm: number
+  /** Pivot: degrees one move covers. Linear: carriage travel in cm. Missing means 90 degrees or 100 cm. */
+  travel?: number
   // Mode 2
   ratio: number
+  /** From the sheet's Check mode. Unused now: Check runs the typed ratio at the target speed. */
   motorRpm: number
 }
 
@@ -200,7 +203,8 @@ export interface MechResult {
   target: number // deg/s
   op: Operating | null
   outSpeed: number | null // deg/s
-  time90: number | null // pivot, s
+  time90: number | null // pivot, s, at full speed with no speed-up
+  move: Move | null // pivot and linear
   carriageSpeed: number | null // linear, m/s
   wheelRpm: number | null // roller
   surfaceSpeed: number | null // roller, m/s
@@ -218,17 +222,23 @@ export function computeMechanism(x: Mechanism, motors: Motor[], voltage: number)
   const target = targetSpeed(x)
   const points = sweep(x, motor, voltage)
   const ratio = x.mode === 1 ? bestRatio(points) : x.ratio // Robot!C66
-  const op = ratio == null ? null : operate(x, motor, voltage, ratio, x.mode === 1 ? (target / 6) * ratio : x.motorRpm)
+  // Both modes run at the target speed. The sheet's Check mode took a separate motor speed,
+  // which let the result ignore the speed typed above it.
+  const op = ratio == null ? null : operate(x, motor, voltage, ratio, (target / 6) * ratio)
   const out = op ? (op.motorRpm / op.ratio) * 6 : null // Robot!C68
   // Robot!C79:C80, at the battery voltage rather than the 12 V datasheet.
   const stall = stallTorqueAt(motor, voltage)
   const loadFrac = op ? op.torque / stall : null
   const stallOut = op ? stall * x.motors * op.ratio * x.efficiency : null
-  let stallLoad: number | null = null // Robot!C81
-  if (stallOut != null && x.type === 'pivot') stallLoad = stallOut / ((x.pivotDist / 100) * 9.81)
-  if (stallOut != null && x.type === 'linear') {
+  // Robot!C81, with one change: the sheet used full stall torque, but the stator limit you set
+  // in Phoenix caps the torque, so the heaviest load it can hold comes from the smaller of the two.
+  const { kt } = motorConsts(motor)
+  const holdOut = op ? Math.min(stall, Math.max(0, kt * (x.maxStator - motor.freeCurrent))) * x.motors * op.ratio * x.efficiency : null
+  let stallLoad: number | null = null
+  if (holdOut != null && x.type === 'pivot') stallLoad = holdOut / ((x.pivotDist / 100) * 9.81)
+  if (holdOut != null && x.type === 'linear') {
     // Heaviest carriage, with the middle stages' own weight taken off first.
-    const total = stallOut / ((x.pulleyRadius / 100) * 9.81)
+    const total = holdOut / ((x.pulleyRadius / 100) * 9.81)
     stallLoad = Math.max(0, (total - middleMult(x) * x.stageMass) / speedMult(x))
   }
 
@@ -250,6 +260,7 @@ export function computeMechanism(x: Mechanism, motors: Motor[], voltage: number)
     op,
     outSpeed: out,
     time90: x.type === 'pivot' && out ? 90 / out : null,
+    move: op && x.type !== 'roller' ? simulateMove(x, motor, voltage, op.ratio) : null,
     carriageSpeed: x.type === 'linear' && out != null ? ((out * Math.PI) / 180) * (x.pulleyRadius / 100) * speedMult(x) : null,
     wheelRpm: x.type === 'roller' && out != null ? out / 6 : null,
     surfaceSpeed: x.type === 'roller' && out != null ? ((out / 6) * Math.PI * x.wheelDiameter) / 100 / 60 : null,
@@ -260,6 +271,83 @@ export function computeMechanism(x: Mechanism, motors: Motor[], voltage: number)
     status,
     sweep: points,
   }
+}
+
+// ---------- Moves with speed-up ----------
+
+export const travelOf = (x: Mechanism) => x.travel ?? (x.type === 'pivot' ? 90 : 100)
+
+/**
+ * Inertia the motors have to spin up, at the output shaft (kg m^2). Pivot: the mass sits at its
+ * centre of mass. Linear: each moving part counts by the square of its speed multiple, at the
+ * pulley radius. The motors' own rotors are left out: no maker publishes them.
+ */
+export function outputInertia(x: Mechanism): number {
+  if (x.type === 'pivot') return x.pivotMass * (x.pivotDist / 100) ** 2
+  const n = x.stages
+  // Cascade middle stages move at 1 ... n-1 times cable speed, mass shared evenly: sum k^2 / (n - 1).
+  const stageMult = x.rigging === 'continuous' || n <= 1 ? 1 : (n * (2 * n - 1)) / 6
+  const mass = speedMult(x) ** 2 * x.carriageMass + stageMult * x.stageMass
+  return mass * (x.pulleyRadius / 100) ** 2
+}
+
+export interface Move {
+  time: number // s, start to stop over the travel
+  speedUp: number // s from rest to the target speed (or to the top of a short move)
+  peakBattery: number // A per motor while speeding up
+  short: boolean // the move is too short to reach the target speed
+}
+
+/**
+ * One move from rest to rest over the travel, at the given ratio. The motor gets the full
+ * battery voltage, held to the stator limit, against the worst-case load the whole way
+ * (arm level, everything lifted). Slowing down is taken to mirror speeding up. Returns null if
+ * the motor can't start the load moving.
+ */
+export function simulateMove(x: Mechanism, motor: Motor, voltage: number, ratio: number): Move | null {
+  const { kv, r, kt } = motorConsts(motor)
+  const kvRad = (kv * 2 * Math.PI) / 60 // rad/s per volt
+  const J = outputInertia(x)
+  const load = loadTorque(x)
+  const target = (targetSpeed(x) * Math.PI) / 180 // rad/s at the output
+  // Output-shaft angle for the whole travel.
+  const travel = x.type === 'pivot' ? (travelOf(x) * Math.PI) / 180 : travelOf(x) / 100 / ((speedMult(x) * x.pulleyRadius) / 100)
+  if (!(J > 0) || !(target > 0) || !(travel > 0) || !(ratio > 0)) return null
+
+  const step = (w: number) => {
+    const wm = w * ratio
+    const amps = Math.min(x.maxStator, (voltage - wm / kvRad) / r)
+    const torque = kt * (amps - motor.freeCurrent) * x.motors * ratio * x.efficiency
+    const applied = wm / kvRad + amps * r
+    return { accel: (torque - load) / J, battery: Math.max(0, (applied / voltage) * amps) }
+  }
+  if (step(0).accel <= 0) return null
+
+  // Small steps against the time it would take at the starting acceleration.
+  const dt = Math.min(1e-3, target / step(0).accel / 2000)
+  let t = 0
+  let w = 0
+  let angle = 0
+  let peak = 0
+  for (let i = 0; i < 2e6; i++) {
+    const s = step(w)
+    peak = Math.max(peak, s.battery)
+    if (s.accel <= 1e-9) break // the motor tops out below the target speed
+    const next = Math.min(target, w + s.accel * dt)
+    const used = next < target ? dt : (target - w) / s.accel
+    const d = ((w + next) / 2) * used
+    if (angle + d >= travel / 2) {
+      // Short move: the top of the speed-up is the middle of the travel.
+      const frac = (travel / 2 - angle) / d
+      return { time: 2 * (t + used * frac), speedUp: t + used * frac, peakBattery: peak, short: true }
+    }
+    angle += d
+    t += used
+    w = next
+    if (w >= target) break
+  }
+  if (w <= 0) return null
+  return { time: 2 * t + (travel - 2 * angle) / w, speedUp: t, peakBattery: peak, short: false }
 }
 
 // ---------- Swerve ----------

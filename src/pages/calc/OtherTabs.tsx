@@ -44,12 +44,12 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
             </select>
             <Help text={HELP.driveMotor} />
           </label>
-          <NumField help={HELP.driveMotors} label="Drive motors" value={s.driveMotors} min={1} step={1} onChange={(v) => edit({ driveMotors: v })} />
-          <NumField help={HELP.swEff} label="Drivetrain efficiency" value={s.efficiency} min={0.05} step={0.05} onChange={(v) => edit({ efficiency: Math.min(1, v) })} />
+          <NumField help={HELP.driveMotors} label="Drive motors" value={s.driveMotors} min={1} max={8} whole step={1} onChange={(v) => edit({ driveMotors: v })} />
+          <NumField help={HELP.swEff} label="Drivetrain efficiency" value={s.efficiency} min={0.05} max={1} step={0.05} onChange={(v) => edit({ efficiency: v })} />
           <NumField help={HELP.rolling} label="Rolling resistance" value={s.rolling} min={0} step={0.01} onChange={(v) => edit({ rolling: v })} />
           <NumField help={HELP.friction} label="Tire friction" value={s.friction} min={0} step={0.1} onChange={(v) => edit({ friction: v })} />
           <NumField help={HELP.swStator} label="Max stator current" unit="A" value={s.maxStator} min={0} step={5} onChange={(v) => edit({ maxStator: v })} />
-          <NumField help={HELP.swDuty} label="Max duty cycle" value={s.maxDuty} min={0.05} step={0.05} onChange={(v) => edit({ maxDuty: Math.min(1, v) })} />
+          <NumField help={HELP.swDuty} label="Max duty cycle" value={s.maxDuty} min={0.05} max={1} step={0.05} onChange={(v) => edit({ maxDuty: v })} />
         </div>
         <div className="fields" role="group">
           <h3 className="fields__title">Operating point</h3>
@@ -58,7 +58,7 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
         </div>
         <div className="fields" role="group">
           <h3 className="fields__title">Steering</h3>
-          <NumField help={HELP.steerMotors} label="Steer motors" value={s.steerMotors} min={0} step={1} onChange={(v) => edit({ steerMotors: v })} />
+          <NumField help={HELP.steerMotors} label="Steer motors" value={s.steerMotors} min={0} max={8} whole step={1} onChange={(v) => edit({ steerMotors: v })} />
           <NumField help={HELP.steerAllowance} label="Battery allowance" unit="A/motor" value={s.steerAllowance} min={0} step={0.5} onChange={(v) => edit({ steerAllowance: v })} />
           <p className="soft small">Steering ratio {f(s.steerRatio, 2)}:1, Kraken X44.</p>
         </div>
@@ -177,7 +177,7 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
           <Help text={HELP.curveMech} />
         </label>
         <NumField help={HELP.curveRatio} label="Gear ratio to test" unit=":1" value={r} min={0.1} step={1} onChange={setRatio} />
-        <NumField help={HELP.curveDuty} label="Duty cycle for the motor curve" value={duty} min={0.05} step={0.05} onChange={(v) => setDuty(Math.min(1, v))} />
+        <NumField help={HELP.curveDuty} label="Curve duty cycle" value={duty} min={0.05} max={1} step={0.05} onChange={setDuty} />
       </div>
       <p className="calc-note soft">
         {mech.name}: {motor.name}, {mech.motors} motor{mech.motors > 1 ? 's' : ''}, {f(res.load, 2)} Nm at the output. The load is the same at every speed, so stator current
@@ -283,7 +283,7 @@ export function VoltageTab({ robot }: { robot: Robot }) {
           <Help text={HELP.voltMotor} />
         </label>
         <NumField help={HELP.sheetV} label="Datasheet voltage" unit="V" value={sheetV} min={1} step={0.5} onChange={setSheetV} />
-        <NumField help={HELP.batV} label="Battery voltage" unit="V" value={batV} min={1} step={0.5} onChange={setBatV} />
+        <NumField help={HELP.batV} label="Battery voltage" unit="V" value={batV} min={1} max={13.5} step={0.5} onChange={setBatV} />
         {volts.map((v, i) => (
           <NumField key={i} label={`Voltage ${i + 1}`} unit="V" value={v} min={0.5} step={0.5} onChange={(n) => setVolts((vs) => vs.map((x, j) => (j === i ? n : x)))} />
         ))}
@@ -420,10 +420,10 @@ export function MotorsTab({ robot, update }: { robot: Robot; update: Update }) {
                   <NumField label="Stall torque" value={m.stallTorque} min={0.01} onChange={(v) => edit(i, { stallTorque: v })} />
                 </td>
                 <td>
-                  <NumField label="Stall current" value={m.stallCurrent} min={1} onChange={(v) => edit(i, { stallCurrent: v })} />
+                  <NumField label="Stall current" value={m.stallCurrent} min={m.freeCurrent + 1} onChange={(v) => edit(i, { stallCurrent: v })} />
                 </td>
                 <td>
-                  <NumField label="Free current" value={m.freeCurrent} min={0} onChange={(v) => edit(i, { freeCurrent: v })} />
+                  <NumField label="Free current" value={m.freeCurrent} min={0} max={m.stallCurrent - 1} onChange={(v) => edit(i, { freeCurrent: v })} />
                 </td>
                 <td>
                   {!used.has(m.name) && (

@@ -17,7 +17,7 @@ export const HELP = {
   onRobot: 'On = this mechanism exists on the robot. Off = ignore it completely (also not counted as motors).',
   runsIn: 'Tick every set where this mechanism moves at the same time as the others in that set.',
   type: 'Pivot swings around an axis. Linear slides on a pulley. Roller spins a wheel.',
-  mode: 'Find ratio = the calculator finds the best ratio and motor speed. Check a ratio = you type a ratio and motor speed to test.',
+  mode: 'Find ratio = the calculator tries every ratio and picks the most efficient one that fits every limit. Check a ratio = you type a ratio and it is tested at your target speed.',
   motor: 'Which Kraken motor drives this mechanism. Edit values on the Motors tab.',
   motors: 'How many motors share this gearbox. They split the load equally.',
   efficiency: 'Share of power that survives the gearbox. 0.85 means 15% is lost to friction.',
@@ -39,12 +39,15 @@ export const HELP = {
   dragTorque: 'Torque the game piece adds as it is squeezed.',
   spinUp: 'How quickly you want to reach full speed.',
   wheelRpm: 'The wheel speed you want, in RPM.',
-  ratio: 'The gear ratio you want to test.',
-  motorRpm: 'The motor speed you plan to run at.',
+  ratio: 'The gear ratio you want to test. It is run at the target speed above.',
+  travelPivot: 'How far one move swings, in degrees. Used for the move time below.',
+  travelLinear: 'How far the carriage goes in one move, in cm. Used for the move time below.',
 
   // Mechanism results
   heroRatio: 'The gear ratio the results are based on. Find ratio = suggested. Check a ratio = yours.',
-  time90: 'Time to rotate through 90 degrees.',
+  moveTime: 'Fastest one move can go, standing still to standing still: full voltage, your stator limit, worst-case load. Leaves out the motors’ own spinning parts.',
+  speedUp: 'Time from standing still to the target speed.',
+  peakBattery: 'All motors in this gearbox, for a fraction of a second. The set budget uses the cruising current instead.',
   carriageSpeed: 'Carriage speed in meters per second.',
   surfaceSpeed: "Speed of the wheel's outer surface in meters per second.",
   load: 'Torque the mechanism needs at its output shaft, worked out from the inputs above.',
@@ -55,7 +58,7 @@ export const HELP = {
   motorEff: 'Power out of the motor divided by power from the battery. Higher is better.',
   loadPct: 'How hard the motor is working. 100% is stalled. Keep it under about 80%.',
   stallOut: 'Torque at the output if the motor is stalled. Shows the most it could ever push.',
-  stallLoad: 'The heaviest load (kg) it could hold at stall. Pivot: at your distance. Linear: at the carriage.',
+  stallLoad: 'The heaviest load (kg) it can hold still with the motors at your stator limit, or at stall if that is lower. Pivot: at your distance. Linear: at the carriage.',
 
   // Swerve
   robotMass: 'Total weight of the robot with battery and bumpers. More mass means more force to accelerate.',

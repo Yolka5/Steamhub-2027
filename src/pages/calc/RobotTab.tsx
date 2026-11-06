@@ -6,7 +6,7 @@ import { Help } from '../../components/Help'
 import { NumField } from '../../components/NumField'
 import { HELP, STATUS_HELP } from '../../lib/calcHelp'
 import { Copy } from '../../components/ui'
-import { computeRobot, findMotor, type Mechanism, type SweepPoint, type MechType, type Robot, type RobotResult } from '../../lib/calc'
+import { computeRobot, findMotor, travelOf, type Mechanism, type SweepPoint, type MechType, type Robot, type RobotResult } from '../../lib/calc'
 import { newMechanism } from '../../lib/calcDefaults'
 import { f, pct, Seg, Stat, StatusTag, type Update } from './shared'
 
@@ -119,8 +119,8 @@ function Budget({ robot, res, update }: { robot: Robot; res: RobotResult; update
     <section className="calc-section budget">
       <div className="budget__inputs">
         <NumField help={HELP.maxDraw} label="Max battery draw" unit="A" value={robot.maxDraw} min={1} step={5} onChange={(v) => update((r) => ({ ...r, maxDraw: v }))} />
-        <NumField help={HELP.maxMotors} label="Max motors" value={robot.maxMotors} min={1} step={1} onChange={(v) => update((r) => ({ ...r, maxMotors: v }))} />
-        <NumField help={HELP.voltage} label="Battery voltage" unit="V" value={robot.voltage} min={1} step={0.5} onChange={(v) => update((r) => ({ ...r, voltage: v }))} />
+        <NumField help={HELP.maxMotors} label="Max motors" value={robot.maxMotors} min={1} whole step={1} onChange={(v) => update((r) => ({ ...r, maxMotors: v }))} />
+        <NumField help={HELP.voltage} label="Battery voltage" unit="V" value={robot.voltage} min={6} max={13.5} step={0.5} onChange={(v) => update((r) => ({ ...r, voltage: v }))} />
       </div>
 
       <div className="stats budget__stats">
@@ -234,6 +234,7 @@ function MechEditor({
               <NumField help={HELP.pivotMass} label="Load mass" unit="kg" value={m.pivotMass} min={0} step={0.1} onChange={(v) => edit({ pivotMass: v })} />
               <NumField help={HELP.pivotDist} label="Distance to centre of mass" unit="cm" value={m.pivotDist} min={0} step={1} onChange={(v) => edit({ pivotDist: v })} />
               <NumField help={HELP.pivotSpeed} label="Target speed" unit="deg/s" value={m.pivotSpeed} min={0} step={10} onChange={(v) => edit({ pivotSpeed: v })} />
+              <NumField help={HELP.travelPivot} label="Angle of one move" unit="deg" value={travelOf(m)} min={1} step={5} onChange={(v) => edit({ travel: v })} />
             </>
           )}
           {m.type === 'linear' && (
@@ -253,26 +254,22 @@ function MechEditor({
                 />
                 <Help text={HELP.rigging} />
               </div>
-              <NumField help={HELP.stages} label="Stages" value={m.stages} min={1} step={1} onChange={(v) => edit({ stages: v })} />
-              <NumField help={HELP.pulleyRadius} label="Pulley radius" unit="cm" value={m.pulleyRadius} min={0} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
+              <NumField help={HELP.stages} label="Stages" value={m.stages} min={1} max={6} whole step={1} onChange={(v) => edit({ stages: v })} />
+              <NumField help={HELP.pulleyRadius} label="Pulley radius" unit="cm" value={m.pulleyRadius} min={0.1} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
               <NumField help={HELP.linearSpeed} label="Target speed" unit="m/s" value={m.linearSpeed} min={0} step={0.1} onChange={(v) => edit({ linearSpeed: v })} />
+              <NumField help={HELP.travelLinear} label="Carriage travel" unit="cm" value={travelOf(m)} min={1} step={5} onChange={(v) => edit({ travel: v })} />
             </>
           )}
           {m.type === 'roller' && (
             <>
-              <NumField help={HELP.wheelDiameter} label="Wheel diameter" unit="cm" value={m.wheelDiameter} min={0} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
+              <NumField help={HELP.wheelDiameter} label="Wheel diameter" unit="cm" value={m.wheelDiameter} min={0.1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
               <NumField help={HELP.spinMass} label="Spinning mass" unit="kg" value={m.spinMass} min={0} step={0.05} onChange={(v) => edit({ spinMass: v })} />
               <NumField help={HELP.dragTorque} label="Drag from game piece" unit="Nm" value={m.dragTorque} min={0} step={0.05} onChange={(v) => edit({ dragTorque: v })} />
               <NumField help={HELP.spinUp} label="Spin-up time" unit="s" value={m.spinUp} min={0.01} step={0.05} onChange={(v) => edit({ spinUp: v })} />
               <NumField help={HELP.wheelRpm} label="Target wheel speed" unit="RPM" value={m.wheelRpm} min={0} step={100} onChange={(v) => edit({ wheelRpm: v })} />
             </>
           )}
-          {m.mode === 2 && (
-            <>
-              <NumField help={HELP.ratio} label="Gear ratio" unit=":1" value={m.ratio} min={0.01} step={1} onChange={(v) => edit({ ratio: v })} />
-              <NumField help={HELP.motorRpm} label="Motor speed" unit="RPM" value={m.motorRpm} min={0} step={100} onChange={(v) => edit({ motorRpm: v })} />
-            </>
-          )}
+          {m.mode === 2 && <NumField help={HELP.ratio} label="Gear ratio" unit=":1" value={m.ratio} min={0.01} step={1} onChange={(v) => edit({ ratio: v })} />}
         </div>
 
         <div className="fields" role="group">
@@ -286,11 +283,11 @@ function MechEditor({
             </select>
             <Help text={HELP.motor} />
           </label>
-          <NumField help={HELP.motors} label="Motors in the gearbox" value={m.motors} min={1} step={1} onChange={(v) => edit({ motors: v })} />
-          <NumField help={HELP.efficiency} label="Gearbox efficiency" value={m.efficiency} min={0.05} step={0.05} onChange={(v) => edit({ efficiency: Math.min(1, v) })} />
+          <NumField help={HELP.motors} label="Motors in the gearbox" value={m.motors} min={1} max={8} whole step={1} onChange={(v) => edit({ motors: v })} />
+          <NumField help={HELP.efficiency} label="Gearbox efficiency" value={m.efficiency} min={0.05} max={1} step={0.05} onChange={(v) => edit({ efficiency: v })} />
           <NumField help={HELP.maxBattery} label="Max battery current" unit="A/motor" value={m.maxBattery} min={0} step={1} onChange={(v) => edit({ maxBattery: v })} />
           <NumField help={HELP.maxStator} label="Max stator current" unit="A/motor" value={m.maxStator} min={0} step={5} onChange={(v) => edit({ maxStator: v })} />
-          <NumField help={HELP.maxDuty} label="Max duty cycle" value={m.maxDuty} min={0.05} step={0.05} onChange={(v) => edit({ maxDuty: Math.min(1, v) })} />
+          <NumField help={HELP.maxDuty} label="Max duty cycle" value={m.maxDuty} min={0.05} max={1} step={0.05} onChange={(v) => edit({ maxDuty: v })} />
           {m.mode === 1 && <NumField help={HELP.maxRatio} label="Max gear ratio" unit=":1" value={m.maxRatio} min={1} step={10} onChange={(v) => edit({ maxRatio: v })} />}
         </div>
       </div>
@@ -311,7 +308,16 @@ function MechEditor({
       </div>
 
       <div className="stats mech__results">
-        {m.type === 'pivot' && <Stat help={HELP.time90} label="Time for 90°" value={f(r.time90, 2)} unit="s" />}
+        {m.type !== 'roller' && (
+          <Stat
+            help={HELP.moveTime}
+            label={m.type === 'pivot' ? `Time to move ${f(travelOf(m), 0)}°` : `Time to travel ${f(travelOf(m), 0)} cm`}
+            value={f(r.move?.time, 2)}
+            unit="s"
+          />
+        )}
+        {m.type !== 'roller' && <Stat help={HELP.speedUp} label="Speed-up time" value={f(r.move?.speedUp, 2)} unit="s" />}
+        {m.type !== 'roller' && <Stat help={HELP.peakBattery} label="Peak battery while speeding up" value={r.move ? f(r.move.peakBattery * m.motors) : '—'} unit="A" />}
         {m.type === 'linear' && <Stat help={HELP.carriageSpeed} label="Carriage speed" value={f(r.carriageSpeed, 2)} unit="m/s" />}
         {m.type === 'roller' && <Stat help={HELP.surfaceSpeed} label="Wheel surface speed" value={f(r.surfaceSpeed, 2)} unit="m/s" />}
         <Stat help={HELP.load} label="Load torque" value={f(r.load, 2)} unit="Nm" />
@@ -324,6 +330,10 @@ function MechEditor({
         <Stat help={HELP.stallOut} label="Stall torque at output" value={f(r.stallTorqueOut)} unit="Nm" />
         {r.stallLoad != null && <Stat help={HELP.stallLoad} label="Heaviest it can hold" value={f(r.stallLoad)} unit="kg" />}
       </div>
+
+      {r.move?.short && (
+        <p className="calc-note soft">This move is too short to reach the target speed. It speeds up for the first half and slows down for the second.</p>
+      )}
 
       <LineChart
         title="Every gear ratio. Shaded: ratios that fit every limit."

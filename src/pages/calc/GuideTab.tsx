@@ -80,6 +80,7 @@ const FORMULAS: Rows = [
   ['Battery current', 'Duty cycle x stator current.'],
   ['Efficiency', 'Mechanical power out / (battery voltage x battery current).'],
   ['Move time', 'Pivots and elevators only. Steps through one move from standing still: full battery voltage, current held to the stator limit, worst-case load the whole way, then cruise at the target speed and slow down as fast as it sped up. Inertia: pivot mass x distance squared; elevator: each moving part times the square of its speed multiple, x pulley radius squared. Motor rotors are left out.'],
+  ['Against ReCalc', 'Checked with the same inputs typed into reca.lc. Holding load: same formula; ReCalc uses CTRE dyno motor data, about 2.5% stronger than the WCP data here. Elevator move: within 1%. Arm move: ReCalc times until the arm hits its stop at full power, with no slowing down, so its time is about 10% shorter. Run the same way, the two agree within 2%.'],
 ]
 
 export function GuideTab() {

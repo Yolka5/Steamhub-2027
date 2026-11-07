@@ -11,6 +11,7 @@ const QUICK: { to: string; label: string; hint: string; icon: IconName }[] = [
   { to: '/stock', label: 'Find stock', hint: 'By size and length', icon: 'search' },
   { to: '/stock/add', label: 'Add stock', hint: 'From your phone', icon: 'plus' },
   { to: '/manufacturing', label: 'Manufacturing', hint: 'What to make, drawings', icon: 'gear' },
+  { to: '/prototypes/record', label: 'Record a test', hint: 'Prototype video and parameters', icon: 'video' },
   { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench' },
   { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
 ]

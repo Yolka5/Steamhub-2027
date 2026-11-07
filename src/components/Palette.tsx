@@ -5,6 +5,7 @@ import { useStore } from '../lib/store'
 import { findThreads, looksLikeThread } from '../lib/threads'
 import { handbookIndex } from '../pages/Handbook'
 import { OUR_TOOLS, OUTSIDE_TOOLS } from '../pages/Tools'
+import { supabase } from '../lib/supabase'
 
 // Opened constantly with Ctrl K, so that never animates. A click on the search box gets a short drop-in.
 
@@ -31,6 +32,8 @@ const PAGES: Item[] = [
   { key: 'p-plates', label: 'Plates: CNC plate stock', to: '/stock/plates', keywords: 'plate sheet aluminum polycarb cnc' },
   { key: 'p-mills', label: 'End mills', to: '/stock/end-mills', keywords: 'end mill cutter flute cnc' },
   { key: 'p-wish', label: 'Wishlist: parts to buy', to: '/manufacturing/wishlist', keywords: 'buy order missing uri' },
+  { key: 'p-proto', label: 'Prototypes', to: '/prototypes', keywords: 'prototype test video parameters אב טיפוס' },
+  { key: 'p-record', label: 'Record a prototype test', to: '/prototypes/record', keywords: 'film video test camera' },
   { key: 'p-notes', label: 'Notifications', to: '/notifications' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },
   { key: 'p-swerve', label: 'Swerve: compare drive ratios', to: '/calculators?tab=swerve' },
@@ -52,6 +55,16 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
   const [sel, setSel] = useState(0)
   const { pieces } = useStore()
   const navigate = useNavigate()
+  const [protos, setProtos] = useState<{ id: string; name: string; concept: string; season: number; subsystem_number: number | null }[]>([])
+  useEffect(() => {
+    if (!open) return
+    supabase
+      .from('prototypes')
+      .select('id, name, concept, season, subsystem_number')
+      .order('updated_at', { ascending: false })
+      .limit(200)
+      .then(({ data }) => setProtos(data ?? []))
+  }, [open])
 
   useEffect(() => {
     const d = ref.current
@@ -101,8 +114,12 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
         })
       }
     }
-    return [...threads, ...stock, ...pages, ...tools, ...chapters]
-  }, [text, pieces])
+    const prototypes: Item[] = protos
+      .filter((p) => p.name.toLowerCase().includes(t) || p.concept.toLowerCase().includes(t) || (p.subsystem_number != null && String(p.subsystem_number) === t))
+      .slice(0, 6)
+      .map((p) => ({ key: `pr-${p.id}`, label: p.name, hint: `Prototype${p.subsystem_number != null ? `, subsystem ${p.subsystem_number}` : ''}`, to: `/prototypes/${p.id}` }))
+    return [...threads, ...stock, ...prototypes, ...pages, ...tools, ...chapters]
+  }, [text, pieces, protos])
 
   const go = (item?: Item) => {
     if (!item) return

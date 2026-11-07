@@ -38,7 +38,7 @@ export async function reservePiece(id: string, who: Who, forWhat: string, planne
 export async function releasePiece(id: string, who: Who) {
   const { data, error } = await supabase
     .from('pieces')
-    .update({ status: 'available', reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null })
+    .update({ status: 'available', reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null, prototype_id: null })
     .eq('id', id)
     .select()
     .single()
@@ -110,7 +110,7 @@ export async function uploadPhoto(id: string, file: File): Promise<{ url?: strin
   return { url: supabase.storage.from('photos').getPublicUrl(path).data.publicUrl }
 }
 
-async function shrink(file: File, max: number): Promise<Blob> {
+export async function shrink(file: File, max: number): Promise<Blob> {
   const bmp = await createImageBitmap(file)
   const scale = Math.min(1, max / Math.max(bmp.width, bmp.height))
   const canvas = document.createElement('canvas')

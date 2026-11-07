@@ -28,6 +28,12 @@ import PartPage from './pages/mfg/PartPage'
 import Wishlist from './pages/mfg/Wishlist'
 import Bolts from './pages/mfg/Bolts'
 import Guide from './pages/mfg/Guide'
+import Prototypes from './pages/proto/Prototypes'
+import PrototypePage from './pages/proto/PrototypePage'
+import TestForm from './pages/proto/TestForm'
+import Compare from './pages/proto/Compare'
+import Record from './pages/proto/Record'
+import Summary from './pages/proto/Summary'
 import Plates from './pages/Plates'
 import EndMills from './pages/EndMills'
 import Notifications from './pages/Notifications'
@@ -47,10 +53,11 @@ interface NavItem {
 const HOME: NavItem = { to: '/', label: 'Home', icon: 'home', end: true }
 const STOCK: NavItem = { to: '/stock', label: 'Stock', icon: 'stock' }
 const MFG: NavItem = { to: '/manufacturing', label: 'Manufacturing', icon: 'gear' }
+const PROTO: NavItem = { to: '/prototypes', label: 'Prototypes', icon: 'flask' }
 const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] }
 const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
 
-const NAV: NavItem[] = [HOME, STOCK, MFG, TOOLS, HANDBOOK]
+const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, TOOLS, HANDBOOK]
 /** Phones: the workshop needs Make in reach, so Handbook moves into Tools there. Add sits in the middle. */
 const TABS_LEFT: NavItem[] = [HOME, STOCK]
 const TABS_RIGHT: { item: NavItem; label: string }[] = [
@@ -235,6 +242,13 @@ export default function App() {
             <Route path="/manufacturing/s/:id/bolts" element={<Bolts />} />
             <Route path="/manufacturing/s/:id/guide" element={<Guide />} />
             <Route path="/manufacturing/wishlist" element={<Wishlist />} />
+            <Route path="/prototypes" element={<Prototypes />} />
+            <Route path="/prototypes/record" element={<Record />} />
+            <Route path="/prototypes/compare" element={<Compare />} />
+            <Route path="/prototypes/summary" element={<Summary />} />
+            <Route path="/prototypes/:id" element={<PrototypePage />} />
+            <Route path="/prototypes/:id/test" element={<TestForm key="new" />} />
+            <Route path="/prototypes/:id/test/:testId" element={<TestForm />} />
             <Route path="/stock/plates" element={<Plates />} />
             <Route path="/stock/end-mills" element={<EndMills />} />
             <Route path="/notifications" element={<Notifications />} />

@@ -2,7 +2,7 @@
 
 Hub for FRC 1577 Steampunk. The goal is to save CAD members minutes and energy during build season. Every screen is judged on how many clicks it saves.
 
-Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: Manufacturing, planned in full in [MANUFACTURING.md](MANUFACTURING.md) on 2026-11-07, built phase by phase.
+Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: Manufacturing, planned in full in [MANUFACTURING.md](MANUFACTURING.md) on 2026-11-07, built phase by phase. Prototypes (Tomer's request in the team chat) planned and built on 2026-11-07, see [PROTOTYPES.md](PROTOTYPES.md).
 
 ## Decisions
 
@@ -28,6 +28,7 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 | Tools | Tool | Hub for every tool: motor and gearbox calculator, tap drill lookup, center distance, swerve, curves, cut list, weight per mechanism, plus links to JVN, AMB and ReCalc |
 | Handbook | Read (Hebrew) | Chapters, mechanism comparisons, approval checklist, and the FRC information sources (מקורות מידע) |
 | Manufacturing | Tool | Robots, subsystems, STEP upload → numbered part list and drawings, workshop list, plates, wishlist, bolt table, assembly guide ([MANUFACTURING.md](MANUFACTURING.md)) |
+| Prototypes | Tool | Prototypes per subsystem, tests as video + parameter values + result, modular blocks, compare, choose ([PROTOTYPES.md](PROTOTYPES.md)) |
 
 ## Stock
 

@@ -19,6 +19,8 @@ export interface Piece {
   reserved_for: string | null
   /** The Manufacturing subsystem it's reserved for, when picked from the list. */
   subsystem_id?: string | null
+  /** The prototype it's reserved for, from a prototype's Stock used block. */
+  prototype_id?: string | null
   planned_length: number | null
   reserved_at: string | null
   photo_url: string | null

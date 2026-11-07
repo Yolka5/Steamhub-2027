@@ -29,6 +29,7 @@ import { supabase } from '../../lib/supabase'
 import { uploadStep } from '../../lib/upload'
 import { useParts, usePeople, useSubsystem } from '../../lib/useMfg'
 import { Combo, Select } from '../../components/Select'
+import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
 
 // Where CAD works: drop the STEP, check machine and material, release parts to the workshop.
 
@@ -141,6 +142,8 @@ export default function SubsystemPage() {
         </label>
         </div>
       </div>
+
+      <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} />
 
       <Drop
         onFile={async (files, progress) => {

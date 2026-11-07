@@ -76,6 +76,9 @@ export default function Stock() {
       <div className="page__head">
         <h1 className="page__title">Stock</h1>
         <div className="page__actions">
+          <Link to="/stock/plates" className="q-btn">
+            Plates
+          </Link>
           <Link to="/stock/cut" className="q-btn">
             Cut list
           </Link>

@@ -17,6 +17,8 @@ export interface Piece {
   reserved_by: string | null
   reserved_by_name: string | null
   reserved_for: string | null
+  /** The Manufacturing subsystem it's reserved for, when picked from the list. */
+  subsystem_id?: string | null
   planned_length: number | null
   reserved_at: string | null
   photo_url: string | null

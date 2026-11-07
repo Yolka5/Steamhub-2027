@@ -5,6 +5,7 @@ import { NumField } from '../../components/NumField'
 import { HELP } from '../../lib/calcHelp'
 import { computeMechanism, computeSwerve, findMotor, mechanismAtRpm, motorCurve, torqueAtSpeed, voltageMap, type Motor, type Robot, type Swerve } from '../../lib/calc'
 import { f, pct, Seg, StatusTag, type Update } from './shared'
+import { Select } from '../../components/Select'
 
 // ---------- Swerve ----------
 
@@ -37,11 +38,7 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
           <NumField help={HELP.swWheel} label="Wheel diameter" unit="cm" value={s.wheelDiameter} min={1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
           <label className="num-field">
             <span className="num-field__label">Drive motor</span>
-            <select className="field" value={s.motor} onChange={(e) => edit({ motor: e.target.value })}>
-              {robot.motors.map((m) => (
-                <option key={m.name}>{m.name}</option>
-              ))}
-            </select>
+            <Select value={s.motor} onChange={(v) => edit({ motor: v })} options={robot.motors.map((m) => ({ value: m.name, label: m.name }))} />
             <Help text={HELP.driveMotor} />
           </label>
           <NumField help={HELP.driveMotors} label="Drive motors" value={s.driveMotors} min={1} max={8} whole step={1} onChange={(v) => edit({ driveMotors: v })} />
@@ -160,20 +157,14 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
       <div className="curves__pick">
         <label className="num-field">
           <span className="num-field__label">Mechanism</span>
-          <select
-            className="field"
+          <Select
             value={mech.id}
-            onChange={(e) => {
-              setId(e.target.value)
+            onChange={(v) => {
+              setId(v)
               setRatio(null)
             }}
-          >
-            {robot.mechanisms.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
+            options={robot.mechanisms.map((m) => ({ value: m.id, label: m.name }))}
+          />
           <Help text={HELP.curveMech} />
         </label>
         <NumField help={HELP.curveRatio} label="Gear ratio to test" unit=":1" value={r} min={0.1} step={1} onChange={setRatio} />
@@ -275,11 +266,7 @@ export function VoltageTab({ robot }: { robot: Robot }) {
       <div className="curves__pick">
         <label className="num-field">
           <span className="num-field__label">Motor</span>
-          <select className="field" value={motor.name} onChange={(e) => setMotorName(e.target.value)}>
-            {robot.motors.map((m) => (
-              <option key={m.name}>{m.name}</option>
-            ))}
-          </select>
+          <Select value={motor.name} onChange={setMotorName} options={robot.motors.map((m) => ({ value: m.name, label: m.name }))} />
           <Help text={HELP.voltMotor} />
         </label>
         <NumField help={HELP.sheetV} label="Datasheet voltage" unit="V" value={sheetV} min={1} step={0.5} onChange={setSheetV} />

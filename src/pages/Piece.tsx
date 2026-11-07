@@ -11,6 +11,7 @@ import { useAuth } from '../lib/auth'
 import { KINDS, area, sizeLabel, weight } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
+import { Select } from '../components/Select'
 
 interface Event {
   id: number
@@ -110,16 +111,13 @@ export default function PiecePage() {
             <dt>Location</dt>
             <dd>
               {session ? (
-                <select
-                  className="field field--inline"
+                <Select
+                  className="field--inline"
+                  label="Location"
                   value={piece.location ?? ''}
-                  onChange={(e) => who && run(() => updatePiece(piece.id, { location: e.target.value || null }, who), 'Location saved')}
-                >
-                  <option value="">Not set</option>
-                  {locations.map((l) => (
-                    <option key={l}>{l}</option>
-                  ))}
-                </select>
+                  onChange={(v) => who && run(() => updatePiece(piece.id, { location: v || null }, who), 'Location saved')}
+                  options={[{ value: '', label: 'Not set' }, ...locations.map((l) => ({ value: l, label: l }))]}
+                />
               ) : (
                 (piece.location ?? 'Not set')
               )}

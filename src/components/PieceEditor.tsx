@@ -4,6 +4,7 @@ import { deletePiece, updatePiece } from '../lib/actions'
 import { KINDS, KIND_ORDER, type Kind, type Piece } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { useToast } from './ui'
+import { Select } from './Select'
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
 const str = (n: number | null) => (n == null ? '' : String(n))
@@ -95,12 +96,7 @@ export function PieceEditor({ piece, who, onDone }: { piece: Piece; who: { userI
       </div>
       <label className="ctl">
         <span className="ctl__name">Material</span>
-        <select className="field" value={material} onChange={(e) => setMaterial(e.target.value)}>
-          <option value="">Unknown</option>
-          {materials.map((m) => (
-            <option key={m.name}>{m.name}</option>
-          ))}
-        </select>
+        <Select value={material} onChange={setMaterial} options={[{ value: '', label: 'Unknown' }, ...materials.map((m) => ({ value: m.name, label: m.name }))]} />
       </label>
       <label className="ctl">
         <span className="ctl__name">Note</span>

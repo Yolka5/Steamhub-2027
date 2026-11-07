@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import type { Profile } from './mfg'
 import { supabase } from './supabase'
 
 interface Auth {
@@ -8,6 +9,10 @@ interface Auth {
   /** First name for greetings and reservations. */
   name: string | null
   userId: string | null
+  /** The signed-in person's row in profiles: admin and banned flags. */
+  profile: Profile | null
+  isAdmin: boolean
+  banned: boolean
   signIn: () => Promise<string | null>
   signOut: () => Promise<void>
 }
@@ -17,6 +22,7 @@ const AuthContext = createContext<Auth | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -27,6 +33,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe()
   }, [])
 
+  const uid = session?.user.id ?? null
+  useEffect(() => {
+    if (!uid) {
+      setProfile(null)
+      return
+    }
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', uid)
+      .maybeSingle()
+      .then(({ data }) => setProfile((data as Profile) ?? null))
+  }, [uid])
+
   const meta = session?.user.user_metadata ?? {}
   const fullName: string | null = meta.full_name ?? meta.name ?? session?.user.email?.split('@')[0] ?? null
 
@@ -34,7 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     ready,
     name: fullName,
-    userId: session?.user.id ?? null,
+    userId: uid,
+    profile,
+    isAdmin: !!profile?.is_admin,
+    banned: !!profile?.banned,
     async signIn() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -54,4 +77,10 @@ export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth outside AuthProvider')
   return ctx
+}
+
+/** The signed-in person as the actions want them. */
+export function useWho() {
+  const { userId, name } = useAuth()
+  return userId && name ? { userId, name } : null
 }

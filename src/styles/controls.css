@@ -295,3 +295,170 @@ input[type='range']:focus-visible {
     transform: none;
   }
 }
+
+/* ===== Dropdowns =====
+   One look for every dropdown. With a mouse, the Select component opens .menu-pop; on touch it's
+   a native select styled the same when closed, so the phone's own picker does the choosing. */
+.select {
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Native: draw the chevron. Element + two classes so it wins over a list's own field background. */
+select.field.select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2.25rem;
+  /* The same thin chevron the menu version draws, in --ink-soft for each theme. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.25 6 7.75l3.5-3.5' fill='none' stroke='%235f5f5a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 0.8rem center;
+  background-size: 12px 12px;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='dark'] select.field.select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.25 6 7.75l3.5-3.5' fill='none' stroke='%23a3a3a3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.select--menu {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-right: 0.85rem;
+  transition: border-color 120ms ease;
+}
+
+.select__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select__value[data-empty] {
+  color: var(--ink-soft);
+}
+
+.select__chev {
+  flex: none;
+  width: 0.45rem;
+  height: 0.45rem;
+  border: solid var(--ink-soft);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 160ms var(--ease-out);
+}
+
+.select--menu[aria-expanded='true'] {
+  border-color: var(--ink-soft);
+}
+
+.select--menu[aria-expanded='true'] .select__chev {
+  transform: translateY(2px) rotate(225deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .select--menu:hover,
+  select.field.select:hover {
+    border-color: var(--surface-3);
+  }
+}
+
+/* The open list. It floats in the top layer, so it's the one place a shadow belongs. */
+.menu-pop {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  max-width: min(24rem, calc(100vw - 1rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+  padding: 0.3rem;
+  color: var(--ink);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.05);
+  font-family: var(--font-work);
+}
+
+:root[data-theme='dark'] .menu-pop {
+  background: var(--surface-2);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+}
+
+.menu-pop[data-anim] {
+  animation: menu-in 160ms var(--ease-out);
+  transform-origin: top center;
+}
+
+.menu-pop[data-anim][data-side='top'] {
+  transform-origin: bottom center;
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.menu-pop__label {
+  padding: 0.55rem 0.6rem 0.2rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.menu-pop__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.7rem 0.4rem 0.55rem;
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+/* A tick marks the chosen one; the space is kept on every row so labels line up. */
+.menu-pop__item::before {
+  content: '';
+  flex: none;
+  width: 0.38rem;
+  height: 0.7rem;
+  margin: 0 0.2rem 0.15rem 0.25rem;
+  border: solid transparent;
+  border-width: 0 2px 2px 0;
+  transform: rotate(42deg);
+}
+
+.menu-pop__item.is-active {
+  background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+}
+
+.menu-pop__item[aria-selected='true'] {
+  font-weight: 500;
+}
+
+.menu-pop__item[aria-selected='true']::before {
+  border-color: var(--ink);
+}
+
+:root[data-theme='dark'] .menu-pop__item.is-active {
+  background: var(--surface-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-pop[data-anim] {
+    animation: none;
+  }
+
+  .select__chev {
+    transition: none;
+  }
+}

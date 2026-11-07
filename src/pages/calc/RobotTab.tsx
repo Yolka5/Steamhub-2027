@@ -9,6 +9,7 @@ import { Copy } from '../../components/ui'
 import { computeRobot, findMotor, travelOf, type Mechanism, type SweepPoint, type MechType, type Robot, type RobotResult } from '../../lib/calc'
 import { newMechanism } from '../../lib/calcDefaults'
 import { f, pct, Seg, Stat, StatusTag, type Update } from './shared'
+import { Select } from '../../components/Select'
 
 const whole = (n: number) => String(Math.round(n))
 
@@ -276,11 +277,7 @@ function MechEditor({
           <h3 className="fields__title">Motor and limits</h3>
           <label className="num-field">
             <span className="num-field__label">Motor</span>
-            <select className="field" value={m.motor} onChange={(e) => edit({ motor: e.target.value })}>
-              {robot.motors.map((x) => (
-                <option key={x.name}>{x.name}</option>
-              ))}
-            </select>
+            <Select value={m.motor} onChange={(v) => edit({ motor: v })} options={robot.motors.map((x) => ({ value: x.name, label: x.name }))} />
             <Help text={HELP.motor} />
           </label>
           <NumField help={HELP.motors} label="Motors in the gearbox" value={m.motors} min={1} max={8} whole step={1} onChange={(v) => edit({ motors: v })} />

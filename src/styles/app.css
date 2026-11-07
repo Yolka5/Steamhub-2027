@@ -233,9 +233,6 @@
   padding: 0.2rem 0.5rem;
 }
 
-select.field {
-  appearance: auto;
-}
 
 .picks--wrap {
   flex-wrap: wrap;

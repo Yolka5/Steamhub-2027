@@ -77,6 +77,14 @@ export default function Tools() {
         </div>
       </section>
 
+      {/* Phones have no Handbook tab (Make took its place), so it lives here. */}
+      <section className="tools-group tools-group--phone">
+        <h2 className="section__title">Handbook</h2>
+        <div className="tools">
+          <ToolCard t={{ name: 'Mechanical design handbook', what: 'The mechanical design handbook and the FRC information sources.', icon: 'book', to: '/handbook' }} />
+        </div>
+      </section>
+
       <section className="tools-group">
         <h2 className="section__title">Tools we also use</h2>
         <p className="soft">They open in a new tab.</p>

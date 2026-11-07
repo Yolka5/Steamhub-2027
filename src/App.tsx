@@ -20,6 +20,20 @@ import Handbook from './pages/Handbook'
 import HandbookHub from './pages/HandbookHub'
 import Calculator from './pages/Calculator'
 import Tools from './pages/Tools'
+import Workshop from './pages/mfg/Workshop'
+import Robots from './pages/mfg/Robots'
+import RobotPage from './pages/mfg/Robot'
+import SubsystemPage from './pages/mfg/SubsystemPage'
+import PartPage from './pages/mfg/PartPage'
+import Wishlist from './pages/mfg/Wishlist'
+import Bolts from './pages/mfg/Bolts'
+import Guide from './pages/mfg/Guide'
+import Plates from './pages/Plates'
+import EndMills from './pages/EndMills'
+import Notifications from './pages/Notifications'
+import People from './pages/People'
+import { NoAccess, SignIn } from './components/SignIn'
+import { useNotifications } from './lib/notifications'
 
 interface NavItem {
   to: string
@@ -30,12 +44,33 @@ interface NavItem {
   also?: string[]
 }
 
-const NAV: NavItem[] = [
-  { to: '/', label: 'Home', icon: 'home', end: true },
-  { to: '/stock', label: 'Stock', icon: 'stock' },
-  { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] },
-  { to: '/handbook', label: 'Handbook', icon: 'book' },
+const HOME: NavItem = { to: '/', label: 'Home', icon: 'home', end: true }
+const STOCK: NavItem = { to: '/stock', label: 'Stock', icon: 'stock' }
+const MFG: NavItem = { to: '/manufacturing', label: 'Manufacturing', icon: 'gear' }
+const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] }
+const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
+
+const NAV: NavItem[] = [HOME, STOCK, MFG, TOOLS, HANDBOOK]
+/** Phones: the workshop needs Make in reach, so Handbook moves into Tools there. Add sits in the middle. */
+const TABS_LEFT: NavItem[] = [HOME, STOCK]
+const TABS_RIGHT: { item: NavItem; label: string }[] = [
+  { item: MFG, label: 'Make' },
+  { item: TOOLS, label: 'Tools' },
 ]
+
+function Bell({ compact = false }: { compact?: boolean }) {
+  const { unread } = useNotifications()
+  const label = unread ? `Notifications, ${unread} new` : 'Notifications'
+  return (
+    <Link to="/notifications" className={compact ? 'icon-btn bell' : 'pick bell'} aria-label={compact ? label : undefined}>
+      <span className="bell__icon">
+        <Icon name="bell" />
+        {unread > 0 && <span className="bell__count num">{unread > 9 ? '9+' : unread}</span>}
+      </span>
+      {!compact && <span className="rail__label">Notifications</span>}
+    </Link>
+  )
+}
 
 /** Stock stays unselected on Add, which has its own tab on phones. */
 function isActive(n: NavItem, path: string, phone = false) {
@@ -78,7 +113,7 @@ export default function App() {
     setPaletteAnim(true)
     setPaletteOpen(true)
   }
-  const { session, signIn } = useAuth()
+  const { session, signIn, ready, banned } = useAuth()
   const [authError, setAuthError] = useState<string | null>(null)
   const location = useLocation()
 
@@ -95,6 +130,11 @@ export default function App() {
   }, [])
 
   useEffect(() => setPaletteOpen(false), [location.pathname, location.search])
+
+  // Steamhub is for the team: nothing shows until you're signed in.
+  if (!ready) return null
+  if (!session) return <SignIn />
+  if (banned) return <NoAccess />
 
   const account = session ? (
     <AccountMenu placement="up" />
@@ -134,6 +174,7 @@ export default function App() {
             ))}
           </nav>
           <div className="rail__foot picks picks--stack">
+            <Bell />
             <button type="button" className="pick" onClick={toggleTheme}>
               <span className="swap" key={theme}>
                 <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
@@ -155,6 +196,7 @@ export default function App() {
             <button type="button" className="icon-btn" aria-label="Search" onClick={openPalette}>
               <Icon name="search" />
             </button>
+            <Bell compact />
             <button type="button" className="icon-btn" aria-label="Toggle dark mode" onClick={toggleTheme}>
               <span className="swap" key={theme}>
                 <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
@@ -185,12 +227,24 @@ export default function App() {
             <Route path="/handbook" element={<HandbookHub />} />
             <Route path="/handbook/design" element={<Handbook key="design" part="design" />} />
             <Route path="/handbook/sources" element={<Handbook key="sources" part="sources" />} />
+            <Route path="/manufacturing" element={<Workshop />} />
+            <Route path="/manufacturing/robots" element={<Robots />} />
+            <Route path="/manufacturing/r/:id" element={<RobotPage />} />
+            <Route path="/manufacturing/s/:id" element={<SubsystemPage />} />
+            <Route path="/manufacturing/p/:id" element={<PartPage />} />
+            <Route path="/manufacturing/s/:id/bolts" element={<Bolts />} />
+            <Route path="/manufacturing/s/:id/guide" element={<Guide />} />
+            <Route path="/manufacturing/wishlist" element={<Wishlist />} />
+            <Route path="/stock/plates" element={<Plates />} />
+            <Route path="/stock/end-mills" element={<EndMills />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/people" element={<People />} />
           </Routes>
         </main>
 
         <nav className="tabbar" aria-label="Main">
           <Indicator selector='.tab:not(.tab--add)[aria-current="page"]' />
-          {NAV.slice(0, 2).map((n) => (
+          {TABS_LEFT.map((n) => (
             <Link key={n.to} to={n.to} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
               <Icon name={n.icon} size={22} />
               {n.label}
@@ -202,10 +256,10 @@ export default function App() {
             </span>
             Add
           </NavLink>
-          {NAV.slice(2).map((n) => (
+          {TABS_RIGHT.map(({ item: n, label }) => (
             <Link key={n.to} to={n.to} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
               <Icon name={n.icon} size={22} />
-              {n.label}
+              {label}
             </Link>
           ))}
         </nav>

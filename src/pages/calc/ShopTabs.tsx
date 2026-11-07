@@ -16,6 +16,7 @@ import {
 } from '../../lib/centers'
 import { COMMON_ORDER, THREADS, findThreads, threadDepth, threadsInWall, type Thread } from '../../lib/threads'
 import { f, Seg } from './shared'
+import { Select } from '../../components/Select'
 
 // ---------- Center distance ----------
 
@@ -67,13 +68,7 @@ export function CenterTab() {
           <h3 className="fields__title">Drive</h3>
           <label className="num-field">
             <span className="num-field__label">Type</span>
-            <select className="field" value={driveId} onChange={(e) => setDriveId(e.target.value)}>
-              {DRIVES.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
+            <Select value={driveId} onChange={setDriveId} options={DRIVES.map((d) => ({ value: d.id, label: d.label }))} />
           </label>
           <div className="num-field num-field--wide">
             <span className="num-field__label">What you know</span>

@@ -13,7 +13,7 @@ async function log(pieceId: string, action: string, who: Who, details?: object) 
 }
 
 /** Only succeeds if the piece is still available, so two people can't take the same one. */
-export async function reservePiece(id: string, who: Who, forWhat: string, plannedLength: number | null) {
+export async function reservePiece(id: string, who: Who, forWhat: string, plannedLength: number | null, subsystemId: string | null = null) {
   const { data, error } = await supabase
     .from('pieces')
     .update({
@@ -23,6 +23,7 @@ export async function reservePiece(id: string, who: Who, forWhat: string, planne
       reserved_for: forWhat || null,
       planned_length: plannedLength,
       reserved_at: new Date().toISOString(),
+      subsystem_id: subsystemId,
     })
     .eq('id', id)
     .eq('status', 'available')
@@ -37,7 +38,7 @@ export async function reservePiece(id: string, who: Who, forWhat: string, planne
 export async function releasePiece(id: string, who: Who) {
   const { data, error } = await supabase
     .from('pieces')
-    .update({ status: 'available', reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null })
+    .update({ status: 'available', reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null })
     .eq('id', id)
     .select()
     .single()
@@ -62,7 +63,7 @@ export async function cutPiece(piece: Piece, final: number, who: Who) {
   const leftover = Math.round((piece.length - final - KERF) * 10) / 10
   const patch =
     leftover > 0
-      ? { status: 'available', length: leftover, reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null }
+      ? { status: 'available', length: leftover, reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null }
       : { status: 'used' }
   const { data, error } = await supabase.from('pieces').update(patch).eq('id', piece.id).eq('length', piece.length).select().maybeSingle()
   if (error) return { error: error.message }

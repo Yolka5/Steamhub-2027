@@ -2,7 +2,7 @@
 
 Hub for FRC 1577 Steampunk. The goal is to save CAD members minutes and energy during build season. Every screen is judged on how many clicks it saves.
 
-Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: deploy on Vercel and the photo copy function, then Manufacturing with Tom's tool.
+Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: Manufacturing, planned in full in [MANUFACTURING.md](MANUFACTURING.md) on 2026-11-07, built phase by phase.
 
 ## Decisions
 
@@ -10,14 +10,14 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 - **Look**: light mode by default, dark mode as a toggle. Black and orange brand, with orange kept rare (logo, one main button per screen, meaning in data).
 - **Fonts**: Night Machine for big page titles, Newsreader serif for section titles, Instrument Sans for everything else.
 - **Data**: Supabase (database, photo storage, auth), imported once from the Google Sheet.
-- **Sign-in**: Google. The session refreshes on its own, so people sign in once and stay signed in. Anyone signed in can edit. Reading works without signing in.
+- **Sign-in**: Google. The session refreshes on its own, so people sign in once and stay signed in. Sign-in is required for the whole site (decided 2026-11-07). Anyone with a Google account can sign in and edit everything; the admin is notified of new accounts and can ban them.
 - **Hosting**: Vercel, building from the GitHub repo on every push (vercel.json handles page routes).
 - **IDs**: TB for round tube and rod (as in the sheet), PR profile, AN angle, FB flat bar, HX hex, OT other.
 - **Repo**: GitHub `Steamhub 2027`, pushed from this folder.
 - **CAD**: Onshape.
 - **Devices**: phone first for the workshop, desktop for CAD, plus the workshop's touchscreen PC. Big touch targets everywhere, and nothing that only works on hover.
-- **Tom's tool** (drawings, bolt detection, exploded views, manufacturing tracking): not rebuilt from scratch. We integrate and improve it once Tom sends it.
-- **Manufacturing**: designed later, as its own careful pass. Slow, confusing manufacturing tracking is a big part of why the old Steamhub failed, so it has to be fast and simple.
+- **Tom's tool** (drawings, bolt detection, assembly guide, manufacturing tracking): its engine is ported, not rebuilt; its UI is replaced with Steamhub's.
+- **Manufacturing**: see [MANUFACTURING.md](MANUFACTURING.md). Slow, confusing manufacturing tracking is a big part of why the old Steamhub failed, so it has to be as simple as last year's Monday board, with the upload doing the typing.
 
 ## Sections
 
@@ -27,7 +27,7 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 | Stock | Tool | Find, Browse, Add (phone), Needs photo, History |
 | Tools | Tool | Hub for every tool: motor and gearbox calculator, tap drill lookup, center distance, swerve, curves, cut list, weight per mechanism, plus links to JVN, AMB and ReCalc |
 | Handbook | Read (Hebrew) | Chapters, mechanism comparisons, approval checklist, and the FRC information sources (מקורות מידע) |
-| Manufacturing | Tool | Later: Tom's tool and the part-done flow |
+| Manufacturing | Tool | Robots, subsystems, STEP upload → numbered part list and drawings, workshop list, plates, wishlist, bolt table, assembly guide ([MANUFACTURING.md](MANUFACTURING.md)) |
 
 ## Stock
 
@@ -85,8 +85,7 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 
 - Deploy the `copy-drive-photos` edge function (`supabase functions deploy copy-drive-photos`), then press "Copy from Drive" on Needs photo once. 80 pieces still point at Drive.
 - Deploy the site on Vercel.
-- Manufacturing with Tom's tool (waiting on Tom).
-- Onshape integration (needs Onshape API keys).
+- Manufacturing, phases 1–6 in [MANUFACTURING.md](MANUFACTURING.md). Onshape integration is its phase 6.
 - QR stickers, if the sharpie labels stop being enough.
 
 ## Build order
@@ -95,4 +94,4 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 1. Stock: import, Add, Find, Reserve, Needs photo
 2. Calculator
 3. Handbook
-4. Manufacturing with Tom's tool, then extras
+4. Manufacturing ([MANUFACTURING.md](MANUFACTURING.md)), then extras

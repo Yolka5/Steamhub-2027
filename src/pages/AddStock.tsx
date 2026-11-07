@@ -8,6 +8,7 @@ import { addPiece, nextId, updatePiece, uploadPhoto } from '../lib/actions'
 import { useAuth } from '../lib/auth'
 import { KINDS, KIND_ORDER, sizeLabel, type Kind, type Piece } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { Select } from '../components/Select'
 
 // Built for a phone in one hand and a caliper in the other: big fields, numeric keyboards,
 // the cross-section stays filled in between pieces so a batch is length, photo, save.
@@ -235,11 +236,7 @@ export default function AddStock() {
           </summary>
           <label className="ctl">
             <span className="ctl__name">Material</span>
-            <select className="field" value={material} onChange={(e) => setMaterial(e.target.value)}>
-              {materials.map((m) => (
-                <option key={m.name}>{m.name}</option>
-              ))}
-            </select>
+            <Select value={material} onChange={setMaterial} options={materials.map((m) => ({ value: m.name, label: m.name }))} />
           </label>
           <div className="ctl">
             <span className="ctl__name ctl__row">

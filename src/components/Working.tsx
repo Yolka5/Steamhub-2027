@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { loadKatex, type Render } from '../lib/katex'
 
 // "How it's worked out" under a calculated result: each step as the formula, then the same
 // formula with this screen's numbers in it, so anyone can check the answer by hand.
-// Formulas are LaTeX, typeset by KaTeX. KaTeX only loads the first time a panel is open, so
-// pages where nobody opens one never download it. Open or closed is remembered per panel.
+// Formulas are LaTeX, typeset by KaTeX, which loads in the background after start (lib/katex).
+// Open or closed is remembered per panel.
 
 export interface Step {
   /** What this step finds, in words. */
@@ -18,18 +19,6 @@ export interface Step {
 
 /** A step, a plain sentence between steps, or a small heading that groups the steps after it. */
 export type Line = Step | string | { head: string }
-
-type Render = (latex: string) => string
-
-let katexLoad: Promise<Render> | null = null
-function loadKatex(): Promise<Render> {
-  katexLoad ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(
-    ([k]) =>
-      (latex: string) =>
-        k.default.renderToString(`\\displaystyle ${latex}`, { throwOnError: false, strict: false, output: 'html' }),
-  )
-  return katexLoad
-}
 
 function Tex({ latex, render, className }: { latex: string; render: Render | null; className: string }) {
   // Until KaTeX arrives, keep the line's height so the panel doesn't jump.

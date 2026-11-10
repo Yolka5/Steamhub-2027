@@ -925,14 +925,16 @@ dialog {
   }
 }
 
-/* The logo's outer gear is black, so dark mode swaps in a copy with a light gear. */
-.logo--dark,
-:root[data-theme='dark'] .logo--light {
-  display: none;
+/* The logo's outer gear is black, so dark mode swaps in a copy with a light gear. A background
+   image, not two <img>s, so the phone only downloads the one it shows. */
+.logo {
+  display: block;
+  flex: none;
+  background: url('/logo-144.webp') center / contain no-repeat;
 }
 
-:root[data-theme='dark'] .logo--dark {
-  display: block;
+:root[data-theme='dark'] .logo {
+  background-image: url('/logo-dark-144.webp');
 }
 
 /* ===== Home: season ===== */
@@ -1477,4 +1479,11 @@ dialog {
 
 .add-preview .stock-render {
   height: 8rem;
+}
+
+/* With no search typed, Stock lists every piece. Cards off screen skip layout and drawing until
+   they scroll near, which keeps a few hundred cards smooth on a phone. */
+.cards > .card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 24rem;
 }

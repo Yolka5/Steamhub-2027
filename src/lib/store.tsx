@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
+import { useAuth } from './auth'
 import type { Material, Piece } from './stock'
 
 // The whole stock list is small (hundreds of rows), so it is loaded once and searched in the
@@ -43,7 +44,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
+  // Everything is behind sign-in, so nothing is fetched for the sign-in screen.
+  const { userId } = useAuth()
+
   useEffect(() => {
+    if (!userId) return
     reload()
     const channel = supabase
       .channel('pieces')
@@ -59,13 +64,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       })
       .subscribe()
-    const onFocus = () => reload()
-    window.addEventListener('focus', onFocus)
+    // Realtime keeps the list current while the app is open. A phone drops that connection
+    // when the app is in the background, so coming back after more than a minute reloads it.
+    // Shorter trips (switching apps for a second) don't reload the whole stock list.
+    let hiddenAt = 0
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') hiddenAt = Date.now()
+      else if (hiddenAt && Date.now() - hiddenAt > 60_000) reload()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       supabase.removeChannel(channel)
-      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [reload])
+  }, [reload, userId])
 
   const value = useMemo<Store>(() => {
     const map = new Map(pieces.map((p) => [p.id, p]))

@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/controls.css'
 import './styles/app.css'
@@ -15,8 +16,10 @@ import { AuthProvider } from './lib/auth'
 import { NotificationsProvider } from './lib/notifications'
 import { StoreProvider } from './lib/store'
 import { initPointerGlow } from './lib/motion'
+import { preloadKatex } from './lib/katex'
 
 initPointerGlow()
+preloadKatex()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

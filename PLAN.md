@@ -96,3 +96,12 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 2. Calculator
 3. Handbook
 4. Manufacturing ([MANUFACTURING.md](MANUFACTURING.md)), then extras
+
+## Speed (phones)
+
+- Everything loads at entry on purpose: one app download, then every page is instant. KaTeX (formulas) downloads in the background 3 s after load; prototype video tools load on first use.
+- `vercel.json` caches `/assets` for a year (file names change every deploy). Fonts and images in `public/` cache for 30 days: **when replacing one, give it a new file name**, or phones keep the old one for up to a month.
+- Fonts are self-hosted in `public/fonts` (`src/styles/fonts.css`). Each file only downloads when a page uses its characters, so Heebo (Hebrew) only loads on the Handbook.
+- The logo is a CSS background (`.logo`), so only the current theme's version downloads. `index.html` shows it as a startup frame before the code arrives.
+- Stock data loads after sign-in and reloads only when the app comes back after more than a minute away; realtime covers the rest.
+- Lighthouse mobile, sign-in screen, production build: score 91 to 96, first paint 2.61 s to 0.91 s, 414 KB to 322 KB, 15 requests to 7.

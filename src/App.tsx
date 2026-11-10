@@ -162,8 +162,7 @@ export default function App() {
       <div className="app">
         <aside className="rail" aria-label="Main">
           <NavLink to="/" className="brand">
-            <img className="logo logo--light" src="/logo-256.png" alt="" width="36" height="36" />
-            <img className="logo logo--dark" src="/logo-dark-256.png" alt="" width="36" height="36" />
+            <span className="logo" style={{ width: 36, height: 36 }} aria-hidden="true" />
             <span className="brand__name">Steamhub</span>
           </NavLink>
           <button type="button" className="rail__search" onClick={openPalette}>
@@ -195,8 +194,7 @@ export default function App() {
 
         <header className="topbar">
           <NavLink to="/" className="brand">
-            <img className="logo logo--light" src="/logo-256.png" alt="" width="32" height="32" />
-            <img className="logo logo--dark" src="/logo-dark-256.png" alt="" width="32" height="32" />
+            <span className="logo" style={{ width: 32, height: 32 }} aria-hidden="true" />
             <span className="brand__name">Steamhub</span>
           </NavLink>
           <div className="topbar__end">

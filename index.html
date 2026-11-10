@@ -2,25 +2,26 @@
 <html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo-256.png" />
+    <link rel="icon" type="image/png" href="/favicon-64.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#fbfbf9" />
     <title>Steamhub</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&family=Newsreader:opsz,wght@6..72,400..600&family=Heebo:wght@400..900&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="preload" href="/fonts/NightMachine.otf" as="font" type="font/otf" crossorigin />
     <script>
       try {
         if (localStorage.getItem('theme') === 'dark') document.documentElement.dataset.theme = 'dark'
       } catch (e) {}
     </script>
+    <!-- Startup frame: shows before the app's code arrives, then React replaces it. -->
+    <style>
+      html { background: #fbfbf9; }
+      html[data-theme='dark'] { background: #0c0c0c; }
+      .boot { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; }
+      .boot__logo { width: 72px; height: 72px; background: url('/logo-144.webp') center / contain no-repeat; }
+      html[data-theme='dark'] .boot__logo { background-image: url('/logo-dark-144.webp'); }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="boot" aria-hidden="true"><span class="boot__logo"></span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

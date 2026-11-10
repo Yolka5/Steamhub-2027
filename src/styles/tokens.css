@@ -2,7 +2,9 @@
 
 @font-face {
   font-family: 'Night Machine';
-  src: url('/fonts/NightMachine.otf') format('opentype');
+  src:
+    url('/fonts/NightMachine.woff2') format('woff2'),
+    url('/fonts/NightMachine.otf') format('opentype');
   font-display: swap;
 }
 

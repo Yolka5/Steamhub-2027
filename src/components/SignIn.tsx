@@ -18,8 +18,7 @@ export function SignIn() {
   return (
     <main className="gate">
       <div className="shell gate__box">
-        <img className="logo logo--light gate__logo" src="/logo-256.png" alt="" width="72" height="72" />
-        <img className="logo logo--dark gate__logo" src="/logo-dark-256.png" alt="" width="72" height="72" />
+        <span className="logo gate__logo" style={{ width: 72, height: 72 }} aria-hidden="true" />
         <h1 className="gate__title">Steamhub</h1>
         <p className="soft gate__sub">FRC 1577 Steampunk's stock, tools and manufacturing. Sign in with Google to come in.</p>
         <button type="button" className="q-btn q-btn--big q-btn--wide" onClick={async () => setError(await signIn())}>

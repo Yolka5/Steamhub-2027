@@ -100,13 +100,16 @@ export function useSubsystem(id: string) {
   const [uploads, setUploads] = useState<Upload[]>([])
   const [loading, setLoading] = useState(true)
   const reload = useCallback(async () => {
-    const { data } = await supabase.from('subsystems').select('*, robot:robots(*)').eq('id', id).maybeSingle()
+    // Both at once: the uploads don't depend on the subsystem row.
+    const [{ data }, u] = await Promise.all([
+      supabase.from('subsystems').select('*, robot:robots(*)').eq('id', id).maybeSingle(),
+      supabase.from('step_uploads').select('*').eq('subsystem_id', id).order('uploaded_at', { ascending: false }).limit(5),
+    ])
     if (data) {
       const { robot: r, ...s } = data as Subsystem & { robot: Robot }
       setSub(s)
       setRobot(r)
     }
-    const u = await supabase.from('step_uploads').select('*').eq('subsystem_id', id).order('uploaded_at', { ascending: false }).limit(5)
     setUploads((u.data as Upload[]) ?? [])
     setLoading(false)
   }, [id])

@@ -940,10 +940,26 @@ input.mech__name:focus {
 
 .working__math {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.35rem;
   min-width: 0;
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
+}
+
+/* Long worked lines scroll sideways inside their row, never the page. */
+.working__f,
+.working__c {
+  display: block;
+  max-width: 100%;
+  padding: 0.1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.working .katex {
+  font-size: 1.08em;
+}
+
+.working__pending {
+  min-height: 1.9rem;
 }
 
 .working__f {

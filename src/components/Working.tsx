@@ -1,22 +1,41 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 // "How it's worked out" under a calculated result: each step as the formula, then the same
 // formula with this screen's numbers in it, so anyone can check the answer by hand.
-// Open or closed is remembered per panel on this device.
+// Formulas are LaTeX, typeset by KaTeX. KaTeX only loads the first time a panel is open, so
+// pages where nobody opens one never download it. Open or closed is remembered per panel.
 
 export interface Step {
   /** What this step finds, in words. */
   what: string
-  /** The formula in symbols, like "C = m × (z1 + z2) / 2". */
+  /** The formula, in LaTeX: "C = \\frac{m(z_1 + z_2)}{2}". */
   formula?: string
-  /** The same formula with the numbers on screen, ending in the answer. */
+  /** The same formula in LaTeX with the numbers on screen, ending in the answer. */
   calc?: string
-  /** One line on why, when the formula alone doesn't say it. */
+  /** One line of plain text on why, or what a symbol means. */
   why?: string
 }
 
 /** A step, a plain sentence between steps, or a small heading that groups the steps after it. */
 export type Line = Step | string | { head: string }
+
+type Render = (latex: string) => string
+
+let katexLoad: Promise<Render> | null = null
+function loadKatex(): Promise<Render> {
+  katexLoad ??= Promise.all([import('katex'), import('katex/dist/katex.min.css')]).then(
+    ([k]) =>
+      (latex: string) =>
+        k.default.renderToString(`\\displaystyle ${latex}`, { throwOnError: false, strict: false, output: 'html' }),
+  )
+  return katexLoad
+}
+
+function Tex({ latex, render, className }: { latex: string; render: Render | null; className: string }) {
+  // Until KaTeX arrives, keep the line's height so the panel doesn't jump.
+  if (!render) return <span className={`${className} working__pending`} />
+  return <span className={className} dangerouslySetInnerHTML={{ __html: render(latex) }} />
+}
 
 const KEY = 'working:'
 
@@ -30,6 +49,17 @@ function remembered(id: string) {
 
 export function Working({ id, lines, title = "How it's worked out", children }: { id: string; lines: Line[]; title?: string; children?: ReactNode }) {
   const [open, setOpen] = useState(() => remembered(id))
+  const [render, setRender] = useState<Render | null>(null)
+
+  useEffect(() => {
+    if (!open || render) return
+    let stop = false
+    loadKatex().then((r) => !stop && setRender(() => r))
+    return () => {
+      stop = true
+    }
+  }, [open, render])
+
   return (
     <details
       className="working"
@@ -45,30 +75,31 @@ export function Working({ id, lines, title = "How it's worked out", children }: 
       }}
     >
       <summary className="working__head">{title}</summary>
-      <div className="working__body">
-        {lines.map((l, i) =>
-          typeof l === 'object' && 'head' in l ? (
-            <h4 key={i} className="working__group">
-              {l.head}
-            </h4>
-          ) : typeof l === 'string' ? (
-            <p key={i} className="working__say">
-              {l}
-            </p>
-          ) : (
-            <div key={i} className="working__step">
-              <span className="working__what">{l.what}</span>
-              <span className="working__math num">
-                {l.formula && <span className="working__f">{l.formula}</span>}
-                {l.calc && <span className="working__c">{l.calc}</span>}
-              </span>
-              {l.why && <span className="working__why soft small">{l.why}</span>}
-            </div>
-          ),
-        )}
-        {children}
-      </div>
+      {open && (
+        <div className="working__body">
+          {lines.map((l, i) =>
+            typeof l === 'object' && 'head' in l ? (
+              <h4 key={i} className="working__group">
+                {l.head}
+              </h4>
+            ) : typeof l === 'string' ? (
+              <p key={i} className="working__say">
+                {l}
+              </p>
+            ) : (
+              <div key={i} className="working__step">
+                <span className="working__what">{l.what}</span>
+                <span className="working__math">
+                  {l.formula && <Tex latex={l.formula} render={render} className="working__f" />}
+                  {l.calc && <Tex latex={l.calc} render={render} className="working__c" />}
+                </span>
+                {l.why && <span className="working__why soft small">{l.why}</span>}
+              </div>
+            ),
+          )}
+          {children}
+        </div>
+      )}
     </details>
   )
 }
-

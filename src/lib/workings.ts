@@ -1,6 +1,8 @@
 // The "How it's worked out" lines for every calculation in Steamhub. Each builder takes the
 // same inputs as the result on screen and returns the steps with those numbers in them, so the
 // explanation can never drift from the answer: it is computed from the same functions.
+//
+// `formula` and `calc` are LaTeX, rendered by KaTeX. `what`, `why` and plain lines are text.
 
 import type { Line } from '../components/Working'
 import { beltLength, centerForCount, chainLinksAt, gearCenter, GEAR_EXTRA, type DriveType } from './centers'
@@ -25,9 +27,34 @@ import { threadDepth, threadsInWall, type Thread } from './threads'
 import { area, KERF, KINDS, type CutPlan, type Kind, type Match, type Piece, type Query } from './stock'
 
 const PI2 = 2 * Math.PI
+const G = 9.81
 
-/** Number for a worked line: fixed decimals, so the steps line up. */
-const w = (n: number | null | undefined, d = 2) => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(d))
+// ---------- LaTeX helpers ----------
+
+/** Template tag that keeps backslashes, so LaTeX reads as LaTeX. */
+const tex = String.raw
+
+/** Number with fixed decimals, so the steps line up. */
+const w = (n: number | null | undefined, d = 2) => (n == null || !Number.isFinite(n) ? '?' : n.toFixed(d))
+
+/** User text (a mechanism or set name) made safe inside \text{}. */
+const esc = (s: string) => s.replace(/[\\{}$&#^_%~]/g, (c) => (c === '\\' ? '' : c === '~' || c === '^' ? '' : `\\${c}`))
+
+/** A unit after a number, upright and thin-spaced. ² and ³ become real superscripts. */
+const u = (s: string) => tex`\,\text{${s}}`.replace(/²/g, '}^2\\text{').replace(/³/g, '}^3\\text{')
+
+/** Upright word inside a formula. */
+const t = (s: string) => tex`\text{${esc(s)}}`
+
+/** Named quantity with an upright subscript, like I_stall. */
+const sub = (sym: string, s: string) => tex`${sym}_\text{${s}}`
+
+const If = sub('I', 'free')
+const Is = sub('I', 'stall')
+const Ts = sub('T', 'stall')
+const Nf = sub('n', 'free')
+const Kv = 'K_v'
+const Kt = 'K_t'
 
 // ---------- Center distance ----------
 
@@ -44,14 +71,14 @@ function beltAt(p: number, z1: number, z2: number, c: number): Line[] {
   return [
     {
       what: 'Wrap angle offset',
-      formula: 'φ = asin((r2 − r1) / C)',
-      calc: `φ = asin((${w(r2)} − ${w(r1)}) / ${w(c)}) = ${w(phi, 4)} rad`,
-      why: 'How far the belt tilts from parallel because the pulleys are different sizes. Zero when they match.',
+      formula: tex`\varphi = \arcsin\frac{r_2 - r_1}{C}`,
+      calc: tex`\varphi = \arcsin\frac{${w(r2)} - ${w(r1)}}{${w(c)}} = ${w(phi, 4)}${u('rad')}`,
+      why: 'How far the belt tilts from parallel because the pulleys are different sizes. Zero when they match. C is the center distance.',
     },
     {
       what: 'Belt pitch length',
-      formula: 'L = 2C·cos φ + π(r1 + r2) + 2φ(r2 − r1)',
-      calc: `L = 2 × ${w(c)} × ${w(Math.cos(phi), 4)} + π × ${w(r1 + r2)} + 2 × ${w(phi, 4)} × ${w(r2 - r1)} = ${w(beltLength(p, z1, z2, c))} mm`,
+      formula: tex`L = 2C\cos\varphi + \pi(r_1 + r_2) + 2\varphi(r_2 - r_1)`,
+      calc: tex`L = 2 \times ${w(c)} \times ${w(Math.cos(phi), 4)} + \pi \times ${w(r1 + r2)} + 2 \times ${w(phi, 4)} \times ${w(r2 - r1)} = ${w(beltLength(p, z1, z2, c))}${u('mm')}`,
       why: 'Two straight spans plus the arc around each pulley. Exact, no approximation.',
     },
   ]
@@ -61,19 +88,20 @@ function radiiLines(p: number, z1: number, z2: number): Line {
   const { a, b, r1, r2 } = beltRadii(p, z1, z2)
   return {
     what: 'Pulley pitch radii',
-    formula: 'r = z × p / 2π',
-    calc: `r1 = ${a} × ${p} / 2π = ${w(r1)} mm, r2 = ${b} × ${p} / 2π = ${w(r2)} mm`,
-    why: 'The pitch line runs through the belt cords, so the circumference there is teeth × pitch.',
+    formula: tex`r = \frac{z\,p}{2\pi}`,
+    calc: tex`r_1 = \frac{${a} \times ${p}}{2\pi} = ${w(r1)}${u('mm')}, \quad r_2 = \frac{${b} \times ${p}}{2\pi} = ${w(r2)}${u('mm')}`,
+    why: 'z is the teeth, p the belt pitch. The pitch line runs through the belt cords, so the circumference there is teeth × pitch.',
   }
 }
 
 export function beltFindWorking(d: DriveType, z1: number, z2: number, target: number, step: number): Line[] {
   const p = d.pitch
-  const ideal = beltLength(p, z1, z2, target) / p
+  const len = beltLength(p, z1, z2, target)
+  const ideal = len / p
   return [
     radiiLines(p, z1, z2),
     ...beltAt(p, z1, z2, target),
-    { what: 'Teeth at your distance', formula: 'teeth = L / p', calc: `${w(beltLength(p, z1, z2, target))} / ${p} = ${w(ideal)} teeth` },
+    { what: 'Teeth at your distance', formula: tex`n = \frac{L}{p}`, calc: tex`n = \frac{${w(len)}}{${p}} = ${w(ideal)}${u('teeth')}` },
     `Belts only come in whole teeth${step === 5 ? ', and here in steps of 5' : ''}, so the table tries the sizes around ${w(ideal, 1)}. For each one the length formula is run backwards: the center distance is narrowed down by halving until the belt length matches that belt to well under a micron.`,
   ]
 }
@@ -83,10 +111,15 @@ export function beltHaveWorking(d: DriveType, z1: number, z2: number, teeth: num
   const c = centerForCount(d, z1, z2, teeth)
   const { r1, r2 } = beltRadii(p, z1, z2)
   return [
-    { what: 'Belt pitch length', formula: 'L = teeth × p', calc: `${teeth} × ${p} = ${w(teeth * p)} mm` },
+    { what: 'Belt pitch length', formula: tex`L = n\,p`, calc: tex`L = ${teeth} \times ${p} = ${w(teeth * p)}${u('mm')}` },
     radiiLines(p, z1, z2),
     c == null
-      ? { what: 'Shortest possible', formula: 'C ≥ r1 + r2', calc: `${w(r1)} + ${w(r2)} = ${w(r1 + r2)} mm, and the belt is too short even there` }
+      ? {
+          what: 'Shortest possible',
+          formula: tex`C \ge r_1 + r_2`,
+          calc: tex`${w(r1)} + ${w(r2)} = ${w(r1 + r2)}${u('mm')}`,
+          why: 'The belt is too short to wrap the pulleys even with them touching.',
+        }
       : `There's no closed form for C, so it's found by halving: try a distance, work out the belt length there, move closer or further, 80 times. The check at the answer:`,
     ...(c == null ? [] : beltAt(p, z1, z2, c)),
   ]
@@ -103,8 +136,8 @@ export function chainFindWorking(d: DriveType, z1: number, z2: number, target: n
   return [
     {
       what: 'Links at your distance',
-      formula: 'N = 2C / p + (z1 + z2) / 2 + k²·p / C,  k = (z2 − z1) / 2π',
-      calc: `N = 2 × ${w(target)} / ${p} + ${(z1 + z2) / 2} + ${w(k, 3)}² × ${p} / ${w(target)} = ${w(links)} links`,
+      formula: tex`N = \frac{2C}{p} + \frac{z_1 + z_2}{2} + \frac{k^2 p}{C}, \quad k = \frac{z_2 - z_1}{2\pi}`,
+      calc: tex`N = \frac{2 \times ${w(target)}}{${p}} + ${(z1 + z2) / 2} + \frac{${w(k, 3)}^2 \times ${p}}{${w(target)}} = ${w(links)}${u('links')}`,
       why: 'The standard chain length formula: two spans, half of each sprocket, and a small correction when the sprockets differ.',
     },
     'Chain only comes in whole links, so the table tries the counts around that and works each one backwards to a center distance (the formula under "I have a chain").',
@@ -117,20 +150,25 @@ export function chainHaveWorking(d: DriveType, z1: number, z2: number, links: nu
   const a = links - (z1 + z2) / 2
   const disc = a * a - 8 * k * k
   const c = centerForCount(d, z1, z2, links)
-  const minC = (p / Math.sin(Math.PI / z1) + p / Math.sin(Math.PI / z2)) / 2
+  const D1 = p / Math.sin(Math.PI / z1)
+  const D2 = p / Math.sin(Math.PI / z2)
+  const minC = (D1 + D2) / 2
   return [
-    { what: 'Links left after the sprockets', formula: 'a = N − (z1 + z2) / 2', calc: `a = ${links} − ${(z1 + z2) / 2} = ${w(a, 1)}` },
-    { what: 'Size difference term', formula: 'k = (z2 − z1) / 2π', calc: `k = (${z2} − ${z1}) / 2π = ${w(k, 3)}` },
-    {
-      what: 'Center distance',
-      formula: 'C = p/4 × (a + √(a² − 8k²))',
-      calc: disc < 0 ? `a² − 8k² = ${w(disc)} is negative: too short to wrap` : `C = ${p}/4 × (${w(a, 1)} + √${w(disc, 1)}) = ${w((p / 4) * (a + Math.sqrt(disc)))} mm`,
-      why: 'The chain length formula solved for C. It is a quadratic, so this one has an exact answer.',
-    },
+    { what: 'Links left after the sprockets', formula: tex`a = N - \frac{z_1 + z_2}{2}`, calc: tex`a = ${links} - ${(z1 + z2) / 2} = ${w(a, 1)}` },
+    { what: 'Size difference term', formula: tex`k = \frac{z_2 - z_1}{2\pi}`, calc: tex`k = \frac{${z2} - ${z1}}{2\pi} = ${w(k, 3)}` },
+    disc < 0
+      ? { what: 'Center distance', formula: tex`a^2 - 8k^2 \ge 0`, calc: tex`a^2 - 8k^2 = ${w(disc)} < 0`, why: 'Negative: the chain is too short to wrap the sprockets.' }
+      : {
+          what: 'Center distance',
+          formula: tex`C = \frac{p}{4}\left(a + \sqrt{a^2 - 8k^2}\right)`,
+          calc: tex`C = \frac{${p}}{4}\left(${w(a, 1)} + \sqrt{${w(disc, 1)}}\right) = ${w((p / 4) * (a + Math.sqrt(disc)))}${u('mm')}`,
+          why: 'The chain length formula solved for C. It is a quadratic, so this one has an exact answer.',
+        },
     {
       what: 'Sprockets must not touch',
-      formula: 'C ≥ (D1 + D2) / 2,  D = p / sin(π / z)',
-      calc: `(${w(p / Math.sin(Math.PI / z1))} + ${w(p / Math.sin(Math.PI / z2))}) / 2 = ${w(minC)} mm${c == null ? ', so this chain is too short' : ''}`,
+      formula: tex`C \ge \frac{D_1 + D_2}{2}, \quad D = \frac{p}{\sin(\pi / z)}`,
+      calc: tex`\frac{${w(D1)} + ${w(D2)}}{2} = ${w(minC)}${u('mm')}`,
+      why: c == null ? 'So this chain is too short.' : undefined,
     },
   ]
 }
@@ -138,7 +176,7 @@ export function chainHaveWorking(d: DriveType, z1: number, z2: number, links: nu
 function moduleLine(d: DriveType): Line | null {
   if (!d.label.includes('DP')) return null
   const dp = Math.round(25.4 / d.pitch)
-  return { what: 'Module from DP', formula: 'm = 25.4 / DP', calc: `25.4 / ${dp} = ${w(d.pitch, 4)} mm per tooth` }
+  return { what: 'Module from DP', formula: tex`m = \frac{25.4}{\text{DP}}`, calc: tex`m = \frac{25.4}{${dp}} = ${w(d.pitch, 4)}${u('mm per tooth')}` }
 }
 
 export function gearWorking(d: DriveType, z1: number, z2: number): Line[] {
@@ -147,12 +185,16 @@ export function gearWorking(d: DriveType, z1: number, z2: number): Line[] {
   const mod = moduleLine(d)
   return [
     ...(mod ? [mod] : []),
-    { what: 'Pitch diameters', formula: 'D = m × z', calc: `${w(m, 4)} × ${z1} = ${w(m * z1)} mm, ${w(m, 4)} × ${z2} = ${w(m * z2)} mm` },
-    { what: 'Center distance', formula: 'C = (D1 + D2) / 2 = m × (z1 + z2) / 2', calc: `${w(m, 4)} × ${z1 + z2} / 2 = ${w(c)} mm` },
+    {
+      what: 'Pitch diameters',
+      formula: tex`D = m\,z`,
+      calc: tex`D_1 = ${w(m, 4)} \times ${z1} = ${w(m * z1)}${u('mm')}, \quad D_2 = ${w(m, 4)} \times ${z2} = ${w(m * z2)}${u('mm')}`,
+    },
+    { what: 'Center distance', formula: tex`C = \frac{D_1 + D_2}{2} = \frac{m(z_1 + z_2)}{2}`, calc: tex`C = \frac{${w(m, 4)} \times ${z1 + z2}}{2} = ${w(c)}${u('mm')}` },
     {
       what: 'With clearance',
-      formula: 'C + 0.003 in',
-      calc: `${w(c)} + ${w(GEAR_EXTRA, 4)} = ${w(c + GEAR_EXTRA)} mm`,
+      formula: tex`C + 0.003${u('in')}`,
+      calc: tex`${w(c)} + ${w(GEAR_EXTRA, 4)} = ${w(c + GEAR_EXTRA)}${u('mm')}`,
       why: 'Gears at exactly the pitch distance bind once there is any error in the holes. Most FRC teams add 0.003 in.',
     },
   ]
@@ -162,44 +204,47 @@ export function gearFindWorking(d: DriveType, target: number, ratio: number): Li
   const m = d.pitch
   const sum = Math.round((2 * target) / m)
   const r = Math.max(1, ratio)
+  const lo = Math.floor(sum / (1 + r))
+  const hi = Math.ceil(sum / (1 + r))
   const mod = moduleLine(d)
   return [
     ...(mod ? [mod] : []),
-    { what: 'Total teeth that fit', formula: 'z1 + z2 = 2C / m', calc: `2 × ${w(target)} / ${w(m, 4)} = ${w((2 * target) / m)}, nearest whole ${sum}` },
+    { what: 'Total teeth that fit', formula: tex`z_1 + z_2 = \frac{2C}{m}`, calc: tex`\frac{2 \times ${w(target)}}{${w(m, 4)}} = ${w((2 * target) / m)} \approx ${sum}` },
     {
       what: 'Split for your ratio',
-      formula: 'z1 = total / (1 + ratio),  z2 = total − z1',
-      calc: `${sum} / (1 + ${w(r)}) = ${w(sum / (1 + r))}, so ${Math.floor(sum / (1 + r))}:${sum - Math.floor(sum / (1 + r))} or ${Math.ceil(sum / (1 + r))}:${sum - Math.ceil(sum / (1 + r))}`,
+      formula: tex`z_1 = \frac{z_1 + z_2}{1 + i}, \quad z_2 = (z_1 + z_2) - z_1`,
+      calc: tex`z_1 = \frac{${sum}}{1 + ${w(r)}} = ${w(sum / (1 + r))} \;\Rightarrow\; ${lo}{:}${sum - lo} \text{ or } ${hi}{:}${sum - hi}`,
+      why: 'i is the ratio you want.',
     },
     'Gear center distance depends only on the total teeth, so the table tries the two totals either side as well, splits each the same way, and sorts by how close the distance lands, then the ratio.',
-    { what: 'Each pair', formula: 'C = m × (z1 + z2) / 2', calc: `${w(m, 4)} × ${sum} / 2 = ${w(gearCenter(m, 0, sum))} mm for a ${sum}-tooth total` },
+    { what: 'Each pair', formula: tex`C = \frac{m(z_1 + z_2)}{2}`, calc: tex`C = \frac{${w(m, 4)} \times ${sum}}{2} = ${w(gearCenter(m, 0, sum))}${u('mm')}` },
   ]
 }
 
 // ---------- Threads ----------
 
-export function threadWorking(t: Thread, wall: number | null): Line[] {
+export function threadWorking(th: Thread, wall: number | null): Line[] {
   const out: Line[] = [
     {
       what: 'Tap at least',
-      formula: 'depth = 1.5 × major diameter',
-      calc: `1.5 × ${w(t.dia)} = ${w(threadDepth(t), 1)} mm`,
-      why: 'Past about 1.5 diameters of engagement in aluminum the screw breaks before the thread strips, so deeper adds nothing.',
+      formula: tex`\text{depth} = 1.5\,d`,
+      calc: tex`1.5 \times ${w(th.dia)} = ${w(threadDepth(th), 1)}${u('mm')}`,
+      why: 'd is the major diameter. Past about 1.5 diameters of engagement in aluminum the screw breaks before the thread strips, so deeper adds nothing.',
     },
-    t.system === 'imperial'
-      ? { what: 'Pitch', formula: 'p = 25.4 / threads per inch', calc: `25.4 / ${w(25.4 / t.pitch, 0)} = ${w(t.pitch, 3)} mm` }
-      : { what: 'Pitch', calc: `${t.pitch} mm, ISO coarse` },
+    th.system === 'imperial'
+      ? { what: 'Pitch', formula: tex`p = \frac{25.4}{\text{TPI}}`, calc: tex`p = \frac{25.4}{${w(25.4 / th.pitch, 0)}} = ${w(th.pitch, 3)}${u('mm')}` }
+      : { what: 'Pitch', calc: tex`p = ${th.pitch}${u('mm')}`, why: 'ISO coarse.' },
   ]
   if (wall != null && wall > 0) {
     out.push({
       what: 'Threads in the wall',
-      formula: 'n = wall / pitch',
-      calc: `${wall} / ${w(t.pitch, 3)} = ${w(threadsInWall(t, wall), 1)} threads`,
+      formula: tex`n = \frac{\text{wall}}{p}`,
+      calc: tex`n = \frac{${wall}}{${w(th.pitch, 3)}} = ${w(threadsInWall(th, wall), 1)}`,
       why: 'Under 2 threads strips under load, 2 to 3 is light duty only, 3 or more is fine.',
     })
   }
   out.push(
-    t.tapDrill
+    th.tapDrill
       ? 'Tap and clearance drills are looked up, not calculated: the machinist chart for a 75% thread, converted to mm.'
       : 'Tap and clearance drills are looked up, not calculated: ISO coarse tap drills and ISO 273 clearance holes.',
   )
@@ -213,8 +258,8 @@ function motorLines(m: Motor): Line[] {
   return [
     {
       what: 'Motor constants',
-      formula: 'Kv = free RPM / 12 V,  R = 12 V / stall A,  Kt = stall Nm / (stall A − free A)',
-      calc: `Kv = ${m.freeRpm} / ${DATASHEET_V} = ${w(kv, 1)} RPM/V,  R = ${DATASHEET_V} / ${m.stallCurrent} = ${w(r, 4)} Ω,  Kt = ${m.stallTorque} / (${m.stallCurrent} − ${m.freeCurrent}) = ${w(kt, 5)} Nm/A`,
+      formula: tex`${Kv} = \frac{${Nf}}{12${u('V')}}, \quad R = \frac{12${u('V')}}{${Is}}, \quad ${Kt} = \frac{${Ts}}{${Is} - ${If}}`,
+      calc: tex`${Kv} = \frac{${m.freeRpm}}{${DATASHEET_V}} = ${w(kv, 1)}${u('RPM/V')}, \quad R = \frac{${DATASHEET_V}}{${m.stallCurrent}} = ${w(r, 4)}\,\Omega, \quad ${Kt} = \frac{${m.stallTorque}}{${m.stallCurrent} - ${m.freeCurrent}} = ${w(kt, 5)}${u('Nm/A')}`,
       why: `From the ${m.name} 12 V datasheet. These belong to the motor, so they don't change with the battery.`,
     },
   ]
@@ -224,36 +269,35 @@ function motorLines(m: Motor): Line[] {
 
 export function budgetWorking(robot: Robot, res: RobotResult): Line[] {
   const biggestIdx = res.setDraws.indexOf(res.biggestSet)
-  const set = biggestIdx >= 0 ? robot.setNames[biggestIdx] : null
+  const set = biggestIdx >= 0 && res.biggestSet > 0 ? robot.setNames[biggestIdx] : null
   const parts: string[] = []
-  if (biggestIdx >= 0) {
-    for (const x of robot.mechanisms) if (x.onRobot && x.sets[biggestIdx]) parts.push(`${x.name} ${w(res.mechs.get(x.id)!.batteryAll ?? 0, 1)}`)
-    if (robot.swerve.onRobot && robot.swerve.sets[biggestIdx]) parts.push(`swerve ${w(res.swerve.driveBattery + res.swerve.steerBattery, 1)}`)
+  if (set != null) {
+    for (const x of robot.mechanisms) if (x.onRobot && x.sets[biggestIdx]) parts.push(`\\underbrace{${w(res.mechs.get(x.id)!.batteryAll ?? 0, 1)}}_{${t(x.name)}}`)
+    if (robot.swerve.onRobot && robot.swerve.sets[biggestIdx]) parts.push(`\\underbrace{${w(res.swerve.driveBattery + res.swerve.steerBattery, 1)}}_{${t('swerve')}}`)
   }
   return [
-    {
-      what: 'Each set',
-      formula: 'set draw = Σ battery A of every mechanism ticked into it',
-      calc: set ? `${set}: ${parts.join(' + ') || '0'} = ${w(res.biggestSet, 1)} A` : 'No set has anything in it yet.',
-      why: "A mechanism's battery A is its cruising current for all its motors, from its own working below.",
-    },
-    { what: 'Biggest set draw', formula: 'max of the set draws', calc: `${w(res.biggestSet, 1)} A` },
+    set
+      ? {
+          what: `Biggest set: ${set}`,
+          formula: tex`I_\text{set} = \sum I_\text{battery}`,
+          calc: tex`${parts.join(' + ') || '0'} = ${w(res.biggestSet, 1)}${u('A')}`,
+          why: "Each set adds the battery current of every mechanism ticked into it. A mechanism's battery current is its cruising current for all its motors, from its own working below.",
+        }
+      : 'No set has anything in it yet.',
     {
       what: 'Budget scale factor',
-      formula: 'scale = min(1, max draw / biggest set)',
-      calc: res.biggestSet > 0 ? `min(1, ${robot.maxDraw} / ${w(res.biggestSet, 1)}) = ${w(res.scale)}` : '1.00, nothing draws current',
+      formula: tex`s = \min\left(1, \frac{I_\text{max}}{I_\text{biggest set}}\right)`,
+      calc: res.biggestSet > 0 ? tex`s = \min\left(1, \frac{${robot.maxDraw}}{${w(res.biggestSet, 1)}}\right) = ${w(res.scale)}` : tex`s = 1`,
     },
     {
       what: 'Motors used',
-      formula: 'Σ motors on every mechanism on the robot, + swerve drive and steer',
-      calc: `${[...res.motorCounts.entries()].map(([k, n]) => `${k} ${n}`).join(' + ')} = ${res.totalMotors}`,
+      formula: tex`\sum \text{motors on the robot}`,
+      calc: [...res.motorCounts.entries()].map(([k, n]) => `\\underbrace{${n}}_{${t(k)}}`).join(' + ') + ` = ${res.totalMotors}`,
     },
   ]
 }
 
 // ---------- One mechanism ----------
-
-const G = 9.81
 
 export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
   const motor = findMotor(robot.motors, x.motor)
@@ -264,46 +308,55 @@ export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
   const load = loadTorque(x)
   const speedMult = x.rigging === 'continuous' ? 1 : x.stages
   const middleMult = x.rigging === 'continuous' ? 1 : Math.max(1, x.stages / 2)
+  const outRpm = targetSpeed(x) / 6
 
   // What the mechanism needs.
   if (x.type === 'pivot') {
     lines.push({
       what: 'Load torque',
-      formula: 'T = m × g × d',
-      calc: `${x.pivotMass} × ${G} × ${w(x.pivotDist / 100, 3)} m = ${w(load, 3)} Nm`,
-      why: 'Worst case: the arm level, where gravity has the longest lever.',
+      formula: tex`T_\text{load} = m\,g\,d`,
+      calc: tex`T_\text{load} = ${x.pivotMass} \times ${G} \times ${w(x.pivotDist / 100, 3)} = ${w(load, 3)}${u('Nm')}`,
+      why: 'm is the load mass, d the distance to its centre of mass in meters. Worst case: the arm level, where gravity has the longest lever.',
     })
-    lines.push({ what: 'Output speed needed', calc: `${w(x.pivotSpeed, 1)} deg/s = ${w(x.pivotSpeed / 6, 2)} RPM`, formula: 'RPM = deg/s ÷ 6' })
+    lines.push({ what: 'Output speed needed', formula: tex`n_\text{out} = \frac{\omega_\text{deg/s}}{6}`, calc: tex`n_\text{out} = \frac{${w(x.pivotSpeed, 1)}}{6} = ${w(outRpm, 2)}${u('RPM')}` })
   } else if (x.type === 'linear') {
     const lifted = speedMult * x.carriageMass + middleMult * x.stageMass
     lines.push({
       what: 'Mass the cable feels',
-      formula: x.rigging === 'continuous' ? 'M = carriage + stages' : 'M = stages × carriage + max(1, stages / 2) × middle stages',
-      calc: `${speedMult} × ${x.carriageMass} + ${w(middleMult, 1)} × ${x.stageMass} = ${w(lifted)} kg`,
+      formula:
+        x.rigging === 'continuous'
+          ? tex`M = m_\text{carriage} + m_\text{stages}`
+          : tex`M = s \cdot m_\text{carriage} + \max\left(1, \tfrac{s}{2}\right) m_\text{stages}`,
+      calc: tex`M = ${speedMult} \times ${x.carriageMass} + ${w(middleMult, 1)} \times ${x.stageMass} = ${w(lifted)}${u('kg')}`,
       why:
         x.rigging === 'continuous'
           ? 'Continuous rigging: at worst the cable lifts carriage and stages together.'
-          : 'Cascade: each stage moves one cable speed faster than the one below, so its mass counts that many times over.',
+          : 'Cascade, s stages: each stage moves one cable speed faster than the one below, so its mass counts that many times over.',
     })
-    lines.push({ what: 'Load torque', formula: 'T = M × g × r', calc: `${w(lifted)} × ${G} × ${w(x.pulleyRadius / 100, 4)} m = ${w(load, 3)} Nm` })
+    lines.push({
+      what: 'Load torque',
+      formula: tex`T_\text{load} = M\,g\,r`,
+      calc: tex`T_\text{load} = ${w(lifted)} \times ${G} \times ${w(x.pulleyRadius / 100, 4)} = ${w(load, 3)}${u('Nm')}`,
+      why: 'r is the pulley radius in meters.',
+    })
     lines.push({
       what: 'Output speed needed',
-      formula: 'ω = v / (speed multiple × r)',
-      calc: `${x.linearSpeed} / (${speedMult} × ${w(x.pulleyRadius / 100, 4)}) = ${w(x.linearSpeed / ((speedMult * x.pulleyRadius) / 100), 2)} rad/s = ${w(targetSpeed(x) / 6, 1)} RPM`,
+      formula: tex`\omega_\text{out} = \frac{v}{s\,r}`,
+      calc: tex`\omega_\text{out} = \frac{${x.linearSpeed}}{${speedMult} \times ${w(x.pulleyRadius / 100, 4)}} = ${w(x.linearSpeed / ((speedMult * x.pulleyRadius) / 100), 2)}${u('rad/s')} = ${w(outRpm, 1)}${u('RPM')}`,
     })
   } else {
     const omega = (x.wheelRpm * PI2) / 60
     const J = (x.spinMass * (x.wheelDiameter / 200) ** 2) / 2
     lines.push({
       what: 'Spinning inertia',
-      formula: 'J = m × r² / 2',
-      calc: `${x.spinMass} × ${w(x.wheelDiameter / 200, 4)}² / 2 = ${w(J, 6)} kg m²`,
+      formula: tex`J = \tfrac{1}{2} m r^2`,
+      calc: tex`J = \tfrac{1}{2} \times ${x.spinMass} \times ${w(x.wheelDiameter / 200, 4)}^2 = ${w(J, 6)}${u('kg m²')}`,
       why: 'Treats the spinning parts as a solid disc.',
     })
     lines.push({
       what: 'Load torque',
-      formula: 'T = J × ω / spin-up time + drag',
-      calc: `${w(J, 6)} × ${w(omega, 1)} / ${x.spinUp} + ${x.dragTorque} = ${w(load, 3)} Nm`,
+      formula: tex`T_\text{load} = \frac{J\,\omega}{t_\text{spin-up}} + T_\text{drag}`,
+      calc: tex`T_\text{load} = \frac{${w(J, 6)} \times ${w(omega, 1)}}{${x.spinUp}} + ${x.dragTorque} = ${w(load, 3)}${u('Nm')}`,
       why: 'Torque to reach full speed in the spin-up time, plus what the game piece pushes back with.',
     })
   }
@@ -321,35 +374,36 @@ export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
 
   const torque = load / (o.ratio * x.motors * x.efficiency)
   lines.push(
-    { what: 'Motor speed', formula: 'RPM = output RPM × ratio', calc: `${w(targetSpeed(x) / 6, 2)} × ${w(o.ratio, 2)} = ${w(o.motorRpm, 0)} RPM` },
+    { what: 'Motor speed', formula: tex`n = n_\text{out} \cdot i`, calc: tex`n = ${w(outRpm, 2)} \times ${w(o.ratio, 2)} = ${w(o.motorRpm, 0)}${u('RPM')}`, why: 'i is the gear ratio.' },
     {
       what: 'Torque per motor',
-      formula: 'T = load / (ratio × motors × efficiency)',
-      calc: `${w(load, 3)} / (${w(o.ratio, 2)} × ${x.motors} × ${x.efficiency}) = ${w(torque, 4)} Nm`,
+      formula: tex`T = \frac{T_\text{load}}{i \cdot N \cdot \eta}`,
+      calc: tex`T = \frac{${w(load, 3)}}{${w(o.ratio, 2)} \times ${x.motors} \times ${x.efficiency}} = ${w(torque, 4)}${u('Nm')}`,
+      why: 'N motors share the gearbox, η is the gearbox efficiency.',
     },
     {
       what: 'Stator current',
-      formula: 'I = free A + (stall A − free A) × T / stall Nm',
-      calc: `${motor.freeCurrent} + (${motor.stallCurrent} − ${motor.freeCurrent}) × ${w(torque, 4)} / ${motor.stallTorque} = ${w(o.stator, 1)} A`,
+      formula: tex`I = ${If} + (${Is} - ${If})\frac{T}{${Ts}}`,
+      calc: tex`I = ${motor.freeCurrent} + (${motor.stallCurrent} - ${motor.freeCurrent}) \times \frac{${w(torque, 4)}}{${motor.stallTorque}} = ${w(o.stator, 1)}${u('A')}`,
       why: 'Torque is proportional to current, on the straight line between free and stall.',
     },
     {
       what: 'Duty cycle',
-      formula: 'duty = (RPM / Kv + I × R) / battery V',
-      calc: `(${w(o.motorRpm, 0)} / ${w(kv, 1)} + ${w(o.stator, 1)} × ${w(R, 4)}) / ${V} = ${w(o.duty * 100, 1)}%`,
+      formula: tex`D = \frac{n / ${Kv} + I R}{V_\text{battery}}`,
+      calc: tex`D = \frac{${w(o.motorRpm, 0)} / ${w(kv, 1)} + ${w(o.stator, 1)} \times ${w(R, 4)}}{${V}} = ${w(o.duty * 100, 1)}\%`,
       why: 'Volts the motor needs: back-EMF for the speed, plus the drop across the windings for the current.',
     },
     {
       what: 'Battery current per motor',
-      formula: 'battery A = duty × stator A',
-      calc: `${w(o.duty, 3)} × ${w(o.stator, 1)} = ${w(o.battery, 1)} A`,
+      formula: tex`I_\text{battery} = D \cdot I`,
+      calc: tex`I_\text{battery} = ${w(o.duty, 3)} \times ${w(o.stator, 1)} = ${w(o.battery, 1)}${u('A')}`,
       why: 'The controller trades voltage for current, so the battery side only sees the duty share of it.',
     },
-    { what: 'All motors in the gearbox', formula: 'battery A × motors', calc: `${w(o.battery, 1)} × ${x.motors} = ${w(r.batteryAll, 1)} A` },
+    { what: 'All motors in the gearbox', formula: tex`N \cdot I_\text{battery}`, calc: tex`${x.motors} \times ${w(o.battery, 1)} = ${w(r.batteryAll, 1)}${u('A')}` },
     {
       what: 'Motor efficiency',
-      formula: 'η = T × ω / (V × battery A)',
-      calc: `${w(torque, 4)} × ${w((o.motorRpm * PI2) / 60, 1)} / (${V} × ${w(o.battery, 1)}) = ${w(o.efficiency * 100, 1)}%`,
+      formula: tex`\eta_\text{motor} = \frac{T\,\omega}{V_\text{battery}\,I_\text{battery}}`,
+      calc: tex`\eta_\text{motor} = \frac{${w(torque, 4)} \times ${w((o.motorRpm * PI2) / 60, 1)}}{${V} \times ${w(o.battery, 1)}} = ${w(o.efficiency * 100, 1)}\%`,
     },
   )
 
@@ -357,14 +411,14 @@ export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
   lines.push(
     {
       what: 'Stall torque at this battery',
-      formula: 'Kt × (V / R − free A)',
-      calc: `${w(kt, 5)} × (${V} / ${w(R, 4)} − ${motor.freeCurrent}) = ${w(stall, 2)} Nm`,
+      formula: tex`${Ts}(V) = ${Kt}\left(\frac{V}{R} - ${If}\right)`,
+      calc: tex`${w(kt, 5)} \times \left(\frac{${V}}{${w(R, 4)}} - ${motor.freeCurrent}\right) = ${w(stall, 2)}${u('Nm')}`,
     },
-    { what: 'Load of stall', formula: 'T per motor / stall Nm', calc: `${w(torque, 4)} / ${w(stall, 2)} = ${w((r.load_ ?? 0) * 100, 1)}%` },
+    { what: 'Load of stall', formula: tex`\frac{T}{${Ts}(V)}`, calc: tex`\frac{${w(torque, 4)}}{${w(stall, 2)}} = ${w((r.load_ ?? 0) * 100, 1)}\%` },
     {
       what: 'Stall torque at the output',
-      formula: 'stall Nm × motors × ratio × efficiency',
-      calc: `${w(stall, 2)} × ${x.motors} × ${w(o.ratio, 2)} × ${x.efficiency} = ${w(r.stallTorqueOut, 1)} Nm`,
+      formula: tex`${Ts}(V) \cdot N \cdot i \cdot \eta`,
+      calc: tex`${w(stall, 2)} \times ${x.motors} \times ${w(o.ratio, 2)} \times ${x.efficiency} = ${w(r.stallTorqueOut, 1)}${u('Nm')}`,
     },
   )
 
@@ -373,17 +427,17 @@ export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
     const holdOut = hold * x.motors * o.ratio * x.efficiency
     lines.push({
       what: 'Most torque it can hold',
-      formula: 'min(stall Nm, Kt × (stator limit − free A)) × motors × ratio × efficiency',
-      calc: `min(${w(stall, 2)}, ${w(kt, 5)} × (${x.maxStator} − ${motor.freeCurrent})) × ${x.motors} × ${w(o.ratio, 2)} × ${x.efficiency} = ${w(holdOut, 1)} Nm`,
+      formula: tex`T_\text{hold} = \min\bigl(${Ts}(V),\; ${Kt}(I_\text{limit} - ${If})\bigr) \cdot N \cdot i \cdot \eta`,
+      calc: tex`\min\bigl(${w(stall, 2)},\; ${w(kt, 5)} \times (${x.maxStator} - ${motor.freeCurrent})\bigr) \times ${x.motors} \times ${w(o.ratio, 2)} \times ${x.efficiency} = ${w(holdOut, 1)}${u('Nm')}`,
       why: 'Your stator limit in Phoenix caps the torque before stall does.',
     })
     lines.push(
       x.type === 'pivot'
-        ? { what: 'Heaviest it can hold', formula: 'm = T / (g × d)', calc: `${w(holdOut, 1)} / (${G} × ${w(x.pivotDist / 100, 3)}) = ${w(r.stallLoad, 1)} kg` }
+        ? { what: 'Heaviest it can hold', formula: tex`m = \frac{T_\text{hold}}{g\,d}`, calc: tex`m = \frac{${w(holdOut, 1)}}{${G} \times ${w(x.pivotDist / 100, 3)}} = ${w(r.stallLoad, 1)}${u('kg')}` }
         : {
             what: 'Heaviest carriage',
-            formula: '(T / (g × r) − middle stages part) / speed multiple',
-            calc: `(${w(holdOut / ((x.pulleyRadius / 100) * G), 1)} − ${w(middleMult * x.stageMass, 1)}) / ${speedMult} = ${w(r.stallLoad, 1)} kg`,
+            formula: tex`m = \frac{T_\text{hold} / (g\,r) - \max(1, \tfrac{s}{2})\,m_\text{stages}}{s}`,
+            calc: tex`m = \frac{${w(holdOut / ((x.pulleyRadius / 100) * G), 1)} - ${w(middleMult * x.stageMass, 1)}}{${speedMult}} = ${w(r.stallLoad, 1)}${u('kg')}`,
           },
     )
   }
@@ -391,14 +445,14 @@ export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
   if (x.type === 'linear' && r.carriageSpeed != null)
     lines.push({
       what: 'Carriage speed',
-      formula: 'v = ω × r × speed multiple',
-      calc: `${w(((r.outSpeed ?? 0) * Math.PI) / 180, 2)} rad/s × ${w(x.pulleyRadius / 100, 4)} × ${speedMult} = ${w(r.carriageSpeed, 2)} m/s`,
+      formula: tex`v = \omega_\text{out}\,r\,s`,
+      calc: tex`v = ${w(((r.outSpeed ?? 0) * Math.PI) / 180, 2)} \times ${w(x.pulleyRadius / 100, 4)} \times ${speedMult} = ${w(r.carriageSpeed, 2)}${u('m/s')}`,
     })
   if (x.type === 'roller' && r.surfaceSpeed != null)
     lines.push({
       what: 'Wheel surface speed',
-      formula: 'v = RPM × π × D / 60',
-      calc: `${w(r.wheelRpm, 0)} × π × ${w(x.wheelDiameter / 100, 3)} / 60 = ${w(r.surfaceSpeed, 2)} m/s`,
+      formula: tex`v = \frac{n_\text{wheel}\,\pi D}{60}`,
+      calc: tex`v = \frac{${w(r.wheelRpm, 0)} \times \pi \times ${w(x.wheelDiameter / 100, 3)}}{60} = ${w(r.surfaceSpeed, 2)}${u('m/s')}`,
     })
 
   if (x.type !== 'roller') {
@@ -406,9 +460,9 @@ export function mechWorking(x: Mechanism, robot: Robot, r: MechResult): Line[] {
     lines.push(
       {
         what: 'Inertia at the output',
-        formula: x.type === 'pivot' ? 'J = m × d²' : 'J = Σ mass × (speed multiple)² × r²',
-        calc: `${w(J, 5)} kg m²`,
-        why: "The motors' own rotors are left out: no maker publishes them, so real moves are a little slower.",
+        formula: x.type === 'pivot' ? tex`J = m\,d^2` : tex`J = \sum m_k\,s_k^2\,r^2`,
+        calc: tex`J = ${w(J, 5)}${u('kg m²')}`,
+        why: "Each moving part counts by the square of how fast it moves. The motors' own rotors are left out: no maker publishes them, so real moves are a little slower.",
       },
       `Move time is simulated, not a formula: in steps of 1 ms or less the motor gets the full ${V} V, current is held to your ${x.maxStator} A stator limit, the torque left after the load (always the worst case) speeds up the inertia, until it reaches the target speed. Slowing down mirrors speeding up. For ${w(travelOf(x), 0)} ${x.type === 'pivot' ? 'degrees' : 'cm'} that gives ${w(r.move?.time, 2)} s, with ${w(r.move?.speedUp, 2)} s spent speeding up.`,
     )
@@ -422,53 +476,70 @@ export function swerveWorking(s: Swerve, motors: Motor[], V: number, row: Swerve
   const m = findMotor(motors, s.motor)
   const { kv, r } = motorConsts(m)
   const wheelR = s.wheelDiameter / 200
-  const circ = Math.PI * (s.wheelDiameter / 100)
+  const D = s.wheelDiameter / 100
   const roll = s.rolling * s.robotMass * G
   const statorTorque = ((s.maxStator - m.freeCurrent) / (m.stallCurrent - m.freeCurrent)) * m.stallTorque
   const g = row.ratio
   return [
-    `Worked for ${label}, ratio ${w(g, 2)}:1. The other columns use the same steps with their ratio.`,
+    `Worked for ${label}, ratio ${w(g, 2)}:1. The other columns use the same steps with their ratio. D is the wheel diameter and r its radius, in meters; N is the drive motors.`,
     ...motorLines(m),
-    { what: 'Free speed', formula: 'v = V × Kv / ratio × π D / 60', calc: `${V} × ${w(kv, 1)} / ${w(g, 2)} × ${w(circ, 4)} / 60 = ${w(row.freeSpeed, 2)} m/s` },
-    { what: 'Rolling resistance', formula: 'F = rolling × mass × g', calc: `${s.rolling} × ${s.robotMass} × ${G} = ${w(roll, 1)} N` },
+    {
+      what: 'Free speed',
+      formula: tex`v_\text{free} = \frac{V\,${Kv}}{i} \cdot \frac{\pi D}{60}`,
+      calc: tex`v_\text{free} = \frac{${V} \times ${w(kv, 1)}}{${w(g, 2)}} \times \frac{\pi \times ${w(D, 4)}}{60} = ${w(row.freeSpeed, 2)}${u('m/s')}`,
+    },
+    { what: 'Rolling resistance', formula: tex`F_\text{roll} = c_\text{rr}\,m\,g`, calc: tex`F_\text{roll} = ${s.rolling} \times ${s.robotMass} \times ${G} = ${w(roll, 1)}${u('N')}` },
     {
       what: 'Cruise torque per motor',
-      formula: 'T = F × r / (motors × ratio × efficiency)',
-      calc: `${w(roll, 1)} × ${w(wheelR, 4)} / (${s.driveMotors} × ${w(g, 2)} × ${s.efficiency}) = ${w(row.cruiseTorque, 4)} Nm, ${w(row.cruiseStator, 1)} A stator`,
+      formula: tex`T_\text{cruise} = \frac{F_\text{roll}\,r}{N\,i\,\eta}`,
+      calc: tex`T_\text{cruise} = \frac{${w(roll, 1)} \times ${w(wheelR, 4)}}{${s.driveMotors} \times ${w(g, 2)} \times ${s.efficiency}} = ${w(row.cruiseTorque, 4)}${u('Nm')} \;\Rightarrow\; ${w(row.cruiseStator, 1)}${u('A')}`,
     },
     {
       what: 'Top speed at max duty',
-      formula: 'v = (duty × V − I × R) × Kv / ratio × π D / 60',
-      calc: `(${s.maxDuty} × ${V} − ${w(row.cruiseStator, 1)} × ${w(r, 4)}) × ${w(kv, 1)} / ${w(g, 2)} × ${w(circ, 4)} / 60 = ${w(row.topSpeed, 2)} m/s`,
+      formula: tex`v_\text{top} = \frac{(D_\text{max} V - I_\text{cruise} R)\,${Kv}}{i} \cdot \frac{\pi D}{60}`,
+      calc: tex`v_\text{top} = \frac{(${s.maxDuty} \times ${V} - ${w(row.cruiseStator, 1)} \times ${w(r, 4)}) \times ${w(kv, 1)}}{${w(g, 2)}} \times \frac{\pi \times ${w(D, 4)}}{60} = ${w(row.topSpeed, 2)}${u('m/s')}`,
     },
     {
       what: 'Torque at the stator limit',
-      formula: 'T = (limit − free A) / (stall A − free A) × stall Nm',
-      calc: `(${s.maxStator} − ${m.freeCurrent}) / (${m.stallCurrent} − ${m.freeCurrent}) × ${m.stallTorque} = ${w(statorTorque, 3)} Nm`,
+      formula: tex`T_\text{limit} = \frac{I_\text{limit} - ${If}}{${Is} - ${If}}\,${Ts}`,
+      calc: tex`T_\text{limit} = \frac{${s.maxStator} - ${m.freeCurrent}}{${m.stallCurrent} - ${m.freeCurrent}} \times ${m.stallTorque} = ${w(statorTorque, 3)}${u('Nm')}`,
     },
     {
       what: 'Acceleration limit, current',
-      formula: 'a = (motors × T × ratio × efficiency / r − F roll) / mass',
-      calc: `(${s.driveMotors} × ${w(statorTorque, 3)} × ${w(g, 2)} × ${s.efficiency} / ${w(wheelR, 4)} − ${w(roll, 1)}) / ${s.robotMass} = ${w(row.accelStator, 1)} m/s²`,
+      formula: tex`a_\text{current} = \frac{N\,T_\text{limit}\,i\,\eta / r - F_\text{roll}}{m}`,
+      calc: tex`a_\text{current} = \frac{${s.driveMotors} \times ${w(statorTorque, 3)} \times ${w(g, 2)} \times ${s.efficiency} / ${w(wheelR, 4)} - ${w(roll, 1)}}{${s.robotMass}} = ${w(row.accelStator, 1)}${u('m/s²')}`,
     },
-    { what: 'Acceleration limit, traction', formula: 'a = μ × g', calc: `${s.friction} × ${G} = ${w(row.accelTraction, 1)} m/s²`, why: 'Past this the wheels slip.' },
-    { what: 'Usable acceleration', formula: 'the smaller of the two', calc: `${w(row.accelUsable, 1)} m/s²` },
+    { what: 'Acceleration limit, traction', formula: tex`a_\text{traction} = \mu\,g`, calc: tex`a_\text{traction} = ${s.friction} \times ${G} = ${w(row.accelTraction, 1)}${u('m/s²')}`, why: 'Past this the wheels slip.' },
+    { what: 'Usable acceleration', formula: tex`a = \min(a_\text{current}, a_\text{traction})`, calc: tex`a = ${w(row.accelUsable, 1)}${u('m/s²')}` },
     `At your operating point, ${s.speed} m/s while accelerating at ${s.accel} m/s²:`,
-    { what: 'Force needed', formula: 'F = mass × a + F roll', calc: `${s.robotMass} × ${s.accel} + ${w(roll, 1)} = ${w(row.force, 1)} N` },
-    { what: 'Motor speed', formula: 'RPM = v / (π D) × 60 × ratio', calc: `${s.speed} / ${w(circ, 4)} × 60 × ${w(g, 2)} = ${w(row.motorRpm, 0)} RPM` },
+    { what: 'Force needed', formula: tex`F = m\,a + F_\text{roll}`, calc: tex`F = ${s.robotMass} \times ${s.accel} + ${w(roll, 1)} = ${w(row.force, 1)}${u('N')}` },
+    { what: 'Motor speed', formula: tex`n = \frac{60\,v}{\pi D}\,i`, calc: tex`n = \frac{60 \times ${s.speed}}{\pi \times ${w(D, 4)}} \times ${w(g, 2)} = ${w(row.motorRpm, 0)}${u('RPM')}` },
     {
       what: 'Torque per motor',
-      formula: 'T = F × r / (motors × ratio × efficiency)',
-      calc: `${w(row.force, 1)} × ${w(wheelR, 4)} / (${s.driveMotors} × ${w(g, 2)} × ${s.efficiency}) = ${w(row.torque, 4)} Nm`,
+      formula: tex`T = \frac{F\,r}{N\,i\,\eta}`,
+      calc: tex`T = \frac{${w(row.force, 1)} \times ${w(wheelR, 4)}}{${s.driveMotors} \times ${w(g, 2)} \times ${s.efficiency}} = ${w(row.torque, 4)}${u('Nm')}`,
     },
     {
       what: 'Stator current',
-      formula: 'I = free A + (stall A − free A) × T / stall Nm',
-      calc: `${m.freeCurrent} + (${m.stallCurrent} − ${m.freeCurrent}) × ${w(row.torque, 4)} / ${m.stallTorque} = ${w(row.stator, 1)} A`,
+      formula: tex`I = ${If} + (${Is} - ${If})\frac{T}{${Ts}}`,
+      calc: tex`I = ${m.freeCurrent} + (${m.stallCurrent} - ${m.freeCurrent}) \times \frac{${w(row.torque, 4)}}{${m.stallTorque}} = ${w(row.stator, 1)}${u('A')}`,
     },
-    { what: 'Duty cycle', formula: 'duty = (RPM / Kv + I × R) / V', calc: `(${w(row.motorRpm, 0)} / ${w(kv, 1)} + ${w(row.stator, 1)} × ${w(r, 4)}) / ${V} = ${w(row.duty * 100, 1)}%` },
-    { what: 'Battery current', formula: 'duty × stator A, × drive motors', calc: `${w(row.duty, 3)} × ${w(row.stator, 1)} = ${w(row.battery, 1)} A, × ${s.driveMotors} = ${w(row.batteryAll, 1)} A` },
-    { what: 'Steering allowance', formula: 'steer motors × allowance', calc: `${s.steerMotors} × ${s.steerAllowance} = ${w(s.steerMotors * s.steerAllowance, 1)} A, a flat budget, not calculated` },
+    {
+      what: 'Duty cycle',
+      formula: tex`D_\text{duty} = \frac{n / ${Kv} + I R}{V}`,
+      calc: tex`D_\text{duty} = \frac{${w(row.motorRpm, 0)} / ${w(kv, 1)} + ${w(row.stator, 1)} \times ${w(r, 4)}}{${V}} = ${w(row.duty * 100, 1)}\%`,
+    },
+    {
+      what: 'Battery current',
+      formula: tex`I_\text{battery} = D_\text{duty}\,I, \quad \text{all} = N\,I_\text{battery}`,
+      calc: tex`${w(row.duty, 3)} \times ${w(row.stator, 1)} = ${w(row.battery, 1)}${u('A')}, \quad ${s.driveMotors} \times ${w(row.battery, 1)} = ${w(row.batteryAll, 1)}${u('A')}`,
+    },
+    {
+      what: 'Steering allowance',
+      formula: tex`N_\text{steer} \cdot I_\text{allowance}`,
+      calc: tex`${s.steerMotors} \times ${s.steerAllowance} = ${w(s.steerMotors * s.steerAllowance, 1)}${u('A')}`,
+      why: 'A flat budget you set, not calculated.',
+    },
   ]
 }
 
@@ -484,13 +555,27 @@ export function curvesWorking(x: Mechanism, m: Motor, V: number, ratio: number, 
   return [
     ...motorLines(m),
     `The table, worked for the ${rpm} RPM row:`,
-    { what: 'Torque per motor', formula: 'T = load / (ratio × motors × efficiency)', calc: `${w(load, 3)} / (${w(ratio, 2)} × ${x.motors} × ${x.efficiency}) = ${w(torque, 4)} Nm` },
-    { what: 'Stator current', formula: 'I = free A + T / Kt', calc: `${m.freeCurrent} + ${w(torque, 4)} / ${w(kt, 5)} = ${w(stator, 1)} A`, why: 'The load is the same at every speed, so this is the same on every row.' },
-    { what: 'Volts at the motor', formula: 'V = RPM / Kv + I × R', calc: `${rpm} / ${w(kv, 1)} + ${w(stator, 1)} × ${w(r, 4)} = ${w(volts, 2)} V` },
-    { what: 'Duty', formula: 'volts / battery V', calc: `${w(volts, 2)} / ${V} = ${w((volts / V) * 100, 1)}%` },
-    { what: 'Battery current', formula: 'duty × stator A', calc: `${w(volts / V, 3)} × ${w(stator, 1)} = ${w((volts / V) * stator, 1)} A per motor` },
-    { what: 'Output speed', formula: 'deg/s = RPM / ratio × 6', calc: `${rpm} / ${w(ratio, 2)} × 6 = ${w((rpm / ratio) * 6, 1)} deg/s` },
-    `The motor curve below, at ${w(duty * 100, 0)}% duty: speed runs from 0 to duty × V × Kv = ${w(top, 0)} RPM. At each speed, stator A = (duty × V − RPM / Kv) / R, torque = Kt × (stator A − free A), power = torque × RPM × 2π / 60, and battery A = duty × stator A.`,
+    {
+      what: 'Torque per motor',
+      formula: tex`T = \frac{T_\text{load}}{i\,N\,\eta}`,
+      calc: tex`T = \frac{${w(load, 3)}}{${w(ratio, 2)} \times ${x.motors} \times ${x.efficiency}} = ${w(torque, 4)}${u('Nm')}`,
+    },
+    {
+      what: 'Stator current',
+      formula: tex`I = ${If} + \frac{T}{${Kt}}`,
+      calc: tex`I = ${m.freeCurrent} + \frac{${w(torque, 4)}}{${w(kt, 5)}} = ${w(stator, 1)}${u('A')}`,
+      why: 'The load is the same at every speed, so this is the same on every row.',
+    },
+    { what: 'Volts at the motor', formula: tex`V_m = \frac{n}{${Kv}} + I R`, calc: tex`V_m = \frac{${rpm}}{${w(kv, 1)}} + ${w(stator, 1)} \times ${w(r, 4)} = ${w(volts, 2)}${u('V')}` },
+    { what: 'Duty', formula: tex`D = \frac{V_m}{V_\text{battery}}`, calc: tex`D = \frac{${w(volts, 2)}}{${V}} = ${w((volts / V) * 100, 1)}\%` },
+    { what: 'Battery current', formula: tex`I_\text{battery} = D\,I`, calc: tex`I_\text{battery} = ${w(volts / V, 3)} \times ${w(stator, 1)} = ${w((volts / V) * stator, 1)}${u('A')}` },
+    { what: 'Output speed', formula: tex`\omega_\text{out} = \frac{6\,n}{i}`, calc: tex`\omega_\text{out} = \frac{6 \times ${rpm}}{${w(ratio, 2)}} = ${w((rpm / ratio) * 6, 1)}${u('deg/s')}` },
+    `The motor curve below, at ${w(duty * 100, 0)}% duty:`,
+    { what: 'Top of the curve', formula: tex`n_\text{max} = D\,V\,${Kv}`, calc: tex`n_\text{max} = ${w(duty, 2)} \times ${V} \times ${w(kv, 1)} = ${w(top, 0)}${u('RPM')}` },
+    {
+      what: 'At each speed',
+      formula: tex`I = \frac{D\,V - n / ${Kv}}{R}, \quad T = ${Kt}(I - ${If}), \quad P = \frac{2\pi\,T\,n}{60}, \quad I_\text{battery} = D\,I`,
+    },
   ]
 }
 
@@ -504,47 +589,60 @@ export function voltageWorking(m: Motor, sheetV: number, batV: number, v: number
   return [
     {
       what: 'Motor constants',
-      formula: `Kv = free RPM / ${sheetV} V,  R = ${sheetV} V / stall A,  Kt = stall Nm / (stall A − free A)`,
-      calc: `Kv = ${w(kv, 1)} RPM/V,  R = ${w(r, 4)} Ω,  Kt = ${w(kt, 5)} Nm/A`,
+      formula: tex`${Kv} = \frac{${Nf}}{${sheetV}${u('V')}}, \quad R = \frac{${sheetV}${u('V')}}{${Is}}, \quad ${Kt} = \frac{${Ts}}{${Is} - ${If}}`,
+      calc: tex`${Kv} = ${w(kv, 1)}${u('RPM/V')}, \quad R = ${w(r, 4)}\,\Omega, \quad ${Kt} = ${w(kt, 5)}${u('Nm/A')}`,
     },
     `The top table, worked for ${v} V at the motor:`,
-    { what: 'Stall current', formula: 'V / R', calc: `${v} / ${w(r, 4)} = ${w(stallA, 0)} A` },
-    { what: 'Stall torque', formula: 'Kt × (stall A − free A)', calc: `${w(kt, 5)} × (${w(stallA, 0)} − ${m.freeCurrent}) = ${w(Math.max(0, kt * (stallA - m.freeCurrent)), 2)} Nm` },
-    { what: 'No-load speed', formula: 'V × Kv', calc: `${v} × ${w(kv, 1)} = ${w(v * kv, 0)} RPM` },
-    { what: 'Most battery current', formula: 'stall A × V / battery V', calc: `${w(stallA, 0)} × ${v} / ${batV} = ${w((stallA * v) / batV, 1)} A` },
-    { what: 'Torque at a speed', formula: 'T = Kt × ((V − RPM / Kv) / R − free A)', calc: 'The line on the chart, one per voltage.' },
-    { what: 'Same battery current', formula: 'stator A = battery A × battery V / motor V', calc: `For 40 A: 40 × ${batV} / ${v} = ${w((40 * batV) / v, 1)} A stator` },
-    { what: 'Lowest voltage for 40 A', formula: 'V = √(40 × R × battery V)', calc: `√(40 × ${w(r, 4)} × ${batV}) = ${w(minFor40, 2)} V` },
+    { what: 'Stall current', formula: tex`${Is}(V) = \frac{V}{R}`, calc: tex`\frac{${v}}{${w(r, 4)}} = ${w(stallA, 0)}${u('A')}` },
+    {
+      what: 'Stall torque',
+      formula: tex`${Ts}(V) = ${Kt}\bigl(${Is}(V) - ${If}\bigr)`,
+      calc: tex`${w(kt, 5)} \times (${w(stallA, 0)} - ${m.freeCurrent}) = ${w(Math.max(0, kt * (stallA - m.freeCurrent)), 2)}${u('Nm')}`,
+    },
+    { what: 'No-load speed', formula: tex`${Nf}(V) = V\,${Kv}`, calc: tex`${v} \times ${w(kv, 1)} = ${w(v * kv, 0)}${u('RPM')}` },
+    {
+      what: 'Most battery current',
+      formula: tex`I_\text{battery,max} = ${Is}(V) \cdot \frac{V}{V_\text{battery}}`,
+      calc: tex`${w(stallA, 0)} \times \frac{${v}}{${batV}} = ${w((stallA * v) / batV, 1)}${u('A')}`,
+    },
+    { what: 'Torque at a speed', formula: tex`T(n) = ${Kt}\left(\frac{V - n / ${Kv}}{R} - ${If}\right)`, why: 'The line on the chart, one per voltage.' },
+    {
+      what: 'Same battery current',
+      formula: tex`I_\text{stator} = I_\text{battery} \cdot \frac{V_\text{battery}}{V}`,
+      calc: tex`40 \times \frac{${batV}}{${v}} = ${w((40 * batV) / v, 1)}${u('A')}`,
+      why: 'Worked for 40 A from the battery.',
+    },
+    { what: 'Lowest voltage for 40 A', formula: tex`V = \sqrt{40\,R\,V_\text{battery}}`, calc: tex`\sqrt{40 \times ${w(r, 4)} \times ${batV}} = ${w(minFor40, 2)}${u('V')}` },
   ]
 }
 
 // ---------- Stock ----------
 
 const AREA_FORMULA: Record<Kind, string> = {
-  round_tube: 'A = π/4 × (OD² − ID²)',
-  round_rod: 'A = π/4 × OD²',
-  rect_tube: 'A = W × H − (W − 2t) × (H − 2t)',
-  angle: 'A = t × (W + H − t)',
-  flat: 'A = W × t',
-  hex: 'A = √3/2 × AF² (− π/4 × ID² if hollow)',
-  other: 'no formula for this shape',
+  round_tube: tex`A = \frac{\pi}{4}\left(\text{OD}^2 - \text{ID}^2\right)`,
+  round_rod: tex`A = \frac{\pi}{4}\,\text{OD}^2`,
+  rect_tube: tex`A = W H - (W - 2t)(H - 2t)`,
+  angle: tex`A = t\,(W + H - t)`,
+  flat: tex`A = W\,t`,
+  hex: tex`A = \frac{\sqrt{3}}{2}\,\text{AF}^2 \;\left(- \frac{\pi}{4}\,\text{ID}^2 \text{ if hollow}\right)`,
+  other: tex`\text{no formula for this shape}`,
 }
 
 function areaCalc(p: Piece): string {
-  const { a, b, wall: t, inner_d: i } = p
+  const { a, b, wall: th, inner_d: i } = p
   switch (p.kind) {
     case 'round_tube':
-      return `π/4 × (${a}² − ${i}²)`
+      return tex`\frac{\pi}{4}\left(${a}^2 - ${i}^2\right)`
     case 'round_rod':
-      return `π/4 × ${a}²`
+      return tex`\frac{\pi}{4} \times ${a}^2`
     case 'rect_tube':
-      return `${a} × ${b} − ${w((a ?? 0) - 2 * (t ?? 0), 1)} × ${w((b ?? 0) - 2 * (t ?? 0), 1)}`
+      return tex`${a} \times ${b} - ${w((a ?? 0) - 2 * (th ?? 0), 1)} \times ${w((b ?? 0) - 2 * (th ?? 0), 1)}`
     case 'angle':
-      return `${t} × (${a} + ${b} − ${t})`
+      return tex`${th} \times (${a} + ${b} - ${th})`
     case 'flat':
-      return `${a} × ${t}`
+      return tex`${a} \times ${th}`
     case 'hex':
-      return i ? `√3/2 × ${a}² − π/4 × ${i}²` : `√3/2 × ${a}²`
+      return i ? tex`\frac{\sqrt{3}}{2} \times ${a}^2 - \frac{\pi}{4} \times ${i}^2` : tex`\frac{\sqrt{3}}{2} \times ${a}^2`
     default:
       return ''
   }
@@ -555,13 +653,20 @@ export function weightWorking(p: Piece, densities: Map<string, number>, length =
   const ar = area(p)
   const d = p.material ? densities.get(p.material) : undefined
   return [
-    { what: `${KINDS[p.kind].label} cross-section`, formula: AREA_FORMULA[p.kind], calc: ar == null ? 'Missing a size, so unknown' : `${areaCalc(p)} = ${w(ar, 1)} mm²` },
-    { what: 'Density', calc: d ? `${p.material}: ${d} g/cm³, from the materials list` : 'Unknown material, so no weight' },
+    {
+      what: `${KINDS[p.kind].label} cross-section`,
+      formula: AREA_FORMULA[p.kind],
+      calc: ar == null ? undefined : tex`A = ${areaCalc(p)} = ${w(ar, 1)}${u('mm²')}`,
+      why: ar == null ? 'Missing a size, so unknown.' : undefined,
+    },
+    d
+      ? { what: 'Density', calc: tex`\rho = ${d}${u('g/cm³')}`, why: `${p.material}, from the materials list.` }
+      : { what: 'Density', why: 'Unknown material, so no weight.' },
     {
       what: 'Weight',
-      formula: 'mass = A × density × length / 1000',
-      calc: ar != null && d ? `${w(ar, 1)} × ${d} × ${length} / 1000 = ${w((ar * d * length) / 1000, 0)} g` : '—',
-      why: 'mm² × g/cm³ × mm is a thousand times too big, hence the / 1000.',
+      formula: tex`m = \frac{A\,\rho\,L}{1000}`,
+      calc: ar != null && d ? tex`m = \frac{${w(ar, 1)} \times ${d} \times ${length}}{1000} = ${w((ar * d * length) / 1000, 0)}${u('g')}` : undefined,
+      why: 'L is the length in mm. mm² × g/cm³ × mm is a thousand times too big, hence the / 1000.',
     },
   ]
 }
@@ -570,16 +675,25 @@ export function stockSearchWorking(q: Query, tol: number, best: Match | undefine
   const lines: Line[] = [
     {
       what: 'Size match',
-      formula: `each size you typed within ±${tol} mm, wall within ±${Math.min(tol, 0.3)} mm`,
-      calc: 'Width, height, wall and ID are checked one by one. Profiles and angles match either way round.',
+      formula: tex`|\text{typed} - \text{piece}| \le ${tol}${u('mm')}, \quad \text{wall} \le ${Math.min(tol, 0.3)}${u('mm')}`,
+      why: 'Width, height, wall and ID are checked one by one. Profiles and angles match either way round.',
     },
   ]
   if (q.length != null) {
     lines.push(
-      { what: 'Length you need', formula: 'cut + saw kerf', calc: `${q.length} + ${KERF} = ${q.length + KERF} mm`, why: 'The blade turns about 3 mm into dust.' },
+      {
+        what: 'Length you need',
+        formula: tex`L_\text{need} = L_\text{cut} + \text{kerf}`,
+        calc: tex`L_\text{need} = ${q.length} + ${KERF} = ${q.length + KERF}${u('mm')}`,
+        why: 'The blade turns about 3 mm into dust.',
+      },
       best?.leftover != null
-        ? { what: 'Left after the cut', formula: 'piece − (cut + kerf)', calc: `${best.piece.length} − ${q.length + KERF} = ${w(best.leftover, 0)} mm for ${best.piece.id}` }
-        : { what: 'Left after the cut', formula: 'piece − (cut + kerf)' },
+        ? {
+            what: `Left after the cut, ${best.piece.id}`,
+            formula: tex`L_\text{left} = L_\text{piece} - L_\text{need}`,
+            calc: tex`L_\text{left} = ${best.piece.length} - ${q.length + KERF} = ${w(best.leftover, 0)}${u('mm')}`,
+          }
+        : { what: 'Left after the cut', formula: tex`L_\text{left} = L_\text{piece} - L_\text{need}` },
       'Sorted least left over first, so the shortest piece that does the job gets used and long pieces stay long. A piece exactly your length shows as a fit with nothing left.',
     )
   } else lines.push('No length typed, so sorted by size, then shortest piece first.')
@@ -591,15 +705,19 @@ export function cutListWorking(lengths: number[], plans: CutPlan[]): Line[] {
   const first = plans[0]
   const lines: Line[] = [
     `The cuts are placed longest first: ${[...lengths].sort((a, b) => b - a).join(', ')} mm. Each one goes into the piece already opened that would have the least left after it (best fit). Only when none has room is a new piece opened, the shortest one that fits.`,
-    { what: 'Room for a cut', formula: `left ≥ cut + ${KERF} mm kerf, or left = cut exactly`, why: 'The last cut that uses a piece up exactly costs no kerf.' },
+    {
+      what: 'Room for a cut',
+      formula: tex`L_\text{left} \ge L_\text{cut} + ${KERF}${u('mm')} \quad\text{or}\quad L_\text{left} = L_\text{cut}`,
+      why: 'The last cut that uses a piece up exactly costs no kerf.',
+    },
   ]
   if (first) {
     const used = first.cuts.reduce((s, c) => s + c, 0)
     const kerfs = first.piece.length - used - first.leftover
     lines.push({
       what: `${first.piece.id}`,
-      formula: 'left = length − Σ cuts − kerf per cut',
-      calc: `${first.piece.length} − (${first.cuts.join(' + ')}) − ${w(kerfs, 0)} = ${w(first.leftover, 0)} mm`,
+      formula: tex`L_\text{left} = L_\text{piece} - \sum L_\text{cut} - \text{kerfs}`,
+      calc: tex`L_\text{left} = ${first.piece.length} - (${first.cuts.join(' + ')}) - ${w(kerfs, 0)} = ${w(first.leftover, 0)}${u('mm')}`,
     })
   }
   lines.push("Best fit is fast and usually lands on the fewest pieces, but it isn't guaranteed to be the best possible plan for long lists.")
@@ -607,15 +725,15 @@ export function cutListWorking(lengths: number[], plans: CutPlan[]): Line[] {
 }
 
 export function plateFitWorking(size: number[]): Line[] {
-  const [x, y, t] = size.slice().sort((a, b) => b - a)
+  const [x, y, th] = size.slice().sort((a, b) => b - a)
   return [
-    { what: 'Part, largest first', calc: `${w(x, 1)} × ${w(y, 1)}, ${w(t, 2)} mm thick` },
-    { what: 'Same thickness', formula: 'plate thickness within ±0.2 mm', calc: `${w(t - 0.2, 2)} to ${w(t + 0.2, 2)} mm` },
+    { what: 'Part, largest first', calc: tex`${w(x, 1)} \times ${w(y, 1)}, \quad t = ${w(th, 2)}${u('mm')}` },
+    { what: 'Same thickness', formula: tex`|t_\text{plate} - t| \le 0.2${u('mm')}`, calc: tex`${w(th - 0.2, 2)} \le t_\text{plate} \le ${w(th + 0.2, 2)}${u('mm')}` },
     {
       what: 'Big enough',
-      formula: 'plate length ≥ part length + 10,  plate width ≥ part width + 10',
-      calc: `≥ ${w(x + 10, 0)} × ${w(y + 10, 0)} mm`,
-      why: '5 mm each side for clamping and the cutter. Partly used plates always show, since what is left of them isn\'t recorded.',
+      formula: tex`L_\text{plate} \ge L + 10, \quad W_\text{plate} \ge W + 10`,
+      calc: tex`L_\text{plate} \ge ${w(x + 10, 0)}${u('mm')}, \quad W_\text{plate} \ge ${w(y + 10, 0)}${u('mm')}`,
+      why: "5 mm each side for clamping and the cutter. Partly used plates always show, since what is left of them isn't recorded.",
     },
     'Partly used plates first so they get used up, then the smallest full plate that fits.',
   ]
@@ -631,26 +749,31 @@ export function motorsWorking(motors: Motor[], V: number): Line[] {
   motors.forEach((m, i) => {
     const { kv, r, kt } = motorConsts(m)
     // The reasons are the same for every motor, so only the first one says them.
-    const why = (t: string) => (i === 0 ? t : undefined)
+    const why = (s: string) => (i === 0 ? s : undefined)
     const stall = stallTorqueAt(m, V)
     const free = kv * V
-    const peak = (stall * ((free * PI2) / 60)) / 4
+    const omega = (free * PI2) / 60
+    const peak = (stall * omega) / 4
     out.push(
       { head: m.name },
-      { what: 'Speed per volt', formula: 'Kv = free RPM / 12 V', calc: `${m.freeRpm} / ${DATASHEET_V} = ${w(kv, 1)} RPM/V` },
-      { what: 'Winding resistance', formula: 'R = 12 V / stall A', calc: `${DATASHEET_V} / ${m.stallCurrent} = ${w(r, 4)} Ω` },
+      { what: 'Speed per volt', formula: tex`${Kv} = \frac{${Nf}}{12${u('V')}}`, calc: tex`${Kv} = \frac{${m.freeRpm}}{${DATASHEET_V}} = ${w(kv, 1)}${u('RPM/V')}` },
+      { what: 'Winding resistance', formula: tex`R = \frac{12${u('V')}}{${Is}}`, calc: tex`R = \frac{${DATASHEET_V}}{${m.stallCurrent}} = ${w(r, 4)}\,\Omega` },
       {
         what: 'Torque per amp',
-        formula: 'Kt = stall Nm / (stall A − free A)',
-        calc: `${m.stallTorque} / (${m.stallCurrent} − ${m.freeCurrent}) = ${w(kt, 5)} Nm/A`,
+        formula: tex`${Kt} = \frac{${Ts}}{${Is} - ${If}}`,
+        calc: tex`${Kt} = \frac{${m.stallTorque}}{${m.stallCurrent} - ${m.freeCurrent}} = ${w(kt, 5)}${u('Nm/A')}`,
         why: why('Free current is spent on friction inside the motor, so it makes no torque.'),
       },
-      { what: `Free speed at ${V} V`, formula: 'Kv × V', calc: `${w(kv, 1)} × ${V} = ${w(free, 0)} RPM` },
-      { what: `Stall torque at ${V} V`, formula: 'Kt × (V / R − free A)', calc: `${w(kt, 5)} × (${V} / ${w(r, 4)} − ${m.freeCurrent}) = ${w(stall, 2)} Nm` },
+      { what: `Free speed at ${V} V`, formula: tex`${Nf}(V) = ${Kv}\,V`, calc: tex`${w(kv, 1)} \times ${V} = ${w(free, 0)}${u('RPM')}` },
+      {
+        what: `Stall torque at ${V} V`,
+        formula: tex`${Ts}(V) = ${Kt}\left(\frac{V}{R} - ${If}\right)`,
+        calc: tex`${w(kt, 5)} \times \left(\frac{${V}}{${w(r, 4)}} - ${m.freeCurrent}\right) = ${w(stall, 2)}${u('Nm')}`,
+      },
       {
         what: `Peak power at ${V} V`,
-        formula: 'stall Nm × free rad/s / 4',
-        calc: `${w(stall, 2)} × ${w((free * PI2) / 60, 1)} / 4 = ${w(peak, 0)} W`,
+        formula: tex`P_\text{max} = \frac{${Ts}(V)\,\omega_\text{free}}{4}`,
+        calc: tex`P_\text{max} = \frac{${w(stall, 2)} \times ${w(omega, 1)}}{4} = ${w(peak, 0)}${u('W')}`,
         why: why('Power is torque × speed, which peaks at half free speed where torque is half of stall.'),
       },
     )

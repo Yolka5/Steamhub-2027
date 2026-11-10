@@ -1407,3 +1407,21 @@ dialog {
   font-weight: 700;
   line-height: 1.2;
 }
+
+/* Stock as a table: same results as the cards, no photos. */
+.stock-table td {
+  vertical-align: middle;
+}
+
+.stock-table td:first-child a {
+  color: var(--ink);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

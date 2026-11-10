@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import { PieceCard } from '../components/PieceCard'
+import { PieceTable } from '../components/PieceTable'
 import { ReserveSheet } from '../components/ReserveSheet'
 import { KERF, KINDS, findMatches, nearMatches, needsPhoto, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
@@ -16,6 +17,16 @@ const KIND_PICKS: { value: string; label: string }[] = [
 ]
 
 const TOLS = ['0.2', '0.5', '1']
+
+// Cards or table: in the link when picked, otherwise this device's last choice.
+const VIEW_KEY = 'stock-view'
+function savedView(): 'cards' | 'table' {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'table' ? 'table' : 'cards'
+  } catch {
+    return 'cards'
+  }
+}
 
 /** What the search understood, in words, so a typo is obvious. */
 function describe(q: Query): string[] {
@@ -48,12 +59,22 @@ export default function Stock() {
   const kindPick = params.get('k') ?? ''
   const tol = Number(params.get('tol') ?? '0.5')
   const showAll = params.get('all') === '1'
+  const viewParam = params.get('view')
+  const view: 'cards' | 'table' = viewParam === 'table' || viewParam === 'cards' ? viewParam : savedView()
 
   const set = (key: string, value: string) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
     setParams(next, { replace: true })
+  }
+  const setView = (v: 'cards' | 'table') => {
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      /* ignore */
+    }
+    set('view', v)
   }
 
   const q = useMemo(() => {
@@ -137,6 +158,14 @@ export default function Stock() {
               </button>
             ))}
           </div>
+          <div className="picks picks--seg" role="radiogroup" aria-label="View">
+            <Indicator />
+            {(['cards', 'table'] as const).map((v) => (
+              <button key={v} type="button" role="radio" className="pick" aria-checked={view === v} onClick={() => setView(v)}>
+                {v === 'cards' ? 'Cards' : 'Table'}
+              </button>
+            ))}
+          </div>
           <label className="check">
             <input type="checkbox" checked={showAll} onChange={(e) => set('all', e.target.checked ? '1' : '')} />
             Show reserved and used
@@ -162,27 +191,35 @@ export default function Stock() {
         <p className="empty">Nothing in stock fits exactly.{near.length ? ' Close sizes below.' : ''}</p>
       )}
 
-      <div className="cards" data-settled={settled || undefined}>
-        {matches.map((m, i) => (
-          <PieceCard
-            key={m.piece.id}
-            index={i}
-            piece={m.piece}
-            leftover={m.leftover}
-            main={i === 0 && words.length > 0}
-            onReserve={setReserving}
-          />
-        ))}
-      </div>
+      {view === 'table' ? (
+        matches.length > 0 && <PieceTable matches={matches} showLeft={q.length != null} best={words.length > 0} onReserve={setReserving} />
+      ) : (
+        <div className="cards" data-settled={settled || undefined}>
+          {matches.map((m, i) => (
+            <PieceCard
+              key={m.piece.id}
+              index={i}
+              piece={m.piece}
+              leftover={m.leftover}
+              main={i === 0 && words.length > 0}
+              onReserve={setReserving}
+            />
+          ))}
+        </div>
+      )}
 
       {near.length > 0 && (
         <section className="section">
           <h2 className="section__title">Close sizes</h2>
-          <div className="cards">
-            {near.map((m) => (
-              <PieceCard key={m.piece.id} piece={m.piece} leftover={m.leftover} onReserve={setReserving} />
-            ))}
-          </div>
+          {view === 'table' ? (
+            <PieceTable matches={near} showLeft={q.length != null} onReserve={setReserving} />
+          ) : (
+            <div className="cards">
+              {near.map((m) => (
+                <PieceCard key={m.piece.id} piece={m.piece} leftover={m.leftover} onReserve={setReserving} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 

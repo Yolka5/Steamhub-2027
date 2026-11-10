@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { PartThumb } from './PartThumb'
 import { partNo, statusWord, type Part } from '../lib/mfg'
 
 // Small shared parts of the Manufacturing pages.
@@ -43,6 +44,7 @@ export function UrgentTag() {
 export function PartRow({ part, showMaker = true }: { part: Part; showMaker?: boolean }) {
   return (
     <Link to={`/manufacturing/p/${part.id}`} className="row mfg-row">
+      <PartThumb part={part} />
       <span className="mfg-row__no num">{partNo(part)}</span>
       <span className="row__main">
         <span className="mfg-row__name">{part.name}</span>

@@ -110,6 +110,7 @@ export function makeDrawing(
   pre?: unknown,
 ): { doc: DrawingOps; svg: string; scale: number; cls: string; template: string }
 export function projectView(G: Framed, view: unknown): ProjectedView
+export function isoView(flip: boolean): unknown
 export function buildPDFz(pages: DrawingOps[], title: string): Promise<Uint8Array>
 export function buildZip(files: { name: string; data: Uint8Array | string }[]): Uint8Array
 export function safeName(s: string): string

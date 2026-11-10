@@ -302,7 +302,7 @@
 /* Desktop: one line per part. Phone: name on top, controls below. */
 .sp-row {
   display: grid;
-  grid-template-columns: auto 3.75rem minmax(0, 1fr) 7.5rem 10.5rem minmax(7rem, auto);
+  grid-template-columns: auto 2.75rem 3.75rem minmax(0, 1fr) 7.5rem 10.5rem minmax(7rem, auto);
   align-items: center;
   gap: 0.4rem 0.75rem;
   min-height: 3.25rem;
@@ -349,11 +349,11 @@
 
 @media (max-width: 899px) {
   .sp-row {
-    grid-template-columns: auto 3.5rem minmax(0, 1fr);
+    grid-template-columns: auto 2.75rem 6.5rem minmax(0, 1fr);
     grid-template-areas:
-      'pick no name'
-      '. machine mat'
-      '. tags tags';
+      'pick thumb no name'
+      '. thumb machine mat'
+      '. . tags tags';
   }
 
   .sp-row__pick {
@@ -368,9 +368,13 @@
     grid-area: name;
   }
 
+  .sp-row__thumb {
+    grid-area: thumb;
+    align-self: start;
+  }
+
   .sp-row__machine {
     grid-area: machine;
-    grid-column: 2 / span 1;
   }
 
   .sp-row__mat {
@@ -386,9 +390,6 @@
     display: none;
   }
 
-  .sp-row:has(.sp-row__machine) {
-    grid-template-columns: auto 6.5rem minmax(0, 1fr);
-  }
 }
 
 /* Floats over the list while parts are picked. */
@@ -1028,4 +1029,27 @@
   .gstep__body {
     padding-left: 0;
   }
+}
+
+/* Line-art picture of a part in lists. */
+.thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0.2rem;
+  color: var(--ink-soft);
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.thumb svg {
+  width: 100%;
+  height: 100%;
+}
+
+.sp-row__thumb {
+  display: block;
+  line-height: 0;
 }

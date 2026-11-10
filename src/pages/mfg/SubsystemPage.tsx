@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type ReactNode } from 'react'
+import { PartThumb } from '../../components/PartThumb'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
@@ -384,6 +385,9 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
   return (
     <li className="sp-row" data-picked={picked || undefined}>
       <input type="checkbox" className="sp-row__pick" checked={picked} onChange={toggle} aria-label={`Pick ${partNo(part)}`} />
+      <Link to={link} className="sp-row__thumb" tabIndex={-1} aria-hidden="true">
+        <PartThumb part={part} />
+      </Link>
       <Link to={link} className="sp-row__no num">
         {partNo(part)}
       </Link>

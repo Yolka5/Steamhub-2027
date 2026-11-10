@@ -349,11 +349,11 @@
 
 @media (max-width: 899px) {
   .sp-row {
-    grid-template-columns: auto 2.75rem 6.5rem minmax(0, 1fr);
+    grid-template-columns: auto 2.75rem 3.25rem minmax(0, 1fr);
     grid-template-areas:
       'pick thumb no name'
-      '. thumb machine mat'
-      '. . tags tags';
+      '. machine machine mat'
+      '. tags tags tags';
   }
 
   .sp-row__pick {
@@ -370,7 +370,6 @@
 
   .sp-row__thumb {
     grid-area: thumb;
-    align-self: start;
   }
 
   .sp-row__machine {

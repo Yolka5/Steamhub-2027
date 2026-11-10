@@ -7,7 +7,7 @@ import { computeMechanism, computeSwerve, findMotor, mechanismAtRpm, motorCurve,
 import { f, pct, Seg, StatusTag, type Update } from './shared'
 import { Select } from '../../components/Select'
 import { Working } from '../../components/Working'
-import { curvesWorking, swerveWorking, voltageWorking } from '../../lib/workings'
+import { curvesWorking, motorsWorking, swerveWorking, voltageWorking } from '../../lib/workings'
 
 // ---------- Swerve ----------
 
@@ -443,6 +443,7 @@ export function MotorsTab({ robot, update }: { robot: Robot; update: Update }) {
         Add custom motor
       </button>
       <p className="soft small">Motors in use can't be renamed or removed.</p>
+      <Working id="motors" lines={motorsWorking(robot.motors, robot.voltage)} />
     </div>
   )
 }

@@ -620,3 +620,40 @@ export function plateFitWorking(size: number[]): Line[] {
     'Partly used plates first so they get used up, then the smallest full plate that fits.',
   ]
 }
+
+// ---------- Motors ----------
+
+/** What every other tab derives from the four datasheet numbers, motor by motor. */
+export function motorsWorking(motors: Motor[], V: number): Line[] {
+  const out: Line[] = [
+    `Every other tab turns these four datasheet numbers into three motor constants, then works at your ${V} V battery. The straight-line DC motor model: torque falls evenly from stall to zero at free speed.`,
+  ]
+  motors.forEach((m, i) => {
+    const { kv, r, kt } = motorConsts(m)
+    // The reasons are the same for every motor, so only the first one says them.
+    const why = (t: string) => (i === 0 ? t : undefined)
+    const stall = stallTorqueAt(m, V)
+    const free = kv * V
+    const peak = (stall * ((free * PI2) / 60)) / 4
+    out.push(
+      { head: m.name },
+      { what: 'Speed per volt', formula: 'Kv = free RPM / 12 V', calc: `${m.freeRpm} / ${DATASHEET_V} = ${w(kv, 1)} RPM/V` },
+      { what: 'Winding resistance', formula: 'R = 12 V / stall A', calc: `${DATASHEET_V} / ${m.stallCurrent} = ${w(r, 4)} Ω` },
+      {
+        what: 'Torque per amp',
+        formula: 'Kt = stall Nm / (stall A − free A)',
+        calc: `${m.stallTorque} / (${m.stallCurrent} − ${m.freeCurrent}) = ${w(kt, 5)} Nm/A`,
+        why: why('Free current is spent on friction inside the motor, so it makes no torque.'),
+      },
+      { what: `Free speed at ${V} V`, formula: 'Kv × V', calc: `${w(kv, 1)} × ${V} = ${w(free, 0)} RPM` },
+      { what: `Stall torque at ${V} V`, formula: 'Kt × (V / R − free A)', calc: `${w(kt, 5)} × (${V} / ${w(r, 4)} − ${m.freeCurrent}) = ${w(stall, 2)} Nm` },
+      {
+        what: `Peak power at ${V} V`,
+        formula: 'stall Nm × free rad/s / 4',
+        calc: `${w(stall, 2)} × ${w((free * PI2) / 60, 1)} / 4 = ${w(peak, 0)} W`,
+        why: why('Power is torque × speed, which peaks at half free speed where torque is half of stall.'),
+      },
+    )
+  })
+  return out
+}

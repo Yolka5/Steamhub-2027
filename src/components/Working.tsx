@@ -15,8 +15,8 @@ export interface Step {
   why?: string
 }
 
-/** A step, or a plain sentence between steps. */
-export type Line = Step | string
+/** A step, a plain sentence between steps, or a small heading that groups the steps after it. */
+export type Line = Step | string | { head: string }
 
 const KEY = 'working:'
 
@@ -47,7 +47,11 @@ export function Working({ id, lines, title = "How it's worked out", children }: 
       <summary className="working__head">{title}</summary>
       <div className="working__body">
         {lines.map((l, i) =>
-          typeof l === 'string' ? (
+          typeof l === 'object' && 'head' in l ? (
+            <h4 key={i} className="working__group">
+              {l.head}
+            </h4>
+          ) : typeof l === 'string' ? (
             <p key={i} className="working__say">
               {l}
             </p>

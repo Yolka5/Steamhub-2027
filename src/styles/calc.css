@@ -974,3 +974,13 @@ input.mech__name:focus {
 .stock-pick .working {
   background: var(--surface-0);
 }
+
+.working__group {
+  margin: 1rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.working__group + .working__step {
+  border-top: 0;
+}

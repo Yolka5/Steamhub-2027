@@ -1,4 +1,6 @@
 import { useMemo } from 'react'
+import { Working } from '../components/Working'
+import { weightWorking } from '../lib/workings'
 import { Link } from 'react-router-dom'
 import { Copy } from '../components/ui'
 import { area, sizeLabel, type Piece } from '../lib/stock'
@@ -83,6 +85,16 @@ export default function Mechanisms() {
             Stock reserved for {groups.length} {groups.length === 1 ? 'mechanism' : 'mechanisms'}, about <Copy value={kg(total)} /> kg of raw material in all. Pieces
             without a planned length count at full length.
           </p>
+          {groups[0]?.lines[0] && (
+            <Working
+              id="mech-weight"
+              title="How the weights are worked out"
+              lines={[
+                'Each piece weighs cross-section × density × length, using the planned cut length when there is one. A mechanism is the sum of its pieces. Worked for the heaviest piece:',
+                ...weightWorking(groups[0].lines[0].piece, densities, groups[0].lines[0].length),
+              ]}
+            />
+          )}
 
           {groups.map((g) => (
             <section key={g.name} className="mw">

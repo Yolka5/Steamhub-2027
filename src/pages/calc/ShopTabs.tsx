@@ -16,6 +16,8 @@ import {
 } from '../../lib/centers'
 import { COMMON_ORDER, THREADS, findThreads, threadDepth, threadsInWall, type Thread } from '../../lib/threads'
 import { f, Seg } from './shared'
+import { Working } from '../../components/Working'
+import { beltFindWorking, beltHaveWorking, chainFindWorking, chainHaveWorking, gearFindWorking, gearWorking, threadWorking } from '../../lib/workings'
 import { Select } from '../../components/Select'
 
 // ---------- Center distance ----------
@@ -202,6 +204,7 @@ function BeltChainResult({ drive, a, b, target, step }: { drive: DriveType; a: n
           ? 'Exact pitch-line math, no added stretch. Click a distance to copy it into Onshape.'
           : 'Standard chain length formula. Odd link counts need a half link, so pick an even one when you can. Leave room for a tensioner.'}
       </p>
+      <Working id="cd-find" lines={drive.kind === 'belt' ? beltFindWorking(drive, a, b, target, step) : chainFindWorking(drive, a, b, target)} />
     </>
   )
 }
@@ -276,6 +279,7 @@ function HaveResult({ drive, a, b, count }: { drive: DriveType; a: number; b: nu
           ? 'Exact pitch-line math, no added stretch. Click the distance to copy it into Onshape.'
           : 'Standard chain length formula. Leave room for a tensioner. Click the distance to copy it.'}
       </p>
+      <Working id="cd-have" lines={belt ? beltHaveWorking(drive, a, b, count) : chainHaveWorking(drive, a, b, count)} />
     </>
   )
 }
@@ -329,6 +333,7 @@ function GearFindResult({ drive, target, ratio, minTeeth }: { drive: DriveType; 
         Gear center distance only depends on the total teeth, so only a few totals land near your distance. Sorted by closest distance, then closest ratio. Most FRC teams add 0.003
         in so the gears don't bind.
       </p>
+      <Working id="cd-gear-find" lines={gearFindWorking(drive, target, ratio)} />
     </>
   )
 }
@@ -366,6 +371,7 @@ function GearResult({ drive, a, b }: { drive: DriveType; a: number; b: number })
         </table>
       </div>
       <p className="calc-note soft">Most FRC teams add 0.003 in so the gears don't bind. Click a distance to copy it.</p>
+      <Working id="cd-gear" lines={gearWorking(drive, a, b)} />
     </>
   )
 }
@@ -538,6 +544,7 @@ function TapLookup({ text, setText, matches }: { text: string; setText: (s: stri
                   : `Fits ${Math.floor(fits)} threads in ${wallMm} mm.`}
             </p>
           )}
+          <Working id="tap" lines={threadWorking(t, fits != null ? wallMm : null)} />
         </div>
       )}
     </section>

@@ -6,6 +6,8 @@ import { HELP } from '../../lib/calcHelp'
 import { computeMechanism, computeSwerve, findMotor, mechanismAtRpm, motorCurve, torqueAtSpeed, voltageMap, type Motor, type Robot, type Swerve } from '../../lib/calc'
 import { f, pct, Seg, StatusTag, type Update } from './shared'
 import { Select } from '../../components/Select'
+import { Working } from '../../components/Working'
+import { curvesWorking, swerveWorking, voltageWorking } from '../../lib/workings'
 
 // ---------- Swerve ----------
 
@@ -129,6 +131,7 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
         <p className="calc-note soft">
           The robot tab gets {f(res.driveBattery)} A for driving and {f(res.steerBattery)} A for steering. The MK5n ratios are placeholders until checked on the SDS spec.
         </p>
+        <Working id="swerve" lines={swerveWorking(s, robot.motors, robot.voltage, res.ratios[s.selected], `R${s.selected + 1}`)} />
       </div>
     </div>
   )
@@ -219,6 +222,8 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
           </tbody>
         </table>
       </div>
+
+      {table.length > 0 && <Working id="curves" lines={curvesWorking(mech, motor, robot.voltage, r, table[Math.min(3, table.length - 1)].rpm, duty)} />}
 
       <h2 className="section__title">{motor.name} motor curve</h2>
       <Help text={HELP.curveMotor} className="help--block" />
@@ -318,6 +323,7 @@ export function VoltageTab({ robot }: { robot: Robot }) {
           </tbody>
         </table>
       </div>
+      <Working id="voltage" lines={voltageWorking(motor, sheetV, batV, volts[volts.length - 1], map.minVoltFor40)} />
 
       <LineChart
         title={`${motor.name}, one line per voltage at the motor`}

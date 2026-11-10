@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import { PieceCard } from '../components/PieceCard'
 import { PieceTable } from '../components/PieceTable'
+import { Working } from '../components/Working'
+import { stockSearchWorking } from '../lib/workings'
 import { ReserveSheet } from '../components/ReserveSheet'
 import { KERF, KINDS, findMatches, nearMatches, needsPhoto, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
@@ -182,6 +184,7 @@ export default function Stock() {
           )}
           {matches.length > 0 && (words.length ? `${matches.length} fit, least waste first.` : '')}
         </p>
+        {words.length > 0 && !q.id && <Working id="stock-search" title="How the search works" lines={stockSearchWorking(q, tol, matches[0])} />}
       </div>
 
       {error && <p className="error">Couldn't load stock: {error}</p>}

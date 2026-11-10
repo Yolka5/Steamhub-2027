@@ -6,6 +6,8 @@ import { reservePiece } from '../lib/actions'
 import { useAuth } from '../lib/auth'
 import { KERF, fitsSection, parseLengths, parseQuery, planCuts, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { Working } from '../components/Working'
+import { cutListWorking } from '../lib/workings'
 
 // Every length a mechanism needs, matched to the fewest pieces in one go. The query lives in the
 // URL, so a cut list can be shared with whoever is going to the saw.
@@ -81,6 +83,8 @@ export default function CutList() {
           <p className="finder__said soft">
             {lengths.length} cuts, {Math.round(total)} mm in total, from {candidates.length} matching pieces. Each cut takes {KERF} mm.
           </p>
+
+          <Working id="cut-list" lines={cutListWorking(lengths, result.plans)} />
 
           {result.unplaced.length > 0 && (
             <p className="cut-missing">

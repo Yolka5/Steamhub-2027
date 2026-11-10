@@ -10,6 +10,8 @@ import { computeRobot, findMotor, travelOf, type Mechanism, type SweepPoint, typ
 import { newMechanism } from '../../lib/calcDefaults'
 import { f, pct, Seg, Stat, StatusTag, type Update } from './shared'
 import { Select } from '../../components/Select'
+import { Working } from '../../components/Working'
+import { budgetWorking, mechWorking } from '../../lib/workings'
 
 const whole = (n: number) => String(Math.round(n))
 
@@ -174,6 +176,7 @@ function Budget({ robot, res, update }: { robot: Robot; res: RobotResult; update
           )
         })}
       </ul>
+      <Working id="budget" lines={budgetWorking(robot, res)} />
     </section>
   )
 }
@@ -331,6 +334,8 @@ function MechEditor({
       {r.move?.short && (
         <p className="calc-note soft">This move is too short to reach the target speed. It speeds up for the first half and slows down for the second.</p>
       )}
+
+      <Working id="mech" lines={mechWorking(m, robot, r)} />
 
       <LineChart
         title="Every gear ratio. Shaded: ratios that fit every limit."

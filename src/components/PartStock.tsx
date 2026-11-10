@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Working } from './Working'
+import { plateFitWorking } from '../lib/workings'
 import { Link } from 'react-router-dom'
 import { reservePiece } from '../lib/actions'
 import { useWho } from '../lib/auth'
@@ -121,6 +123,7 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
           ))}
         </>
       )}
+      {!used && <Working id="plate-fit" title="How plates are picked" lines={plateFitWorking(part.size.map(Number))} />}
     </section>
   )
 }

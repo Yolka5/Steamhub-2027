@@ -12,6 +12,8 @@ import { KINDS, area, sizeLabel, weight } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { Select } from '../components/Select'
+import { Working } from '../components/Working'
+import { weightWorking } from '../lib/workings'
 
 interface Event {
   id: number
@@ -147,6 +149,7 @@ export default function PiecePage() {
               </>
             )}
           </dl>
+          <Working id="piece-weight" title="How the weight is worked out" lines={weightWorking(piece, densities)} />
 
           <div className="piece__actions">
             {piece.status === 'available' && (

@@ -866,3 +866,111 @@ input.mech__name:focus {
 .ctable td.nowrap {
   white-space: nowrap;
 }
+
+/* ===== How it's worked out ===== */
+.working {
+  margin: 0.5rem 0 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+
+.working__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  color: var(--ink-soft);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.working__head::-webkit-details-marker {
+  display: none;
+}
+
+.working__head::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 160ms var(--ease-out);
+}
+
+.working[open] > .working__head::before {
+  transform: rotate(45deg);
+}
+
+.working__head:hover {
+  color: var(--ink);
+}
+
+.working__body {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0 1rem 1rem;
+}
+
+.working__say {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.9375rem;
+  color: var(--ink-soft);
+}
+
+.working__step {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  gap: 0.1rem 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.9375rem;
+}
+
+.working__say + .working__step,
+.working__body > .working__step:first-child {
+  border-top: 0;
+}
+
+.working__what {
+  color: var(--ink-soft);
+}
+
+.working__math {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.working__f {
+  color: var(--ink-soft);
+}
+
+.working__c {
+  color: var(--ink);
+}
+
+.working__why {
+  grid-column: 2;
+}
+
+@media (max-width: 599px) {
+  .working__step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .working__why {
+    grid-column: 1;
+  }
+}
+
+/* Inside a panel that is already surface-1, step down to the page tone so it still reads as its own block. */
+.mech .working,
+.tap__card .working,
+.stock-pick .working {
+  background: var(--surface-0);
+}

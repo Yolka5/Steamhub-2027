@@ -12,7 +12,8 @@ export interface DriveType {
 
 export const DRIVES: DriveType[] = [
   { id: 'htd5', kind: 'belt', label: 'HTD 5 mm belt', pitch: 5 },
-  { id: 'gt3', kind: 'belt', label: 'GT2 / HTD 3 mm belt', pitch: 3 },
+  { id: 'gt3', kind: 'belt', label: 'HTD 3M / GT3 3 mm belt', pitch: 3 },
+  { id: 'gt2', kind: 'belt', label: 'GT2 2 mm belt', pitch: 2 },
   { id: 'c25', kind: 'chain', label: '#25 chain', pitch: 6.35 },
   { id: 'c35', kind: 'chain', label: '#35 chain', pitch: 9.525 },
   { id: 'dp20', kind: 'gear', label: '20 DP gear', pitch: 25.4 / 20 },

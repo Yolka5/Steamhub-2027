@@ -18,9 +18,7 @@ export function PieceTable({ matches, showLeft, best, onReserve }: { matches: Ma
             <th>Material</th>
             <th>Location</th>
             <th>Status</th>
-            <th>
-              <span className="sr-only">Reserve</span>
-            </th>
+            <th aria-label="Reserve" />
           </tr>
         </thead>
         <tbody>

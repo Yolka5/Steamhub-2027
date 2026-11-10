@@ -13,6 +13,7 @@ import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { Select } from '../components/Select'
 import { Working } from '../components/Working'
+import { StockRender } from '../components/StockRender'
 import { weightWorking } from '../lib/workings'
 
 interface Event {
@@ -82,6 +83,9 @@ export default function PiecePage() {
   return (
     <div className="page page--narrow">
       <div className="piece">
+        <div className="piece__visual">
+          <StockRender piece={piece} />
+        </div>
         <Photo piece={piece} width={1200} className="piece__photo" />
         <div className="piece__info">
           <div className="card__top">

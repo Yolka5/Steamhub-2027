@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { KINDS, photoSrc, sizeLabel, type Piece } from '../lib/stock'
 import { Copy } from './ui'
 import { Icon } from './Icon'
+import { StockRender } from './StockRender'
 
 export function Photo({ piece, width = 600, className = '' }: { piece: Piece; width?: number; className?: string }) {
   const [failed, setFailed] = useState(false)
@@ -25,6 +26,14 @@ export function Photo({ piece, width = 600, className = '' }: { piece: Piece; wi
       onError={() => setFailed(true)}
     />
   )
+}
+
+/** The real photo, small in the corner of the drawing, so you can still spot the piece on the rack. */
+function PhotoInset({ piece }: { piece: Piece }) {
+  const [failed, setFailed] = useState(false)
+  const src = photoSrc(piece.photo_url, 160)
+  if (!src || failed) return null
+  return <img className="card__inset" src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
 }
 
 export function StatusTag({ piece }: { piece: Piece }) {
@@ -53,8 +62,9 @@ export function PieceCard({
 }) {
   return (
     <article className="card" style={{ '--i': Math.min(index, 10) } as CSSProperties}>
-      <Link to={`/stock/${piece.id}`} className="card__link" aria-label={`Open ${piece.id}`}>
-        <Photo piece={piece} width={480} />
+      <Link to={`/stock/${piece.id}`} className="card__link card__visual" aria-label={`Open ${piece.id}`}>
+        <StockRender piece={piece} />
+        <PhotoInset piece={piece} />
       </Link>
       <div className="card__body">
         <div className="card__top">

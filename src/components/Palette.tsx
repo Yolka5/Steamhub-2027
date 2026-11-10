@@ -26,7 +26,7 @@ const PAGES: Item[] = [
   { key: 'p-add', label: 'Add stock', to: '/stock/add' },
   { key: 'p-cut', label: 'Cut list: lengths for a mechanism', to: '/stock/cut' },
   { key: 'p-mech', label: 'Mechanisms: reserved stock and weight', to: '/stock/mechanisms' },
-  { key: 'p-photos', label: 'Pieces that need a photo', to: '/stock/photos' },
+  { key: 'p-photos', label: 'Stock photos: shoot or copy from Drive', to: '/stock/photos', keywords: 'photo picture camera drive needs' },
   { key: 'p-make', label: 'Manufacturing: what to make', to: '/manufacturing', keywords: 'workshop make parts drawings cnc lathe print' },
   { key: 'p-robots', label: 'Robots and subsystems', to: '/manufacturing/robots', keywords: 'step upload bom subsystem mechanism' },
   { key: 'p-plates', label: 'Plates: CNC plate stock', to: '/stock/plates', keywords: 'plate sheet aluminum polycarb cnc' },

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { StockRender } from '../components/StockRender'
 import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { Indicator } from '../components/Indicator'
@@ -11,7 +12,8 @@ import { useStore } from '../lib/store'
 import { Select } from '../components/Select'
 
 // Built for a phone in one hand and a caliper in the other: big fields, numeric keyboards,
-// the cross-section stays filled in between pieces so a batch is length, photo, save.
+// the cross-section stays filled in between pieces so a batch is length, save. A photo is
+// optional: every piece is drawn from its profile and length.
 
 type Dims = { a: string; b: string; wall: string; inner_d: string }
 const EMPTY: Dims = { a: '', b: '', wall: '', inner_d: '' }
@@ -76,23 +78,35 @@ export default function AddStock() {
   const fields = KINDS[kind].fields
   const ready = num(length) != null && num(length)! > 0 && fields.every((f) => f.key === 'inner_d' || num(dims[f.key]) != null)
 
-  const save = async () => {
-    if (!userId || !name || !ready) return
-    setBusy(true)
-    setError(null)
+  /** The piece as typed so far. Used for the save and for the drawing preview. */
+  const rowOf = () => {
     const a = num(dims.a)
     const inner = fields.some((f) => f.key === 'inner_d') ? num(dims.inner_d) : null
-    const row = {
+    return {
       kind: kind === 'round_tube' && inner == null ? ('round_rod' as Kind) : kind,
       material,
       a,
       b: fields.some((f) => f.key === 'b') ? num(dims.b) : null,
       wall: kind === 'round_tube' && a != null && inner != null ? +((a - inner) / 2).toFixed(2) : num(dims.wall),
       inner_d: inner,
-      length: num(length)!,
+      length: num(length) ?? 0,
       location: location || null,
       notes: notes.trim() || null,
     }
+  }
+
+  // The drawing checks the profile as you type it, so a photo isn't needed to tell pieces apart.
+  const draft = rowOf()
+  const preview: Piece | null =
+    draft.a != null && draft.a > 0
+      ? ({ ...draft, id, length: draft.length > 0 ? draft.length : 500, status: 'available', photo_url: null } as unknown as Piece)
+      : null
+
+  const save = async () => {
+    if (!userId || !name || !ready) return
+    setBusy(true)
+    setError(null)
+    const row = rowOf()
     let newId = id
     let res = await addPiece({ ...row, id: newId }, { userId, name })
     if (res.error === 'duplicate') {
@@ -213,6 +227,16 @@ export default function AddStock() {
           />
         </label>
 
+        {preview && (
+          <div className="add-preview" aria-live="polite">
+            <StockRender piece={preview} />
+            <span className="soft small num">
+              {sizeLabel(preview)}
+              {num(length) ? ` · ${num(length)} mm` : ' · type the length'}
+            </span>
+          </div>
+        )}
+
         <label className="photo-btn">
           <input
             type="file"
@@ -225,7 +249,9 @@ export default function AddStock() {
           ) : (
             <Icon name="camera" size={22} />
           )}
-          <span>{photo ? 'Retake photo' : 'Take photo'}</span>
+          <span>
+            {photo ? 'Retake photo' : 'Add a photo'} <span className="soft">optional</span>
+          </span>
         </label>
 
         <details className="more">

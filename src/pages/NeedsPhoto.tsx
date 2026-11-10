@@ -8,7 +8,8 @@ import { needsPhoto, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 
-// Walk the racks with a phone: tap, shoot, next. Each photo uploads on its own.
+// Optional photos. Every piece is drawn from its profile, so a photo only helps for odd pieces
+// (holes, bends). Also where Drive photos get copied into Steamhub's own storage.
 
 export default function NeedsPhoto() {
   const { pieces, upsertLocal, reload } = useStore()
@@ -43,12 +44,15 @@ export default function NeedsPhoto() {
   return (
     <div className="page page--narrow">
       <div className="page__head">
-        <h1 className="page__title">Needs photo</h1>
+        <h1 className="page__title">Stock photos</h1>
         <Link to="/stock" className="q-btn">
           Done
         </Link>
       </div>
-      <p className="soft">{list.length ? `${list.length} pieces to shoot. Tap the camera next to each one.` : 'Every piece has a photo.'}</p>
+      <p className="soft">
+        Photos are optional: every piece is already drawn from its profile and length. Add one only when it helps, like a piece with holes or a bend.
+        {list.length ? ` ${list.length} pieces have no photo.` : ''}
+      </p>
       {!session && (
         <button type="button" className="q-btn q-btn--main" onClick={() => signIn()}>
           Sign in with Google to add photos

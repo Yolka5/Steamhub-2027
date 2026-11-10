@@ -1464,3 +1464,17 @@ dialog {
   border: 2px solid var(--surface-1);
   border-radius: var(--radius-control);
 }
+
+/* Add stock: the piece as you type it. */
+.add-preview {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+  padding: 0.75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+
+.add-preview .stock-render {
+  height: 8rem;
+}

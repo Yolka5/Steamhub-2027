@@ -6,7 +6,7 @@ import { PieceTable } from '../components/PieceTable'
 import { Working } from '../components/Working'
 import { stockSearchWorking } from '../lib/workings'
 import { ReserveSheet } from '../components/ReserveSheet'
-import { KERF, KINDS, findMatches, nearMatches, needsPhoto, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
+import { KERF, KINDS, findMatches, nearMatches, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
 
 const KIND_PICKS: { value: string; label: string }[] = [
@@ -90,7 +90,6 @@ export default function Stock() {
     () => (matches.length < 3 ? nearMatches(pieces, q, tol, new Set(matches.map((m) => m.piece.id))) : []),
     [pieces, q, tol, matches],
   )
-  const photoCount = useMemo(() => pieces.filter((p) => p.status !== 'used' && needsPhoto(p)).length, [pieces])
   const words = describe(q)
   const available = pieces.filter((p) => p.status === 'available').length
 
@@ -107,9 +106,6 @@ export default function Stock() {
           </Link>
           <Link to="/stock/mechanisms" className="q-btn">
             Mechanisms
-          </Link>
-          <Link to="/stock/photos" className="q-btn">
-            Needs photo <span className="badge num">{photoCount}</span>
           </Link>
           <Link to="/stock/add" className="q-btn q-btn--main">
             Add stock

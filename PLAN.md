@@ -24,7 +24,7 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 | Section | Mode | Contents |
 |---|---|---|
 | Home | Tool | Search, your reservations, quick actions |
-| Stock | Tool | Find, Browse, Add (phone), Needs photo, History |
+| Stock | Tool | Find, Browse, Add (phone), Stock photos (optional), History |
 | Tools | Tool | Hub for every tool: motor and gearbox calculator, tap drill lookup, center distance, swerve, curves, cut list, weight per mechanism, plus links to JVN, AMB and ReCalc |
 | Handbook | Read (Hebrew) | Chapters, mechanism comparisons, approval checklist, and the FRC information sources (מקורות מידע) |
 | Manufacturing | Tool | Robots, subsystems, STEP upload → numbered part list and drawings, workshop list, plates, wishlist, bolt table, assembly guide ([MANUFACTURING.md](MANUFACTURING.md)) |
@@ -38,8 +38,8 @@ States: **Available → Reserved → Used**. Leftovers always go back to Availab
 - **Find**: shape, size, wall and min length, typed in one field (`20x40x1 700`) or through filters. Results are sorted by least waste and show photo, location and length. The query lives in the URL.
 - **Reserve**: one click, with name and mechanism, plus an optional planned length. Reservations never expire.
 - **Done** (later, through Manufacturing): the final length comes from the drawing, never from the reservation, because the drawing is always the latest version. On done, the leftover length (length minus final minus 3 mm kerf) stays Available under the same ID, and Steamhub shows the new length to rewrite on the piece.
-- **Add** (phone): recent cross-section chips, length, camera photo, location, next ID shown large, plus "same as last" for batches.
-- **Needs photo**: a list of pieces without a photo, so someone can shoot them all in one pass.
+- **Add** (phone): recent cross-section chips, length, optional photo, location, next ID shown large, plus "same as last" for batches. A drawing of the piece previews the profile as you type.
+- **Stock photos**: photos are optional, since every piece is drawn from its profile and length. The page lists pieces without one and copies Drive photos into Steamhub.
 - **Cut list**: enter all the lengths a mechanism needs, get the best pieces for all of them at once.
 - **Shapes**:
   - round tube: OD, ID

@@ -1487,3 +1487,38 @@ dialog {
   content-visibility: auto;
   contain-intrinsic-size: auto 24rem;
 }
+
+/* No connection, or a new version ready. Floats above the phone tab bar. */
+.app-status {
+  position: fixed;
+  left: 50%;
+  bottom: calc(5rem + env(safe-area-inset-bottom));
+  z-index: 26;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  font-size: 0.9375rem;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  transform: translateX(-50%);
+}
+
+.app-status > span:only-child {
+  padding-right: 0.5rem;
+}
+
+.app-status .q-btn {
+  flex: none;
+}
+
+@media (min-width: 900px) {
+  .app-status {
+    left: calc(50% + 7.5rem);
+    bottom: 1.5rem;
+  }
+}

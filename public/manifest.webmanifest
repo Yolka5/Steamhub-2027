@@ -1,0 +1,15 @@
+{
+  "name": "Steamhub",
+  "short_name": "Steamhub",
+  "description": "FRC 1577 Steampunk's stock, tools and manufacturing.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbfbf9",
+  "theme_color": "#fbfbf9",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

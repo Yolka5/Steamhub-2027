@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js'
 import type { Profile } from './mfg'
 import { supabase } from './supabase'
+import { clearSavedData } from './pwa'
 
 interface Auth {
   session: Session | null
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return error?.message ?? null
     },
     async signOut() {
+      clearSavedData()
       await supabase.auth.signOut()
     },
   }

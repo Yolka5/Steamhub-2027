@@ -105,3 +105,5 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 - The logo is a CSS background (`.logo`), so only the current theme's version downloads. `index.html` shows it as a startup frame before the code arrives.
 - Stock data loads after sign-in and reloads only when the app comes back after more than a minute away; realtime covers the rest.
 - Lighthouse mobile, sign-in screen, production build: score 91 to 96, first paint 2.61 s to 0.91 s, 414 KB to 322 KB, 15 requests to 7.
+- Offline app: `sw/sw.js` (template) becomes `dist/sw.js` at build time with that build's file list (`vite.config.ts`). The app opens from the phone's cache, even with no signal; Supabase reads are fetched fresh and fall back to the last saved copy after 4 s or offline; writes always need a connection. A new deploy shows "New version" with Refresh (`src/components/AppStatus.tsx`). Signing out wipes saved data. Installable from the browser menu (Add to Home screen).
+- Measured on a slow 4G phone (production build): sign-in screen 2.14 s on the first visit, 0.27 s coming back.

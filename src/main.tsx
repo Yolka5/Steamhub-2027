@@ -17,9 +17,12 @@ import { NotificationsProvider } from './lib/notifications'
 import { StoreProvider } from './lib/store'
 import { initPointerGlow } from './lib/motion'
 import { preloadKatex } from './lib/katex'
+import { registerServiceWorker } from './lib/pwa'
+import { AppStatus } from './components/AppStatus'
 
 initPointerGlow()
 preloadKatex()
+registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
         <StoreProvider>
           <NotificationsProvider>
             <App />
+            <AppStatus />
           </NotificationsProvider>
         </StoreProvider>
       </AuthProvider>

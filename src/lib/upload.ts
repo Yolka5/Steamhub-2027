@@ -1,4 +1,4 @@
-import { fileSafe, fromMethod, guessMaterial, gzip, logPart, MACHINES, notify, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
+import { fileSafe, fromMethod, guessMaterial, gzip, logPart, MACHINES, notify, partName, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
 import type { Analysis, Res, WorkerMsg, WorkerPart } from './step/worker'
 import { supabase } from './supabase'
 
@@ -242,8 +242,8 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
         Object.assign(patch, { sig: p.item.sig, qty: p.item.qty, size: p.item.size.map((v) => Math.round(v * 100) / 100), cls: p.item.cls, bad: p.item.bad })
         if (part.released_at) {
           patch.changed = true
-          toLead.push(`${part.part_no} ${part.name}`)
-          await notify([part.maker_id, sub.lead_id], 'part_changed', `${part.part_no} ${part.name} changed in CAD after it was released`, link(part.id), who.userId)
+          toLead.push(`${part.part_no} ${partName(part)}`)
+          await notify([part.maker_id, sub.lead_id], 'part_changed', `${part.part_no} ${partName(part)} changed in CAD after it was released`, link(part.id), who.userId)
         }
         await logPart(part.id, 'changed', who, { file: file.name, qty: p.item.qty !== part.qty ? [part.qty, p.item.qty] : undefined })
       }

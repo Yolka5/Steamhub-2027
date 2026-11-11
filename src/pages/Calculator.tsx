@@ -31,7 +31,7 @@ function ago(iso: string) {
 export default function Calculator() {
   const [params, setParams] = useSearchParams()
   const tab = (params.get('tab') ?? 'robot') as (typeof TABS)[number]['id']
-  const { session, userId, name, signIn } = useAuth()
+  const { userId, name } = useAuth()
   const calc = useCalcRobot(userId && name ? { userId, name } : null)
 
   // Explanations only exist for the workbook tabs.
@@ -58,15 +58,9 @@ export default function Calculator() {
               <button type="button" className="q-btn" onClick={calc.discard}>
                 Discard
               </button>
-              {session ? (
-                <button type="button" className="q-btn q-btn--main" onClick={calc.save} disabled={calc.saving}>
-                  {calc.saving ? 'Saving' : 'Save to team robot'}
-                </button>
-              ) : (
-                <button type="button" className="q-btn q-btn--main" onClick={() => signIn()}>
-                  Sign in to save
-                </button>
-              )}
+              <button type="button" className="q-btn q-btn--main" onClick={calc.save} disabled={calc.saving}>
+                {calc.saving ? 'Saving' : 'Save to team robot'}
+              </button>
             </div>
           </div>
         )}

@@ -8,6 +8,7 @@ import { stockSearchWorking } from '../lib/workings'
 import { ReserveSheet } from '../components/ReserveSheet'
 import { KERF, KINDS, findMatches, nearMatches, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { usePhone } from '../lib/usePhone'
 
 const KIND_PICKS: { value: string; label: string }[] = [
   { value: '', label: 'Any' },
@@ -49,6 +50,7 @@ function describe(q: Query): string[] {
 export default function Stock() {
   const [params, setParams] = useSearchParams()
   const { pieces, loading, error } = useStore()
+  const phone = usePhone()
   const [reserving, setReserving] = useState<Piece | null>(null)
   // Cards stagger in when the page opens. After that, new results just appear.
   const [settled, setSettled] = useState(false)
@@ -90,6 +92,38 @@ export default function Stock() {
     () => (matches.length < 3 ? nearMatches(pieces, q, tol, new Set(matches.map((m) => m.piece.id))) : []),
     [pieces, q, tol, matches],
   )
+  // Tolerance, view and "show reserved" are rarely changed: one row on desktop, folded on phones.
+  const options = (
+    <>
+            <div className="picks picks--seg" role="radiogroup" aria-label="Size tolerance">
+              <Indicator />
+              {TOLS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="radio"
+                  className="pick num"
+                  aria-checked={tol === Number(t)}
+                  onClick={() => set('tol', t === '0.5' ? '' : t)}
+                >
+                  ±{t}
+                </button>
+              ))}
+            </div>
+            <div className="picks picks--seg" role="radiogroup" aria-label="View">
+              <Indicator />
+              {(['cards', 'table'] as const).map((v) => (
+                <button key={v} type="button" role="radio" className="pick" aria-checked={view === v} onClick={() => setView(v)}>
+                  {v === 'cards' ? 'Cards' : 'Table'}
+                </button>
+              ))}
+            </div>
+            <label className="check">
+              <input type="checkbox" checked={showAll} onChange={(e) => set('all', e.target.checked ? '1' : '')} />
+              Show reserved and used
+            </label>
+    </>
+  )
   const words = describe(q)
   const available = pieces.filter((p) => p.status === 'available').length
 
@@ -107,9 +141,12 @@ export default function Stock() {
           <Link to="/stock/mechanisms" className="q-btn">
             Mechanisms
           </Link>
-          <Link to="/stock/add" className="q-btn q-btn--main">
-            Add stock
-          </Link>
+          {/* Phones have Add in the tab bar. */}
+          {!phone && (
+            <Link to="/stock/add" className="q-btn q-btn--main">
+              Add stock
+            </Link>
+          )}
         </div>
       </div>
 
@@ -126,7 +163,7 @@ export default function Stock() {
           aria-label="What do you need"
         />
         <div className="finder__row">
-          <div className="picks picks--seg" role="radiogroup" aria-label="Shape">
+          <div className={`picks picks--seg${phone ? ' picks--wrap' : ''}`} role="radiogroup" aria-label="Shape">
             <Indicator />
             {KIND_PICKS.map((k) => (
               <button
@@ -141,33 +178,16 @@ export default function Stock() {
               </button>
             ))}
           </div>
-          <div className="picks picks--seg" role="radiogroup" aria-label="Size tolerance">
-            <Indicator />
-            {TOLS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                role="radio"
-                className="pick num"
-                aria-checked={tol === Number(t)}
-                onClick={() => set('tol', t === '0.5' ? '' : t)}
-              >
-                ±{t}
-              </button>
-            ))}
-          </div>
-          <div className="picks picks--seg" role="radiogroup" aria-label="View">
-            <Indicator />
-            {(['cards', 'table'] as const).map((v) => (
-              <button key={v} type="button" role="radio" className="pick" aria-checked={view === v} onClick={() => setView(v)}>
-                {v === 'cards' ? 'Cards' : 'Table'}
-              </button>
-            ))}
-          </div>
-          <label className="check">
-            <input type="checkbox" checked={showAll} onChange={(e) => set('all', e.target.checked ? '1' : '')} />
-            Show reserved and used
-          </label>
+          {phone ? (
+            <details className="finder__more">
+              <summary>
+                Options <span className="soft num">±{tol} · {view === 'cards' ? 'Cards' : 'Table'}{showAll ? ' · all' : ''}</span>
+              </summary>
+              <div className="finder__row">{options}</div>
+            </details>
+          ) : (
+            options
+          )}
         </div>
         <p className="finder__said soft">
           {words.length ? (

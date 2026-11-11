@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { PartThumb } from './PartThumb'
-import { partNo, statusWord, type Part } from '../lib/mfg'
+import { partName, partNo, statusWord, type Part } from '../lib/mfg'
 
 // Small shared parts of the Manufacturing pages.
 
@@ -40,14 +41,36 @@ export function UrgentTag() {
   return <span className="tag tag--bad">Urgent</span>
 }
 
-/** One part in a list: number, name, what and who. The whole row opens the part. */
-export function PartRow({ part, showMaker = true }: { part: Part; showMaker?: boolean }) {
+/**
+ * One part in a list: number, name, what and who. The row opens the part. With an action (the
+ * workshop's Start / Done), the button sits at the end of the row, outside the link.
+ */
+export function PartRow({ part, showMaker = true, showStatus = true, action }: { part: Part; showMaker?: boolean; showStatus?: boolean; action?: ReactNode }) {
+  const body = <PartRowBody part={part} showMaker={showMaker} showStatus={showStatus} />
+  if (!action) {
+    return (
+      <Link to={`/manufacturing/p/${part.id}`} className="row mfg-row">
+        {body}
+      </Link>
+    )
+  }
   return (
-    <Link to={`/manufacturing/p/${part.id}`} className="row mfg-row">
+    <div className="row mfg-row mfg-row--act">
+      <Link to={`/manufacturing/p/${part.id}`} className="mfg-row__link">
+        {body}
+      </Link>
+      {action}
+    </div>
+  )
+}
+
+function PartRowBody({ part, showMaker, showStatus }: { part: Part; showMaker: boolean; showStatus: boolean }) {
+  return (
+    <>
       <PartThumb part={part} />
       <span className="mfg-row__no num">{partNo(part)}</span>
       <span className="row__main">
-        <span className="mfg-row__name">{part.name}</span>
+        <span className="mfg-row__name">{partName(part)}</span>
         <span className="soft small num">
           {[part.machine, part.material, `×${part.qty}`].filter(Boolean).join(' · ')}
           {showMaker && part.maker_name ? ` · ${part.maker_name}` : ''}
@@ -56,8 +79,8 @@ export function PartRow({ part, showMaker = true }: { part: Part; showMaker?: bo
       <span className="mfg-row__tags">
         {part.changed && <span className="tag tag--reserved">Changed</span>}
         {part.urgent && part.status !== 'done' && <UrgentTag />}
-        <PartStatusTag part={part} />
+        {showStatus && <PartStatusTag part={part} />}
       </span>
-    </Link>
+    </>
   )
 }

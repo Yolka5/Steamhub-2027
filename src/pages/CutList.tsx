@@ -15,7 +15,7 @@ import { cutListWorking } from '../lib/workings'
 export default function CutList() {
   const [params, setParams] = useSearchParams()
   const { pieces, upsertLocal } = useStore()
-  const { session, userId, name, signIn } = useAuth()
+  const { userId, name } = useAuth()
   const toast = useToast()
   const [forWhat, setForWhat] = useState('')
   const [busy, setBusy] = useState(false)
@@ -131,18 +131,10 @@ export default function CutList() {
 
           {result.plans.length > 0 && (
             <div className="cut-reserve">
-              {session ? (
-                <>
-                  <input className="field" placeholder="For which mechanism" value={forWhat} onChange={(e) => setForWhat(e.target.value)} />
-                  <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={reserveAll}>
-                    {busy ? 'Reserving' : `Reserve these ${result.plans.length} pieces`}
-                  </button>
-                </>
-              ) : (
-                <button type="button" className="q-btn q-btn--main" onClick={() => signIn()}>
-                  Sign in to reserve
-                </button>
-              )}
+              <input className="field" placeholder="For which mechanism" value={forWhat} onChange={(e) => setForWhat(e.target.value)} />
+              <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={reserveAll}>
+                {busy ? 'Reserving' : `Reserve these ${result.plans.length} pieces`}
+              </button>
             </div>
           )}
         </>

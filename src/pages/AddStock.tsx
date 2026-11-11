@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { StockRender } from '../components/StockRender'
 import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icon'
@@ -29,7 +29,7 @@ function localNextId(pieces: Piece[], prefix: string) {
 const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
 
 export default function AddStock() {
-  const { session, userId, name, signIn } = useAuth()
+  const { userId, name } = useAuth()
   const { pieces, materials, locations, upsertLocal } = useStore()
   const toast = useToast()
   const lengthRef = useRef<HTMLInputElement>(null)
@@ -41,6 +41,9 @@ export default function AddStock() {
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
+  // One preview URL per photo, freed when the photo changes, not a new one on every keystroke.
+  const photoUrl = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo])
+  useEffect(() => () => void (photoUrl && URL.revokeObjectURL(photoUrl)), [photoUrl])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<Piece[]>([])
@@ -133,20 +136,6 @@ export default function AddStock() {
     setPhoto(null)
     toast(`${newId} saved`)
     lengthRef.current?.focus()
-  }
-
-  if (!session) {
-    return (
-      <div className="page page--narrow">
-        <h1 className="page__title">Add stock</h1>
-        <div className="shell">
-          <p>Sign in with your Google account to add stock. You stay signed in after that.</p>
-          <button type="button" className="q-btn q-btn--main q-btn--wide" onClick={() => signIn()}>
-            Sign in with Google
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -244,8 +233,8 @@ export default function AddStock() {
             capture="environment"
             onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
           />
-          {photo ? (
-            <img src={URL.createObjectURL(photo)} alt="New piece" className="photo-btn__preview" />
+          {photoUrl ? (
+            <img src={photoUrl} alt="New piece" className="photo-btn__preview" />
           ) : (
             <Icon name="camera" size={22} />
           )}

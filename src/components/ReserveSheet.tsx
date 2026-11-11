@@ -16,7 +16,7 @@ export function ReserveSheet({
   plannedLength: number | null
   onClose: () => void
 }) {
-  const { session, userId, name, signIn } = useAuth()
+  const { userId, name } = useAuth()
   const { pieces, upsertLocal } = useStore()
   const toast = useToast()
   const [forWhat, setForWhat] = useState(() => {
@@ -79,46 +79,35 @@ export function ReserveSheet({
           <p className="soft num">
             {sizeLabel(piece)} · {piece.length} mm · {piece.material}
           </p>
-          {!session ? (
-            <>
-              <p>Sign in with your Google account to reserve. You stay signed in after that.</p>
-              <button type="button" className="q-btn q-btn--main q-btn--wide" onClick={() => signIn()}>
-                Sign in with Google
-              </button>
-            </>
-          ) : (
-            <>
-              {active.length > 0 && (
-                <label className="ctl">
-                  <span className="ctl__name">For which subsystem</span>
-                  <Select
-                    value={sub ? sub.id : ''}
-                    onChange={setSubId}
-                    autoFocus
-                    options={[
-                      { value: '', label: 'Something else' },
-                      ...active.flatMap((r) => subs.filter((s) => s.robot_id === r.id).map((s) => ({ value: s.id, label: `${s.number} ${s.name}`, group: r.name }))),
-                    ]}
-                  />
-                </label>
-              )}
-              {!sub && (
-                <label className="ctl">
-                  <span className="ctl__name">{active.length ? 'What for' : 'For which mechanism'}</span>
-                  <Combo value={forWhat} onChange={setForWhat} options={recent} placeholder="Elevator, intake, arm..." />
-                </label>
-              )}
-              <label className="ctl">
-                <span className="ctl__name">Planned length (mm), optional</span>
-                <input className="field num" inputMode="decimal" value={len} onChange={(e) => setLen(e.target.value)} />
-              </label>
-              <p className="soft small">The final length comes from the drawing when the part is made.</p>
-              {error && <p className="error">{error}</p>}
-              <button type="submit" className="q-btn q-btn--main q-btn--wide" disabled={busy}>
-                {busy ? 'Reserving' : `Reserve ${piece.id}`}
-              </button>
-            </>
+          {active.length > 0 && (
+            <label className="ctl">
+              <span className="ctl__name">For which subsystem</span>
+              <Select
+                value={sub ? sub.id : ''}
+                onChange={setSubId}
+                autoFocus
+                options={[
+                  { value: '', label: 'Something else' },
+                  ...active.flatMap((r) => subs.filter((s) => s.robot_id === r.id).map((s) => ({ value: s.id, label: `${s.number} ${s.name}`, group: r.name }))),
+                ]}
+              />
+            </label>
           )}
+          {!sub && (
+            <label className="ctl">
+              <span className="ctl__name">{active.length ? 'What for' : 'For which mechanism'}</span>
+              <Combo value={forWhat} onChange={setForWhat} options={recent} placeholder="Elevator, intake, arm..." />
+            </label>
+          )}
+          <label className="ctl">
+            <span className="ctl__name">Planned length (mm), optional</span>
+            <input className="field num" inputMode="decimal" value={len} onChange={(e) => setLen(e.target.value)} />
+          </label>
+          <p className="soft small">The final length comes from the drawing when the part is made.</p>
+          {error && <p className="error">{error}</p>}
+          <button type="submit" className="q-btn q-btn--main q-btn--wide" disabled={busy}>
+            {busy ? 'Reserving' : `Reserve ${piece.id}`}
+          </button>
         </form>
       )}
     </Sheet>

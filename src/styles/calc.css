@@ -1000,3 +1000,31 @@ input.mech__name:focus {
 .working__group + .working__step {
   border-top: 0;
 }
+
+/* ----- Phones: the battery budget folded into one line under the mechanisms ----- */
+.budget-fold {
+  padding: 0.85rem 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.budget-fold > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  min-height: 2rem;
+  cursor: pointer;
+}
+
+.budget-fold__title {
+  font-weight: 600;
+}
+
+.budget-fold[open] > summary {
+  margin-bottom: 1rem;
+}
+
+.budget-fold .budget {
+  margin-bottom: 0;
+}

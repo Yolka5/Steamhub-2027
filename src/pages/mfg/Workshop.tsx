@@ -3,7 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { MfgTabs, PartRow } from '../../components/mfg'
 import { PrintSheet } from '../../components/PrintSheet'
-import { MADE, type Machine, type Part, type Robot, type Subsystem } from '../../lib/mfg'
+import { useToast } from '../../components/ui'
+import { useWho } from '../../lib/auth'
+import { claimPart, MADE, partName, setStatus, type Machine, type Part, type Robot, type Subsystem } from '../../lib/mfg'
 import { useParts, useRobots } from '../../lib/useMfg'
 import { Select } from '../../components/Select'
 
@@ -25,7 +27,37 @@ export default function Workshop() {
   const machine = (params.get('m') as Machine | null) ?? null
   const subId = params.get('s')
   const showDone = params.get('done') === '1'
-  const { parts, loading } = useParts({ released: true })
+  const { parts, loading, put } = useParts({ released: true })
+  const who = useWho()
+  const toast = useToast()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  /** Start and Done right on the row, like the Monday board: one tap, no page to open. */
+  const quick = (p: Part) => {
+    if (!who || p.status === 'done') return undefined
+    // Done on a part with reserved stock also cuts the piece, which the part page shows.
+    if (p.status === 'doing' && p.piece_id) {
+      return (
+        <Link to={`/manufacturing/p/${p.id}`} className="q-btn q-btn--small mfg-row__act">
+          Done
+        </Link>
+      )
+    }
+    const start = p.status === 'todo'
+    const run = async () => {
+      setBusy(p.id)
+      const res = start ? await claimPart(p, who) : await setStatus(p, 'done', who)
+      setBusy(null)
+      if (res.error) return toast(res.error)
+      if (res.data) put(res.data)
+      toast(start ? `${p.part_no} is yours` : `${p.part_no} ${partName(p)} done`)
+    }
+    return (
+      <button type="button" className="q-btn q-btn--small mfg-row__act" disabled={busy === p.id} onClick={run}>
+        {start ? 'Start' : 'Done'}
+      </button>
+    )
+  }
   const { robots, subs, loading: loadingR } = useRobots()
   const [printing, setPrinting] = useState<Group | null>(null)
 
@@ -130,11 +162,15 @@ export default function Workshop() {
                 </button>
               </div>
               <ul className="rows">
-                {g.parts.map((p) => (
-                  <li key={p.id}>
-                    <PartRow part={p} />
-                  </li>
-                ))}
+                {g.parts.map((p) => {
+                  // The button says the status (Start: to do, Done: in progress), so the tag isn't repeated.
+                  const action = quick(p)
+                  return (
+                    <li key={p.id}>
+                      <PartRow part={p} action={action} showStatus={!action} />
+                    </li>
+                  )
+                })}
               </ul>
             </section>
           ))}

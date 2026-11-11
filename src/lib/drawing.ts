@@ -1,6 +1,6 @@
 import { buildPDFz, buildZip, classifyPart, computeViews, makeDrawing, Svg, type Framed, type Info, type TitleBlock } from './step/engine'
 import { plateDxf } from './step/dxf'
-import { download, fileSafe, gunzip, partNo, saveFile, type Part, type Robot, type Subsystem } from './mfg'
+import { download, fileSafe, gunzip, partName, partNo, saveFile, type Part, type Robot, type Subsystem } from './mfg'
 
 // Drawings are built in the browser from each part's small geometry file, so the title block
 // (material, maker) is always current and a phone never has to parse a whole assembly.
@@ -31,7 +31,7 @@ function titleBlock(p: Part, ctx: Ctx): TitleBlock {
   return {
     team: 'STEAMPUNK 1577',
     subsystem: `${ctx.sub.number} ${ctx.sub.name}`.toUpperCase(),
-    name: p.name,
+    name: partName(p),
     partNo: partNo(p),
     version: ctx.robot.name,
     material: p.material,
@@ -61,7 +61,7 @@ export async function partDrawing(p: Part, ctx: Ctx) {
 /** A page that stands in for a part with no drawing, so the printed stack stays complete. */
 function placeholder(p: Part) {
   const d = new Svg()
-  d.text(20, 140, `${partNo(p)}  ${p.name}  x${p.qty}`, 9)
+  d.text(20, 140, `${partNo(p)}  ${partName(p)}  x${p.qty}`, 9)
   d.text(20, 125, p.machine === 'Bought' ? 'Bought part, no drawing.' : 'No drawing: drop the STEP file again on the subsystem page.', 5)
   return d
 }
@@ -82,7 +82,7 @@ const stamp = () => new Date().toISOString().slice(0, 10)
 
 export async function savePdf(parts: Part[], ctx: Ctx, onProgress?: (done: number, total: number) => void) {
   const bytes = await batchPdf(parts, ctx, onProgress)
-  const name = parts.length === 1 ? `${partNo(parts[0])} ${parts[0].name}` : `${ctx.robot.name} ${ctx.sub.number} ${ctx.sub.name} ${stamp()}`
+  const name = parts.length === 1 ? `${partNo(parts[0])} ${partName(parts[0])}` : `${ctx.robot.name} ${ctx.sub.number} ${ctx.sub.name} ${stamp()}`
   saveFile(`${fileSafe(name)}.pdf`, bytes, 'application/pdf')
 }
 
@@ -93,15 +93,15 @@ export async function partDxfText(p: Part) {
 
 export async function saveDxf(parts: Part[], ctx: Ctx) {
   if (parts.length === 1) {
-    saveFile(`${fileSafe(`${partNo(parts[0])} ${parts[0].name}`)}.dxf`, await partDxfText(parts[0]), 'application/dxf')
+    saveFile(`${fileSafe(`${partNo(parts[0])} ${partName(parts[0])}`)}.dxf`, await partDxfText(parts[0]), 'application/dxf')
     return
   }
   const files = []
-  for (const p of parts) files.push({ name: `${fileSafe(`${partNo(p)} ${p.name}`)}.dxf`, data: await partDxfText(p) })
+  for (const p of parts) files.push({ name: `${fileSafe(`${partNo(p)} ${partName(p)}`)}.dxf`, data: await partDxfText(p) })
   saveFile(`${fileSafe(`${ctx.robot.name} ${ctx.sub.number} ${ctx.sub.name} DXF ${stamp()}`)}.zip`, buildZip(files), 'application/zip')
 }
 
 export async function saveStep(p: Part) {
   const blob = await download('parts', p.step_path!)
-  saveFile(`${fileSafe(`${partNo(p)} ${p.name}`)}.step`, blob, 'application/step')
+  saveFile(`${fileSafe(`${partNo(p)} ${partName(p)}`)}.step`, blob, 'application/step')
 }

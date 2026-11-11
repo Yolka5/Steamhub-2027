@@ -2,9 +2,12 @@
 // The sheet must be shared as "anyone with the link can view"; it's read as CSV, no Google key.
 //  - First tab: plates. Columns thickness, length, width, qty (blank = 1). The header row is skipped.
 //  - The end mills tab (name in settings): blocks headed "1 flute / diameter" style rows, then "3mm, count".
-// Plates: one row per physical plate. Sync only adds or removes *available* plates that came from
-// the sheet, so states people set (partly used, gone) and plates added in Steamhub stay as they are.
-// End mills: the sheet is the source, counts are replaced.
+// The team keeps both the sheet and Steamhub, so a sync merges and neither side wins outright.
+// Plates: one row per physical plate. When the sheet lists more of a size, plates added in Steamhub
+// of that size are taken as the sheet's first, then new ones are added. When it lists fewer, plates
+// marked Gone go first (the sheet caught up), then Available ones; Partly used plates always stay.
+// End mills: Steamhub remembers what the sheet said last time (sheet_qty) and applies only the
+// sheet's change since then, so counts changed in Steamhub survive the sync.
 import { createClient } from 'npm:@supabase/supabase-js@2.49.4'
 
 const cors = {
@@ -101,26 +104,40 @@ Deno.serve(async (req) => {
       cur.n += n
       want.set(key, cur)
     }
-    const { data: have, error: hErr } = await admin.from('plates').select('id, thickness, length, width, state').eq('source', 'sheet')
+    const { data: have, error: hErr } = await admin.from('plates').select('id, thickness, length, width, state, source, material')
     if (hErr) throw new Error(hErr.message)
-    const haveBy = new Map<string, { id: string; state: string }[]>()
+    type Row = { id: string; state: string; source: string }
+    const keyOf = (p: { thickness: unknown; length: unknown; width: unknown }) => `${Number(p.thickness)}|${Number(p.length)}|${Number(p.width)}`
+    const haveBy = new Map<string, Row[]>()
+    const manualBy = new Map<string, Row[]>()
     for (const p of have ?? []) {
-      const key = `${Number(p.thickness)}|${Number(p.length)}|${Number(p.width)}`
-      haveBy.set(key, [...(haveBy.get(key) ?? []), p])
+      // The sheet only lists aluminum, so only aluminum plates added in Steamhub can be the sheet's.
+      if (p.source !== 'sheet' && p.material !== 'Aluminum') continue
+      const by = p.source === 'sheet' ? haveBy : manualBy
+      by.set(keyOf(p), [...(by.get(keyOf(p)) ?? []), p])
     }
     const add: Record<string, unknown>[] = []
+    const adopt: string[] = []
     const remove: string[] = []
     for (const key of new Set([...want.keys(), ...haveBy.keys()])) {
       const w = want.get(key)
       const list = haveBy.get(key) ?? []
       const need = w?.n ?? 0
       if (need > list.length) {
-        for (let i = list.length; i < need; i++)
+        // Someone added the plate in Steamhub and then in the sheet: it's the same plate, not a new one.
+        const mine = (manualBy.get(key) ?? []).slice(0, need - list.length)
+        adopt.push(...mine.map((p) => p.id))
+        for (let i = list.length + mine.length; i < need; i++)
           add.push({ thickness: w!.t, length: w!.l, width: w!.w, material: 'Aluminum', source: 'sheet', updated_by: user.id, updated_by_name: me.name })
       } else if (need < list.length) {
-        // Only plates nobody has marked go away.
-        remove.push(...list.filter((p) => p.state === 'available').slice(0, list.length - need).map((p) => p.id))
+        // Gone ones first: the sheet caught up with Steamhub. Then untouched ones. Partly used stay.
+        const out = [...list.filter((p) => p.state === 'gone'), ...list.filter((p) => p.state === 'available')]
+        remove.push(...out.slice(0, list.length - need).map((p) => p.id))
       }
+    }
+    if (adopt.length) {
+      const { error } = await admin.from('plates').update({ source: 'sheet' }).in('id', adopt)
+      if (error) throw new Error(error.message)
     }
     if (add.length) {
       const { error } = await admin.from('plates').insert(add)
@@ -153,7 +170,17 @@ Deno.serve(async (req) => {
         }
       }
       if (found.size) {
-        const { error } = await admin.from('end_mills').upsert([...found.values()], { onConflict: 'flutes,diameter' })
+        const { data: cur, error: cErr } = await admin.from('end_mills').select('flutes, diameter, qty, sheet_qty')
+        if (cErr) throw new Error(cErr.message)
+        const curBy = new Map((cur ?? []).map((m) => [`${m.flutes}|${Number(m.diameter)}`, m]))
+        const rows = [...found.entries()].map(([key, f]) => {
+          const m = curBy.get(key)
+          if (!m) return { ...f, sheet_qty: f.qty }
+          // Only the sheet's change since the last sync: 5 → 4 in the sheet takes one off Steamhub's count.
+          const before = m.sheet_qty ?? m.qty
+          return { flutes: f.flutes, diameter: f.diameter, qty: Math.max(0, m.qty + (f.qty - before)), sheet_qty: f.qty }
+        })
+        const { error } = await admin.from('end_mills').upsert(rows, { onConflict: 'flutes,diameter' })
         if (error) throw new Error(error.message)
         mills = found.size
       }
@@ -161,10 +188,11 @@ Deno.serve(async (req) => {
 
     await admin
       .from('settings')
-      .update({ value: { ...cfg, synced_at: new Date().toISOString(), synced_by: me.name }, updated_at: new Date().toISOString() })
+      // merges: tells the app this sync merges, so it can sync on every page open without wiping counts.
+      .update({ value: { ...cfg, synced_at: new Date().toISOString(), synced_by: me.name, merges: true }, updated_at: new Date().toISOString() })
       .eq('key', 'plate_sheet')
     const plates = [...want.values()].reduce((s, w) => s + w.n, 0)
-    return json({ plates, added: add.length, removed: remove.length, mills })
+    return json({ plates, added: add.length, adopted: adopt.length, removed: remove.length, mills })
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, 500)
   }

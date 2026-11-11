@@ -37,7 +37,7 @@ const WORDS: Record<string, string> = {
 export default function PiecePage() {
   const { id = '' } = useParams()
   const { byId, densities, locations, loading, upsertLocal } = useStore()
-  const { session, userId, name } = useAuth()
+  const { userId, name } = useAuth()
   const toast = useToast()
   const piece = byId(id.toUpperCase())
   const [reserving, setReserving] = useState(false)
@@ -83,10 +83,6 @@ export default function PiecePage() {
   return (
     <div className="page page--narrow">
       <div className="piece">
-        <div className="piece__visual">
-          <StockRender piece={piece} />
-        </div>
-        <Photo piece={piece} width={1200} className="piece__photo" />
         <div className="piece__info">
           <div className="card__top">
             <h1 className="piece__id num">
@@ -102,59 +98,6 @@ export default function PiecePage() {
               <span className="card__mm">{piece.length}</span> mm
             </Copy>
           </p>
-
-          <dl className="facts num">
-            <dt>Material</dt>
-            <dd>{piece.material ?? 'Unknown'}</dd>
-            {piece.wall != null && (
-              <>
-                <dt>{piece.kind === 'angle' || piece.kind === 'flat' ? 'Thickness' : 'Wall'}</dt>
-                <dd>{piece.wall} mm</dd>
-              </>
-            )}
-            <dt>Weight</dt>
-            <dd>{grams ? `${Math.round(grams)} g (${Math.round(gPerM!)} g/m)` : 'Unknown material'}</dd>
-            <dt>Location</dt>
-            <dd>
-              {session ? (
-                <Select
-                  className="field--inline"
-                  label="Location"
-                  value={piece.location ?? ''}
-                  onChange={(v) => who && run(() => updatePiece(piece.id, { location: v || null }, who), 'Location saved')}
-                  options={[{ value: '', label: 'Not set' }, ...locations.map((l) => ({ value: l, label: l }))]}
-                />
-              ) : (
-                (piece.location ?? 'Not set')
-              )}
-            </dd>
-            {piece.status === 'reserved' && (
-              <>
-                <dt>Reserved by</dt>
-                <dd>{piece.reserved_by_name}</dd>
-                {piece.reserved_for && (
-                  <>
-                    <dt>For</dt>
-                    <dd>{piece.reserved_for}</dd>
-                  </>
-                )}
-                {piece.planned_length && (
-                  <>
-                    <dt>Planned length</dt>
-                    <dd>{piece.planned_length} mm</dd>
-                  </>
-                )}
-              </>
-            )}
-            {piece.notes && (
-              <>
-                <dt>Note</dt>
-                <dd>{piece.notes}</dd>
-              </>
-            )}
-          </dl>
-          <Working id="piece-weight" title="How the weight is worked out" lines={weightWorking(piece, densities)} />
-
           <div className="piece__actions">
             {piece.status === 'available' && (
               <button type="button" className="q-btn q-btn--main" onClick={() => setReserving(true)}>
@@ -207,7 +150,63 @@ export default function PiecePage() {
             )}
           </div>
 
+
+          <dl className="facts num">
+            <dt>Material</dt>
+            <dd>{piece.material ?? 'Unknown'}</dd>
+            {piece.wall != null && (
+              <>
+                <dt>{piece.kind === 'angle' || piece.kind === 'flat' ? 'Thickness' : 'Wall'}</dt>
+                <dd>{piece.wall} mm</dd>
+              </>
+            )}
+            <dt>Weight</dt>
+            <dd>{grams ? `${Math.round(grams)} g (${Math.round(gPerM!)} g/m)` : 'Unknown material'}</dd>
+            <dt>Location</dt>
+            <dd>
+              <Select
+                className="field--inline"
+                label="Location"
+                value={piece.location ?? ''}
+                onChange={(v) => who && run(() => updatePiece(piece.id, { location: v || null }, who), 'Location saved')}
+                options={[{ value: '', label: 'Not set' }, ...locations.map((l) => ({ value: l, label: l }))]}
+              />
+            </dd>
+            {piece.status === 'reserved' && (
+              <>
+                <dt>Reserved by</dt>
+                <dd>{piece.reserved_by_name}</dd>
+                {piece.reserved_for && (
+                  <>
+                    <dt>For</dt>
+                    <dd>{piece.reserved_for}</dd>
+                  </>
+                )}
+                {piece.planned_length && (
+                  <>
+                    <dt>Planned length</dt>
+                    <dd>{piece.planned_length} mm</dd>
+                  </>
+                )}
+              </>
+            )}
+            {piece.notes && (
+              <>
+                <dt>Note</dt>
+                <dd>{piece.notes}</dd>
+              </>
+            )}
+          </dl>
+          <Working id="piece-weight" title="How the weight is worked out" lines={weightWorking(piece, densities)} />
+
           {editing && who && <PieceEditor piece={piece} who={who} onDone={() => setEditing(false)} />}
+        </div>
+        {/* What it looks like comes after what you came to do: reserve, cut, release. */}
+        <div className="piece__pics">
+          <div className="piece__visual">
+            <StockRender piece={piece} />
+          </div>
+          <Photo piece={piece} width={1200} className="piece__photo" />
         </div>
       </div>
 

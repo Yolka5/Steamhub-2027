@@ -14,6 +14,7 @@ import {
   logPart,
   MACHINES,
   MATERIALS,
+  partName,
   partNo,
   releaseParts,
   setStatus,
@@ -195,7 +196,7 @@ export default function PartPage() {
           <h1 className="piece__id num">
             <Copy value={partNo(part)} />
           </h1>
-          <p className="part__name">{part.name}</p>
+          <p className="part__name">{partName(part)}</p>
           <p className="part__tags">
             <PartStatusTag part={part} />
             {part.urgent && part.status !== 'done' && <UrgentTag />}

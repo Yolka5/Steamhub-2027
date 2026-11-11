@@ -13,6 +13,7 @@ import {
   guessMaterial,
   MACHINES,
   MATERIALS,
+  partName,
   partNo,
   releaseParts,
   setStatus,
@@ -174,7 +175,7 @@ export default function SubsystemPage() {
         <>
           <PartList
             title="In design"
-            hint="Only you see these. Check machine and material, then release."
+            hint="Not on the workshop list yet. Check machine and material, then release."
             parts={design}
             picked={picked}
             toggle={toggle}
@@ -211,7 +212,7 @@ export default function SubsystemPage() {
                   <li key={p.id}>
                     <Link to={`/manufacturing/p/${p.id}`} className="row">
                       <span className="num strong">{partNo(p)}</span>
-                      <span className="soft">{p.name}</span>
+                      <span className="soft">{partName(p)}</span>
                     </Link>
                   </li>
                 ))}
@@ -392,7 +393,7 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         {partNo(part)}
       </Link>
       <Link to={link} className="sp-row__name">
-        <span>{part.name}</span>
+        <span>{partName(part)}</span>
         <span className="soft small num">
           {sizeText(part.size)} mm · ×{part.qty}
         </span>

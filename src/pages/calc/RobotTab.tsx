@@ -12,6 +12,7 @@ import { f, pct, Seg, Stat, StatusTag, type Update } from './shared'
 import { Select } from '../../components/Select'
 import { Working } from '../../components/Working'
 import { budgetWorking, mechWorking } from '../../lib/workings'
+import { usePhone } from '../../lib/usePhone'
 
 const whole = (n: number) => String(Math.round(n))
 
@@ -34,6 +35,7 @@ const TYPE_LABEL: Record<MechType, string> = { pivot: 'Pivot', linear: 'Linear',
 
 export function RobotTab({ robot, update }: { robot: Robot; update: Update }) {
   const res = useMemo(() => computeRobot(robot), [robot])
+  const phone = usePhone()
   const [selected, setSelected] = useState<string>(robot.mechanisms[0]?.id ?? 'swerve')
 
   const editMech = (id: string, patch: Partial<Mechanism>) =>
@@ -41,9 +43,13 @@ export function RobotTab({ robot, update }: { robot: Robot; update: Update }) {
 
   const mech = robot.mechanisms.find((m) => m.id === selected)
 
+  const budget = <Budget robot={robot} res={res} update={update} />
+  const over = res.scale < 1 || res.totalMotors > robot.maxMotors
+
   return (
     <div className="calc-robot">
-      <Budget robot={robot} res={res} update={update} />
+      {/* Phones open on the ratios; the battery budget folds into one line under them. */}
+      {!phone && budget}
 
       <section className="calc-section">
         <h2 className="section__title">Mechanisms</h2>
@@ -112,6 +118,19 @@ export function RobotTab({ robot, update }: { robot: Robot; update: Update }) {
           </div>
         </div>
       </section>
+
+      {phone && (
+        <details className="calc-section budget-fold">
+          <summary>
+            <span className="budget-fold__title">Battery budget</span>
+            <span className={`num ${over ? 'is-bad' : 'soft'}`}>
+              {f(res.biggestSet)} of {robot.maxDraw} A · {res.totalMotors} of {robot.maxMotors} motors
+              {over ? ' · over' : ''}
+            </span>
+          </summary>
+          {budget}
+        </details>
+      )}
     </div>
   )
 }

@@ -20,6 +20,7 @@ import Handbook from './pages/Handbook'
 import HandbookHub from './pages/HandbookHub'
 import Calculator from './pages/Calculator'
 import Tools from './pages/Tools'
+import ShopTool from './pages/ShopTool'
 import Workshop from './pages/mfg/Workshop'
 import Robots from './pages/mfg/Robots'
 import RobotPage from './pages/mfg/Robot'
@@ -120,8 +121,7 @@ export default function App() {
     setPaletteAnim(true)
     setPaletteOpen(true)
   }
-  const { session, signIn, ready, banned } = useAuth()
-  const [authError, setAuthError] = useState<string | null>(null)
+  const { session, ready, banned } = useAuth()
   const location = useLocation()
 
   useEffect(() => {
@@ -142,20 +142,6 @@ export default function App() {
   if (!ready) return null
   if (!session) return <SignIn />
   if (banned) return <NoAccess />
-
-  const account = session ? (
-    <AccountMenu placement="up" />
-  ) : (
-    <button
-      type="button"
-      className="pick"
-      onClick={async () => setAuthError(await signIn())}
-      title="Sign in with Google"
-    >
-      <span className="avatar avatar--empty" />
-      <span className="rail__label">Sign in</span>
-    </button>
-  )
 
   return (
     <ToastProvider>
@@ -187,8 +173,7 @@ export default function App() {
               </span>
               <span className="rail__label">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
             </button>
-            {account}
-            {authError && <p className="rail__error">{authError}</p>}
+            <AccountMenu placement="up" />
           </div>
         </aside>
 
@@ -207,13 +192,7 @@ export default function App() {
                 <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
               </span>
             </button>
-            {session ? (
-              <AccountMenu placement="down" compact />
-            ) : (
-              <button type="button" className="q-btn q-btn--small" onClick={async () => setAuthError(await signIn())}>
-                Sign in
-              </button>
-            )}
+            <AccountMenu placement="down" compact />
           </div>
         </header>
 
@@ -228,6 +207,8 @@ export default function App() {
             <Route path="/stock/mechanisms" element={<Mechanisms />} />
             <Route path="/stock/:id" element={<PiecePage />} />
             <Route path="/tools" element={<Tools />} />
+            <Route path="/tools/tap-drills" element={<ShopTool key="sheet" which="sheet" />} />
+            <Route path="/tools/center-distance" element={<ShopTool key="center" which="center" />} />
             <Route path="/calculators" element={<Calculator />} />
             <Route path="/handbook" element={<HandbookHub />} />
             <Route path="/handbook/design" element={<Handbook key="design" part="design" />} />

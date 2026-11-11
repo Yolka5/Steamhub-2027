@@ -6,6 +6,12 @@ import { findThreads, looksLikeThread } from '../lib/threads'
 import { handbookIndex } from '../pages/Handbook'
 import { OUR_TOOLS, OUTSIDE_TOOLS } from '../pages/Tools'
 import { supabase } from '../lib/supabase'
+import { partName, type Part } from '../lib/mfg'
+
+/** A part as Ctrl K needs it: enough to find it by number or name and say where it belongs. */
+type FoundPart = Pick<Part, 'id' | 'part_no' | 'name' | 'cls' | 'size' | 'machine' | 'status'> & {
+  sub: { number: number; name: string; robot: { name: string; archived: boolean } | null } | null
+}
 
 // Opened constantly with Ctrl K, so that never animates. A click on the search box gets a short drop-in.
 
@@ -40,9 +46,9 @@ const PAGES: Item[] = [
   { key: 'p-curves', label: 'Motor curves', to: '/calculators?tab=curves' },
   { key: 'p-voltage', label: 'Voltage map', to: '/calculators?tab=voltage' },
   { key: 'p-motors', label: 'Motors table', to: '/calculators?tab=motors' },
-  { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/calculators?tab=center' },
-  { key: 'p-center-have', label: 'Center distance for a belt or chain I have', to: '/calculators?tab=center&cd=have' },
-  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/calculators?tab=sheet', keywords: 'tap tapping thread הברזה הברזות קידוח מיסב' },
+  { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/tools/center-distance' },
+  { key: 'p-center-have', label: 'Center distance for a belt or chain I have', to: '/tools/center-distance?cd=have' },
+  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/tools/tap-drills', keywords: 'tap tapping thread הברזה הברזות קידוח מיסב' },
   { key: 'p-tools', label: 'Tools: every calculator and outside tool', to: '/tools', keywords: 'calculator כלים מחשבון' },
   { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook/design', keywords: 'המדריך למתכנן המכני' },
   { key: 'p-sources', label: 'FRC information sources', to: '/handbook/sources', keywords: 'מקורות מידע tba chief delphi' },
@@ -55,6 +61,7 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
   const [sel, setSel] = useState(0)
   const { pieces } = useStore()
   const navigate = useNavigate()
+  const [parts, setParts] = useState<FoundPart[]>([])
   const [protos, setProtos] = useState<{ id: string; name: string; concept: string; season: number; subsystem_number: number | null }[]>([])
   useEffect(() => {
     if (!open) return
@@ -64,6 +71,14 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
       .order('updated_at', { ascending: false })
       .limit(200)
       .then(({ data }) => setProtos(data ?? []))
+    // Parts of the robots being built, so "3004" or "side plate" jumps to the part and its drawing.
+    supabase
+      .from('parts')
+      .select('id, part_no, name, cls, size, machine, status, sub:subsystems(number, name, robot:robots(name, archived))')
+      .neq('status', 'cancelled')
+      .order('part_no')
+      .limit(3000)
+      .then(({ data }) => setParts(((data ?? []) as unknown as FoundPart[]).filter((p) => !p.sub?.robot?.archived)))
   }, [open])
 
   useEffect(() => {
@@ -95,7 +110,7 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
             key: `th-${th.name}`,
             label: `${th.name}: tap drill ${th.tap.toFixed(2)} mm`,
             hint: `clearance ${th.free.toFixed(2)} mm`,
-            to: `/calculators?tab=sheet&t=${encodeURIComponent(th.name)}`,
+            to: `/tools/tap-drills?t=${encodeURIComponent(th.name)}`,
           }))
       : []
     const chapters: Item[] = handbookIndex()
@@ -118,8 +133,22 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
       .filter((p) => p.name.toLowerCase().includes(t) || p.concept.toLowerCase().includes(t) || (p.subsystem_number != null && String(p.subsystem_number) === t))
       .slice(0, 6)
       .map((p) => ({ key: `pr-${p.id}`, label: p.name, hint: `Prototype${p.subsystem_number != null ? `, subsystem ${p.subsystem_number}` : ''}`, to: `/prototypes/${p.id}` }))
-    return [...threads, ...stock, ...prototypes, ...pages, ...tools, ...chapters]
-  }, [text, pieces, protos])
+    // A part number matches from its start (30 finds 3001-3099); names match anywhere, from 3 letters.
+    const isNo = /^\d{2,5}$/.test(t)
+    const robots = new Set(parts.map((p) => p.sub?.robot?.name))
+    const found: Item[] = parts
+      .filter((p) => (isNo ? String(p.part_no).startsWith(t) : t.length >= 3 && (partName(p).toLowerCase().includes(t) || p.name.toLowerCase().includes(t))))
+      .slice(0, 8)
+      .map((p) => ({
+        key: `pt-${p.id}`,
+        label: `${p.part_no}  ${partName(p)}`,
+        hint: [p.sub ? `${p.sub.number} ${p.sub.name}` : '', robots.size > 1 ? p.sub?.robot?.name : '', p.machine].filter(Boolean).join(' · '),
+        to: `/manufacturing/p/${p.id}`,
+      }))
+    // A typed number is far more likely a part than a stock length, so parts go first then.
+    if (isNo) return [...found, ...threads, ...stock, ...prototypes, ...pages, ...tools, ...chapters]
+    return [...threads, ...stock, ...found, ...prototypes, ...pages, ...tools, ...chapters]
+  }, [text, pieces, protos, parts])
 
   const go = (item?: Item) => {
     if (!item) return
@@ -142,7 +171,7 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
         <input
           ref={input}
           className="palette__input"
-          placeholder="Search stock (20x40x1 700, round 20 500, TB-014) or pages"
+          placeholder="Stock (20x40x1 700), part number (3004), M5, or a page"
           value={text}
           onChange={(e) => {
             setText(e.target.value)

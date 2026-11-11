@@ -187,6 +187,10 @@ export function parseQuery(text: string): Query {
     if (/^(6061|7075|steel|stainless|delrin|pom|nylon|ptfe|carbon|poly)/.test(tok)) q.material = tok
   }
 
+  // "tube 20x40x1" is a rectangular tube (a profile), not a round one: sides joined with x and no
+  // ID (20/16) mean the "tube" word was about the hollow, not the shape.
+  if (q.kind === 'round' && dims.length >= 2 && !/[/ø]|round/.test(t)) q.kind = 'rect_tube'
+
   if (dims.length) {
     if (loose.length) q.length = loose[loose.length - 1]
   } else if (loose.length === 1) {
@@ -230,7 +234,9 @@ function kindMatches(want: Query['kind'], have: Kind) {
 export function fitsSection(q: Query, p: Piece, tol: number): boolean {
   if (!kindMatches(q.kind, p.kind)) return false
   if (q.material && !(p.material ?? '').toLowerCase().includes(q.material)) return false
-  if (q.b != null && (p.kind === 'rect_tube' || p.kind === 'angle')) {
+  if (q.b != null) {
+    // Two sides (20x40) only describe a profile or an angle, never a round tube or a bar.
+    if (p.kind !== 'rect_tube' && p.kind !== 'angle') return false
     const straight = near(q.a, p.a, tol) && near(q.b, p.b, tol)
     const turned = near(q.a, p.b, tol) && near(q.b, p.a, tol)
     if (!straight && !turned) return false

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { canDraw, saveDxf, savePdf, type Ctx } from '../lib/drawing'
-import { partNo, type Part } from '../lib/mfg'
+import { partName, partNo, type Part } from '../lib/mfg'
 import { Sheet, useToast } from './ui'
 
 // Pick a subsystem's parts and get one PDF of their drawings for the USB stick, or the DXFs for
@@ -70,7 +70,7 @@ function PrintBody({ parts, ctx, onClose }: { parts: Part[]; ctx: Ctx; onClose: 
           <label key={p.id} className="check print-pick__row">
             <input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} />
             <span className="num strong">{partNo(p)}</span>
-            <span className="print-pick__name">{p.name}</span>
+            <span className="print-pick__name">{partName(p)}</span>
             <span className="soft small num">
               {p.machine} ×{p.qty}
             </span>

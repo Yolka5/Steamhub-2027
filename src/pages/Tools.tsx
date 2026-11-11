@@ -16,8 +16,8 @@ interface Tool {
 
 export const OUR_TOOLS: Tool[] = [
   { name: 'Motor and gearbox', what: 'Gear ratio, current and battery budget for every mechanism on the robot.', icon: 'calc', to: '/calculators', keywords: 'ratio gearbox current amps kraken מנוע תמסורת' },
-  { name: 'Tap drills and holes', what: 'Tap drill, clearance hole and thread depth for any screw, with a thin-wall check.', icon: 'screw', to: '/calculators?tab=sheet', keywords: 'tap tapping drill clearance thread הברזה הברזות קידוח' },
-  { name: 'Center distance', what: 'Belt, chain and gear center distances: the belts or gears that fit your spacing, or the spacing for a belt you already have.', icon: 'ruler', to: '/calculators?tab=center', keywords: 'belt chain gear pulley sprocket timing מרחק רצועה שרשרת' },
+  { name: 'Tap drills and holes', what: 'Tap drill, clearance hole and thread depth for any screw, with a thin-wall check.', icon: 'screw', to: '/tools/tap-drills', keywords: 'tap tapping drill clearance thread הברזה הברזות קידוח' },
+  { name: 'Center distance', what: 'Belt, chain and gear center distances: the belts or gears that fit your spacing, or the spacing for a belt you already have.', icon: 'ruler', to: '/tools/center-distance', keywords: 'belt chain gear pulley sprocket timing מרחק רצועה שרשרת' },
   { name: 'Swerve ratios', what: 'Compare the three drive ratios: top speed, acceleration and current.', icon: 'wheel', to: '/calculators?tab=swerve', keywords: 'drive drivetrain sds mk5n סוורב' },
   { name: 'Motor curves', what: 'Torque, current, power and efficiency at every speed, for one mechanism or one motor.', icon: 'chart', to: '/calculators?tab=curves', keywords: 'dyno torque power efficiency voltage' },
   { name: 'Cut list', what: 'Every length a mechanism needs, matched to the fewest pieces of stock.', icon: 'cut', to: '/stock/cut', keywords: 'stock cut lengths saw מלאי חיתוך' },

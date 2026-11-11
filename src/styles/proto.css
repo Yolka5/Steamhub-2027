@@ -124,19 +124,11 @@
   }
 }
 
-/* In one column the parameters come right after the header, before the long list of tests,
-   and People goes to the end. */
+/* In one column the tests come first: they're what people open a prototype for, and each test
+   card already shows its parameter values. The parameter list and People follow. */
 @media (max-width: 1199px) {
   .pt-layout > .pt-aside {
     display: contents;
-  }
-
-  .pt-aside > .pt-panel:first-child {
-    order: -1;
-  }
-
-  .pt-aside > .pt-panel + .pt-panel {
-    order: 1;
   }
 }
 

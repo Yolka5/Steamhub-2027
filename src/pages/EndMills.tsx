@@ -1,13 +1,16 @@
 import { Link } from 'react-router-dom'
 import { useToast } from '../components/ui'
-import { useEndMills, type EndMill } from '../lib/plates'
+import { useAutoSync, useEndMills, useSheetSetting, type EndMill } from '../lib/plates'
 import { supabase } from '../lib/supabase'
 
-// The CNC team's end mills, by flutes and diameter. Counts come from the plate sheet's end mills
-// tab; a change here holds until the next sync.
+// The CNC team's end mills, by flutes and diameter. The plate sheet's end mills tab and this page
+// are both kept: a sync applies only what changed in the sheet, so a count changed here stays.
 
 export default function EndMills() {
-  const { mills, loading, setMills } = useEndMills()
+  const { mills, loading, setMills, reload } = useEndMills()
+  const { setting } = useSheetSetting()
+  useAutoSync(setting, reload)
+  const pending = mills.filter((m) => m.sheet_qty != null && m.sheet_qty !== m.qty)
   const toast = useToast()
   const groups = [...new Set(mills.map((m) => m.flutes))]
 
@@ -26,7 +29,16 @@ export default function EndMills() {
           Plates
         </Link>
       </div>
-      <p className="soft small">From the plate sheet's end mills tab. Counts you change here last until the next sync.</p>
+      <p className="soft small">From the plate sheet's end mills tab, read each time this page opens. Counts you change here are kept.</p>
+      {pending.length > 0 && (
+        <section className="sheet-pending">
+          <h2 className="section__title">Not in the sheet yet</h2>
+          <p className="small num">
+            {pending.map((m) => `${m.flutes} flute Ø${m.diameter}: ${m.qty} here, ${m.sheet_qty} in the sheet`).join(' · ')}
+          </p>
+          <p className="soft small">They leave this list on their own once the sheet has the same count.</p>
+        </section>
+      )}
       {loading ? (
         <p className="soft">Loading</p>
       ) : mills.length === 0 ? (

@@ -676,7 +676,7 @@ export function stockSearchWorking(q: Query, tol: number, best: Match | undefine
     {
       what: 'Size match',
       formula: tex`|\text{typed} - \text{piece}| \le ${tol}${u('mm')}, \quad \text{wall} \le ${Math.min(tol, 0.3)}${u('mm')}`,
-      why: 'Width, height, wall and ID are checked one by one. Profiles and angles match either way round.',
+      why: 'Width, height, wall and ID are checked one by one. Two sides (20x40) only match profiles and angles, either way round.',
     },
   ]
   if (q.length != null) {

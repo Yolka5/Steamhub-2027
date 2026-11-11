@@ -63,7 +63,7 @@ export async function cutPiece(piece: Piece, final: number, who: Who) {
   const leftover = Math.round((piece.length - final - KERF) * 10) / 10
   const patch =
     leftover > 0
-      ? { status: 'available', length: leftover, reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null }
+      ? { status: 'available', length: leftover, reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null, prototype_id: null }
       : { status: 'used' }
   const { data, error } = await supabase.from('pieces').update(patch).eq('id', piece.id).eq('length', piece.length).select().maybeSingle()
   if (error) return { error: error.message }

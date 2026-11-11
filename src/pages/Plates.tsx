@@ -4,12 +4,14 @@ import { Sheet, useToast } from '../components/ui'
 import { useAuth, useWho } from '../lib/auth'
 import { ago } from '../lib/mfg'
 import {
+  notInSheet,
   plateArea,
   saveSheetSetting,
   setPlateState,
   STATE_WORD,
   syncSheet,
   tText,
+  useAutoSync,
   usePlates,
   useSheetSetting,
   type Plate,
@@ -68,6 +70,13 @@ export default function Plates() {
 
   const low = setting?.low_m2 ?? 0.5
 
+  // The sheet and Steamhub are both kept: read the sheet on open, and list what it's missing.
+  useAutoSync(setting, () => {
+    reload()
+    reloadSetting()
+  })
+  const pending = notInSheet(plates)
+
   const sync = async () => {
     if (syncing) return
     setSyncing(true)
@@ -104,8 +113,8 @@ export default function Plates() {
       </div>
 
       <p className="soft small">
-        {setting?.synced_at ? `Synced from the plate sheet ${ago(setting.synced_at)}${setting.synced_by ? ` by ${setting.synced_by}` : ''}.` : 'Not synced from the plate sheet yet.'} Sync never
-        changes plates someone marked.{' '}
+        {setting?.synced_at ? `Synced from the plate sheet ${ago(setting.synced_at)}${setting.synced_by ? ` by ${setting.synced_by}` : ''}.` : 'Not synced from the plate sheet yet.'} Opening this page
+        reads the sheet; plates marked here are never overwritten.{' '}
         {isAdmin && (
           <button type="button" className="text-btn" onClick={() => setEditing(true)}>
             Sheet settings
@@ -151,6 +160,8 @@ export default function Plates() {
               </button>
             ))}
           </div>
+
+          <SheetPending remove={pending.remove} add={pending.add} />
 
           <div className="mfg-bar-head plates-head">
             <h2 className="section__title">{t ? `${tText(Number(t))} mm` : 'All plates'}</h2>
@@ -204,6 +215,61 @@ export default function Plates() {
         )}
       </Sheet>
     </div>
+  )
+}
+
+/** Grouped by size: "6.35 mm  1000 × 600  ×2". */
+function bySize(list: Plate[]) {
+  const m = new Map<string, { p: Plate; n: number }>()
+  for (const p of list) {
+    const k = `${p.thickness}|${p.length}|${p.width}`
+    m.set(k, { p, n: (m.get(k)?.n ?? 0) + 1 })
+  }
+  return [...m.values()]
+}
+
+/** What changed here and still has to go into the sheet, with a copy for the people who keep it. */
+function SheetPending({ remove, add }: { remove: Plate[]; add: Plate[] }) {
+  const toast = useToast()
+  if (!remove.length && !add.length) return null
+  const gone = bySize(remove)
+  const added = bySize(add)
+  const line = ({ p, n }: { p: Plate; n: number }) => `${tText(p.thickness)} mm  ${Number(p.length)} × ${Number(p.width)}${n > 1 ? `  ×${n}` : ''}`
+  const copy = async () => {
+    const text = [
+      // Tab-separated, so the added rows paste straight into the sheet's columns.
+      ...(added.length ? ['Add to the sheet (thickness, length, width, qty):', ...added.map(({ p, n }) => [tText(p.thickness), Number(p.length), Number(p.width), n].join('\t'))] : []),
+      ...(gone.length ? ['Take off the sheet (used up):', ...gone.map(line)] : []),
+    ].join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+      toast('Copied. Paste it to whoever keeps the sheet.')
+    } catch {
+      toast("Couldn't copy on this device")
+    }
+  }
+  return (
+    <section className="sheet-pending">
+      <div className="mfg-bar-head">
+        <h2 className="section__title">Not in the sheet yet</h2>
+        <button type="button" className="q-btn q-btn--small" onClick={copy}>
+          Copy
+        </button>
+      </div>
+      {added.length > 0 && (
+        <p className="small">
+          <span className="soft">Added here: </span>
+          <span className="num">{added.map(line).join(', ')}</span>
+        </p>
+      )}
+      {gone.length > 0 && (
+        <p className="small">
+          <span className="soft">Gone here, still in the sheet: </span>
+          <span className="num">{gone.map(line).join(', ')}</span>
+        </p>
+      )}
+      <p className="soft small">They leave this list on their own once the sheet has them.</p>
+    </section>
   )
 }
 

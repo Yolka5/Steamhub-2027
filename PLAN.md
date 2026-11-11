@@ -82,11 +82,32 @@ The whole workbook, as a real interactive page. Kraken motors only (X60 and X44,
 - Ctrl K also lists every calculator tab.
 - Drive photo copy: edge function `supabase/functions/copy-drive-photos` plus a "Copy from Drive" button on Needs photo. Written, not deployed yet.
 
+## Review pass (2026-11-10)
+
+A full review of every section, on phone and desktop, judged on one question: is this the best it can be for a student in build season.
+
+- Fixes: stock search no longer matches round tubes for two-sided sizes (20x40x1 means a profile or angle; "tube 20x40x1" means a profile). Sensors, switches and similar come in as Bought, and underscores in Onshape names no longer hide words; mount, bracket, holder, plate, cover and guard are always made. Cut clears the prototype link on the leftover. The Add stock photo preview is made once per photo. "In design" no longer says "Only you see these".
+- Part names: a part still called "Part 1" is shown with a name from its shape and size ("Plate 6.35 mm, 181.6 × 108.4", "Hex 12.7, 330.5 long"), in lists, drawings, PDFs and file names. The stored name stays, because re-uploads match by it (`partName()` in `src/lib/mfg.ts`).
+- Workshop: Start and Done on every row. A part with reserved stock opens its page for Done, so Cut still runs.
+- Ctrl K finds parts by number (from the start: 30 finds 3001–3099) or by name.
+- Home: "You're making", workshop moments in the live feed (started, finished, urgent, missing; `part_events` is in realtime). Phones: what's yours after search, a small countdown, no tiles the tab bar already has.
+- Phone layouts: piece page puts ID, length and Reserve first; prototype page puts tests first; the calculator opens on the mechanisms with the battery budget folded into one line; Stock folds tolerance, view and show-reserved into one Options row, and the shape picker wraps.
+- Plates and end mills are kept in both the sheet and Steamhub. The sync merges: end mills apply only the sheet's change since the last sync (`end_mills.sheet_qty`); plates marked Gone leave once the sheet drops them; a plate added in Steamhub and then in the sheet stays one plate. Both pages sync on open (once the merging sync has run) and list what the sheet doesn't have yet, with Copy.
+- Tap drills and Center distance have their own pages (`/tools/tap-drills`, `/tools/center-distance`); the Calculator tabs stay.
+- Sign-in branches that could never show are gone (the whole site is behind sign-in).
+- Decided, don't reverse: everything loads at entry, KaTeX preloads, pages fetch fresh data on open.
+
 ## Still open
 
-- Deploy the `copy-drive-photos` edge function (`supabase functions deploy copy-drive-photos`), then press "Copy from Drive" on Needs photo once. 80 pieces still point at Drive.
-- Deploy the site on Vercel.
-- Manufacturing, phases 1–6 in [MANUFACTURING.md](MANUFACTURING.md). Onshape integration is its phase 6.
+- Press "Sync from sheet" on Plates once, so the merging sync runs and sync-on-open turns on.
+- Press "Copy from Drive" on Stock photos once. 80 pieces still point at Drive (the function is deployed).
+- Test the bolt table and assembly guide with a real assembly STEP (so far only folders of part files were uploaded).
+- Clear the test data ("(delete me)" prototypes, test robots) before kickoff.
+- Supabase advisor warnings: RLS policies that re-check auth per row, functions callable over the API.
+- Writing Steamhub's plate changes straight into the sheet needs a Google service account; on hold.
+- `scripts/verify-calc.ts`: 4 stall-load checks differ from the sheet since the stator-limited hold change.
+- Two weeks after kickoff: remove the prototype blocks nobody uses.
+- Manufacturing phase 6 (Onshape integration) in [MANUFACTURING.md](MANUFACTURING.md).
 - QR stickers, if the sharpie labels stop being enough.
 
 ## Build order

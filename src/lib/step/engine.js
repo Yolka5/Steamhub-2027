@@ -1188,11 +1188,15 @@ async function buildPDFz(pages, title) {
   const out = new Uint8Array(len); let p = 0; for (const c of chunks) { out.set(c, p); p += c.length; } return out;
 }
 // ---------- BOM: merge parts, custom vs bought, numbering ----------
-const BOUGHT_RE = /bearing|belt|pulley|gear|wheel|sprocket|chain|screw|bolt|\bnut\b|washer|rivet|kraken|falcon|neo\b|vortex|motor|encoder|cancoder|pigeon|spark ?max|talon|maxplanetary|versaplanetary|planetary|collar|insert|bushing|swerve|mk4|mk5|battery|limelight|camera|\bWCP-\d|\bREV-\d|\bam-\d|\bTTB-|\bSDS|thunderhex|spring|clamp|hinge/i;
+const BOUGHT_RE = /bearing|belt|pulley|gear|wheel|sprocket|chain|screw|bolt|\bnut\b|washer|rivet|kraken|falcon|neo\b|vortex|motor|encoder|cancoder|pigeon|spark ?max|talon|maxplanetary|versaplanetary|planetary|collar|insert|bushing|swerve|mk4|mk5|battery|limelight|camera|\bWCP-\d|\bREV-\d|\bam-\d|\bTTB-|\bSDS|thunderhex|spring|clamp|hinge|sensor|switch|canivore|roborio|\bpdh\b|\bradio\b|\bled\b|standoff/i;
 function isCustomName(name) {
   if (/custom/i.test(name)) return true;          // team-generated COTS-like parts (printed pulleys etc.)
   if (/^tube\b|\btube\s*\d|hex stock|extrusion/i.test(name)) return true; // stock that gets cut / drilled
-  return !BOUGHT_RE.test(name);
+  // Onshape names use underscores ("Proximity_Sensor_Nut"), which would hide words from \b.
+  const words = name.replace(/_/g, ' ');
+  // What holds a bought part is made by the team: "Motor mount", "Sensor bracket", "Bearing plate".
+  if (/mount|bracket|holder|\bplate\b|cover|guard/i.test(words)) return true;
+  return !BOUGHT_RE.test(words);
 }
 const METHODS = ['CNC', 'Milling', 'Lathe', '3D print', 'Bought'];
 const CLS_METHOD = { plate: 'CNC', tube: 'Milling', block: 'Milling', long: 'Lathe', round: 'Lathe', print: '3D print' };

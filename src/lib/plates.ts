@@ -25,6 +25,8 @@ export interface EndMill {
   flutes: number
   diameter: number
   qty: number
+  /** What the sheet said at the last sync; differs from qty when Steamhub changed it since. */
+  sheet_qty: number | null
 }
 
 export interface SheetSetting {
@@ -33,6 +35,8 @@ export interface SheetSetting {
   low_m2: number
   synced_at: string | null
   synced_by?: string
+  /** Set by the merging sync. Only then is it safe to sync on every page open. */
+  merges?: boolean
 }
 
 export const STATE_WORD: Record<PlateState, string> = { available: 'Available', partly_used: 'Partly used', gone: 'Gone' }
@@ -90,7 +94,7 @@ export async function saveSheetSetting(value: SheetSetting) {
   return error ? { error: error.message } : {}
 }
 
-export async function syncSheet(): Promise<{ plates?: number; added?: number; removed?: number; mills?: number; error?: string }> {
+export async function syncSheet(): Promise<{ plates?: number; added?: number; adopted?: number; removed?: number; mills?: number; error?: string }> {
   const { data, error } = await supabase.functions.invoke('sync-sheet', { body: {} })
   if (error) {
     // The function's own message is in the response body.
@@ -126,4 +130,27 @@ export function useEndMills() {
     reload()
   }, [reload])
   return { mills, loading, reload, setMills }
+}
+
+/**
+ * Plates and End mills read the sheet in the background each time they open, so nobody has to
+ * remember Sync. Quiet: no toast, the lists just update. Only once the sync merges (see sync-sheet).
+ */
+export function useAutoSync(setting: SheetSetting | null, after: () => void) {
+  const [ran, setRan] = useState(false)
+  useEffect(() => {
+    if (ran || !setting?.url || !setting.merges) return
+    setRan(true)
+    syncSheet().then((res) => {
+      if (!res.error) after()
+    })
+  }, [ran, setting, after])
+}
+
+/** Changes made in Steamhub that the sheet doesn't have yet, as lines to paste or type in. */
+export function notInSheet(plates: Plate[]): { remove: Plate[]; add: Plate[] } {
+  return {
+    remove: plates.filter((p) => p.source === 'sheet' && p.state === 'gone'),
+    add: plates.filter((p) => p.source !== 'sheet' && p.material === 'Aluminum' && p.state !== 'gone'),
+  }
 }

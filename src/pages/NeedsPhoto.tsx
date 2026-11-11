@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase'
 
 export default function NeedsPhoto() {
   const { pieces, upsertLocal, reload } = useStore()
-  const { userId, name, session, signIn } = useAuth()
+  const { userId, name } = useAuth()
   const toast = useToast()
   const [busyId, setBusyId] = useState<string | null>(null)
   const list = pieces.filter((p) => p.status !== 'used' && needsPhoto(p))
@@ -53,12 +53,7 @@ export default function NeedsPhoto() {
         Photos are optional: every piece is already drawn from its profile and length. Add one only when it helps, like a piece with holes or a bend.
         {list.length ? ` ${list.length} pieces have no photo.` : ''}
       </p>
-      {!session && (
-        <button type="button" className="q-btn q-btn--main" onClick={() => signIn()}>
-          Sign in with Google to add photos
-        </button>
-      )}
-      {session && onDrive > 0 && (
+      {onDrive > 0 && (
         <div className="draft" role="status">
           <div className="draft__text">
             <strong>{onDrive} photos still live on Google Drive.</strong> Copy them into Steamhub so they keep working if the folder stops being shared.
@@ -80,34 +75,32 @@ export default function NeedsPhoto() {
               </span>
               {p.notes && <span className="soft small">{p.notes}</span>}
             </Link>
-            {session && (
-              <label className="q-btn row__end" aria-label={`Take photo of ${p.id}`}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  hidden
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (!file || !userId || !name) return
-                    setBusyId(p.id)
-                    const up = await uploadPhoto(p.id, file)
-                    if (up.error) {
-                      setBusyId(null)
-                      return toast(up.error)
-                    }
-                    const notes = p.notes && /reshoot|blurry|no photo/i.test(p.notes) ? null : p.notes
-                    const res = await updatePiece(p.id, { photo_url: up.url!, notes }, { userId, name })
+            <label className="q-btn row__end" aria-label={`Take photo of ${p.id}`}>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file || !userId || !name) return
+                  setBusyId(p.id)
+                  const up = await uploadPhoto(p.id, file)
+                  if (up.error) {
                     setBusyId(null)
-                    if (res.piece) {
-                      upsertLocal(res.piece)
-                      toast(`${p.id} photo saved`)
-                    } else toast(res.error ?? 'Could not save')
-                  }}
-                />
-                {busyId === p.id ? 'Uploading' : <Icon name="camera" />}
-              </label>
-            )}
+                    return toast(up.error)
+                  }
+                  const notes = p.notes && /reshoot|blurry|no photo/i.test(p.notes) ? null : p.notes
+                  const res = await updatePiece(p.id, { photo_url: up.url!, notes }, { userId, name })
+                  setBusyId(null)
+                  if (res.piece) {
+                    upsertLocal(res.piece)
+                    toast(`${p.id} photo saved`)
+                  } else toast(res.error ?? 'Could not save')
+                }}
+              />
+              {busyId === p.id ? 'Uploading' : <Icon name="camera" />}
+            </label>
           </li>
         ))}
       </ul>

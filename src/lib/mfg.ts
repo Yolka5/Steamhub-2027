@@ -169,6 +169,44 @@ export function barDims(size: number[]): { length: number; section: [number, num
   return { length: s[0], section: [s[1], s[2]] }
 }
 
+/** Onshape's own names for parts nobody named: "Part 1", "Part 17", "Body 2". */
+export const isDefaultName = (name: string) => /^\s*(part|body|solid)[\s_-]*\d+\s*$/i.test(name)
+
+/**
+ * The name to show. A part still called "Part 1" gets a name from its shape and size instead, so
+ * the workshop list never shows six different "Part 1"s. The stored name stays as it came from the
+ * STEP, because a re-upload matches parts by that name.
+ */
+export function partName(p: Pick<Part, 'name' | 'cls' | 'size'>): string {
+  if (!isDefaultName(p.name) || !p.size?.length) return p.name
+  const s = p.size.map(Number).sort((a, b) => b - a)
+  const { length, section } = barDims(s)
+  const [w, h] = section
+  switch (p.cls) {
+    case 'plate': {
+      // Over 12 mm it's cut from a block, as the material guess says.
+      if (s[2] > 12) return `Block ${sizeText(s)}`
+      // The thickness the team stocks (6.35, not 6.4), like the material guess.
+      const t = PLATE_THICKNESS.reduce((a, b) => (Math.abs(b - s[2]) < Math.abs(a - s[2]) ? b : a))
+      return `Plate ${Math.abs(t - s[2]) <= 0.2 ? t : fmtMm(s[2])} mm, ${fmtMm(s[0])} × ${fmtMm(s[1])}`
+    }
+    case 'tube':
+      return `Tube ${fmtMm(w)} × ${fmtMm(h)}, ${fmtMm(length)} long`
+    case 'round':
+      return `Round Ø${fmtMm(w)}, ${fmtMm(length)} long`
+    case 'long':
+      // Hex: across corners is across flats × 2/√3 (12.7 hex is 14.7 across corners).
+      if (Math.abs(w - (h * 2) / Math.sqrt(3)) < 0.3) return `Hex ${fmtMm(h)}, ${fmtMm(length)} long`
+      return `Bar ${fmtMm(w)} × ${fmtMm(h)}, ${fmtMm(length)} long`
+    case 'print':
+      return `Printed part ${sizeText(s)}`
+    case 'block':
+      return `Block ${sizeText(s)}`
+    default:
+      return `Part ${sizeText(s)}`
+  }
+}
+
 /** Cut length for all of a part's copies from one piece: every copy plus a saw cut between them. */
 export const stockLength = (p: Pick<Part, 'size' | 'qty'>) => {
   const len = barDims(p.size).length
@@ -252,7 +290,7 @@ export async function setStatus(p: Part, status: PartStatus, who: Who) {
   if (p.machine === 'Bought' && status === 'missing') {
     const { data: open } = await supabase.from('wishlist').select('id').eq('part_id', p.id).eq('status', 'open').limit(1)
     if (!open?.length)
-      await supabase.from('wishlist').insert({ item: p.name, qty: p.qty, subsystem_id: p.subsystem_id, part_id: p.id, asked_by: who.userId, asked_by_name: who.name })
+      await supabase.from('wishlist').insert({ item: partName(p), qty: p.qty, subsystem_id: p.subsystem_id, part_id: p.id, asked_by: who.userId, asked_by_name: who.name })
   }
   if (p.machine === 'Bought' && status === 'done') await supabase.from('wishlist').update({ status: 'bought' }).eq('part_id', p.id).eq('status', 'open')
   return res

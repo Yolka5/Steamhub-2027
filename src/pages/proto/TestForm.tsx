@@ -4,14 +4,16 @@ import { Icon } from '../../components/Icon'
 import { ValueInput } from '../../components/proto'
 import { useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addParam, COMMON_PARAMS, MAX_SECONDS, queueVideo, RESULT_WORD, RESULTS, saveTest, usePrototype, type Result, type Value } from '../../lib/proto'
+import { addLibItems, growChoices, leadOf, libSuggestions, MAX_SECONDS, queueVideo, RESULT_WORD, RESULTS, saveTest, shown, useLibrary, usePrototype, useSeasons, type Result, type Value } from '../../lib/proto'
 
 // Logging a test, phone first: film, the values are already there from the last test, change the
 // one you changed, tap how it went, save. The video shrinks and uploads in the background.
 
 export default function TestForm() {
   const { id = '', testId } = useParams()
-  const { proto, loading, testsLoading, tests, params, members } = usePrototype(id)
+  const { proto, loading, testsLoading, tests, params } = usePrototype(id)
+  const { subsystemsOf } = useSeasons()
+  const library = useLibrary().items
   const who = useWho()
   const toast = useToast()
   const navigate = useNavigate()
@@ -61,8 +63,7 @@ export default function TestForm() {
 
   const prev = existing ? tests.filter((t) => t.n < existing.n).sort((a, b) => b.n - a.n)[0] : last
   const changed = (pid: string) => !!prev && String(prev.values[pid] ?? '') !== String(values[pid] ?? '')
-  const hasSub = proto.subsystem_number != null
-  const names = new Set(params.map((d) => d.name.toLowerCase()))
+  const visible = params.filter((d) => shown(d, values))
 
   const save = () => guard(saveNow)
   const saveNow = async () => {
@@ -71,7 +72,8 @@ export default function TestForm() {
     if (videoLink && !/^https?:\/\//i.test(videoLink)) videoLink = `https://${videoLink}`
     if (!file && !videoLink && !existing && !result && !note.trim()) return toast('Add a video, a result or a note first')
     const clean: Record<string, Value> = {}
-    for (const d of params) {
+    // Only what's in use: Compliant color goes when the wheel type changes to Flex.
+    for (const d of visible) {
       const v = values[d.id]
       if (v === undefined || v === null || v === '') continue
       if (d.kind !== 'number') clean[d.id] = v
@@ -92,10 +94,11 @@ export default function TestForm() {
         video_link: file ? null : videoLink,
       },
       who,
-      members,
+      [leadOf(proto, subsystemsOf(proto.season)), ...tests.map((t) => t.by_id)],
       existing,
     )
     if (res.error) return toast(res.error)
+    await growChoices(visible, clean, library)
     if (file) queueVideo(res.data!, file)
     toast(file ? 'Saved. The video uploads in the background.' : 'Test saved')
     navigate(`/prototypes/${proto.id}#test-${res.data!.n}`, { replace: true })
@@ -162,26 +165,23 @@ export default function TestForm() {
         <section className="pt-form__group">
           <h2 className="pt-form__title">Parameters</h2>
           {params.length === 0 && <p className="soft small">No parameters yet. Add the ones you change between tests:</p>}
-          {params.map((d) => (
+          {visible.map((d) => (
             <ValueInput key={d.id} def={d} value={values[d.id]} onChange={(v) => setValues((s) => ({ ...s, [d.id]: v }))} changed={!existing && changed(d.id)} />
           ))}
           <div className="chips">
-            {COMMON_PARAMS.filter((c) => !names.has(c.name.toLowerCase()))
+            {libSuggestions(library, params)
               .slice(0, params.length ? 4 : 8)
-              .map((c) => (
+              .map((item) => (
                 <button
-                  key={c.name}
+                  key={item.id}
                   type="button"
                   className="chip"
                   onClick={async () => {
-                    const res = await addParam(
-                      { season: proto.season, subsystem_number: proto.subsystem_number, prototype_id: hasSub ? null : proto.id, name: c.name, unit: c.unit, kind: c.kind, options: c.options ?? [], key: params.filter((d) => d.key).length < 3 },
-                      params,
-                    )
+                    const res = await addLibItems(proto, [item], params)
                     if (res.error) toast(res.error)
                   }}
                 >
-                  + {c.name}
+                  + {item.name}
                 </button>
               ))}
           </div>

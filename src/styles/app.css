@@ -1111,6 +1111,188 @@ dialog {
   background: var(--brand);
 }
 
+/* Season card: the countdown's place after kickoff. Content on the left, a robot (or the newest
+   prototype video's frame) blurred into the right side. */
+.season-card {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 14rem;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.season-card__art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: -1;
+  width: min(48%, 26rem);
+  height: 100%;
+  color: var(--brand);
+  opacity: 0.5;
+  filter: blur(5px);
+  mask-image: linear-gradient(to right, transparent, #000 55%);
+  pointer-events: none;
+}
+
+.season-card__art--photo {
+  display: block;
+  opacity: 0.6;
+  filter: blur(8px) saturate(1.1);
+}
+
+.season-card__art--photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.season-card__art--photo svg {
+  display: none;
+}
+
+.season-card__body {
+  display: grid;
+  justify-items: start;
+  gap: 0.6rem;
+  max-width: 40rem;
+}
+
+.season-card__body p {
+  margin: 0;
+}
+
+.season-card__eyebrow {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--brand);
+}
+
+.season-card__title {
+  font-size: clamp(1.6rem, 3.5vw, 2.25rem);
+}
+
+.season-card__title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.season-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.season-card__subs,
+.season-card__tiles {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.season-card__tiles {
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
+}
+
+.season-card__sub {
+  display: grid;
+  grid-template-columns: minmax(7rem, 12rem) minmax(4rem, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.25rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.season-card__sub .mfg-bar {
+  width: 100%;
+}
+
+.season-card__subname {
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.season-card__tile {
+  display: grid;
+  gap: 0.15rem;
+  min-height: 3.5rem;
+  padding: 0.6rem 0.8rem;
+  color: inherit;
+  text-decoration: none;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.season-card__tile[data-empty] {
+  background: transparent;
+  border: 1px dashed var(--line-strong, var(--line));
+}
+
+.season-card__tile[data-empty] .soft {
+  color: var(--brand);
+}
+
+.season-card__next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--surface-0);
+  border-left: 3px solid var(--brand);
+  border-radius: var(--radius-control);
+}
+
+.season-setup {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.season-setup__row {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.season-setup__add {
+  justify-self: start;
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 560px) {
+  .season-setup__row {
+    grid-template-columns: 4rem minmax(0, 1fr) auto;
+  }
+
+  .season-setup__row .select,
+  .season-setup__row > :nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .season-card__sub {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .season-card__sub .mfg-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
 /* ===== Account menu ===== */
 .account {
   position: relative;

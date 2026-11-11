@@ -1,7 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { SeasonCard } from './SeasonCard'
 
 // 2027 kickoff: FIRST CANOPY season, BIOCORE game reveal, 12:00 ET on 9 January 2027.
-const KICKOFF = new Date('2027-01-09T17:00:00Z')
+export const KICKOFF = new Date('2027-01-09T17:00:00Z')
 const DAY = 86_400_000
 
 const CALENDAR_URL =
@@ -51,8 +52,11 @@ function Unit({ value, label, digits }: { value: number; label: string; digits?:
   )
 }
 
+/** On the dev server, ?kickoff=past shows Home as it will look after kickoff. */
+const pretend = import.meta.env.DEV && new URLSearchParams(window.location.search).get('kickoff') === 'past'
+
 export function Season() {
-  const now = useNow(1000)
+  const now = useNow(1000) + (pretend ? KICKOFF.getTime() - Date.now() + 2 * DAY : 0)
   const left = KICKOFF.getTime() - now
   const when = KICKOFF.toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
@@ -84,23 +88,6 @@ export function Season() {
     )
   }
 
-  const since = Math.floor((now - KICKOFF.getTime()) / DAY)
-  const week = Math.floor(since / 7) + 1
-  const day = (since % 7) + 1
-  return (
-    <section className="countdown" aria-label={`Build week ${week}, day ${day}`}>
-      <div className="countdown__units">
-        <Unit value={week} label="Build week" digits={1} />
-        <Unit value={day} label="Day" digits={1} />
-      </div>
-      <div className="countdown__info">
-        <h2 className="countdown__title">BIOCORE build season</h2>
-        <div className="season__days" aria-hidden="true">
-          {Array.from({ length: 7 }, (_, i) => (
-            <span key={i} className="season__day" data-state={i + 1 < day ? 'done' : i + 1 === day ? 'today' : undefined} />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
+  // After kickoff the countdown's place is the season card: set up V1, then follow it, then V2.
+  return <SeasonCard since={Math.floor((now - KICKOFF.getTime()) / DAY)} season={KICKOFF.getUTCFullYear()} />
 }

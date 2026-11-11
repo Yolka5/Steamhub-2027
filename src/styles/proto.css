@@ -204,26 +204,36 @@
   background: var(--surface-0);
 }
 
-.pt-people {
-  display: grid;
-  gap: 0.15rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pt-people li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 2.25rem;
-}
-
 .pt-x {
   width: 2.25rem;
   height: 2.25rem;
   color: var(--ink-soft);
+}
+
+.pt-sizes {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.pt-sizes .field {
+  max-width: 10rem;
+}
+
+.pt-libfield {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.75rem 0.9rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.pt-libfield legend {
+  padding: 0 0.3rem;
+}
+
+.pt-libfield .text-btn {
+  justify-self: start;
 }
 
 .pt-form-foot {

@@ -12,6 +12,7 @@ import {
   deleteTest,
   fmtValue,
   keyLines,
+  leadOf,
   RESULT_WORD,
   saveLayout,
   setProtoStatus,
@@ -28,7 +29,6 @@ import {
   type ProtoStatus,
   type Test,
 } from '../../lib/proto'
-import { supabase } from '../../lib/supabase'
 import { usePeople } from '../../lib/useMfg'
 import { Blocks } from './Blocks'
 import { ParamsPanel } from './Params'
@@ -37,9 +37,9 @@ import { ParamsPanel } from './Params'
 
 export default function PrototypePage() {
   const { id = '' } = useParams()
-  const { proto, loading, error, tests, blocks, setBlocks, params, members, reloadMembers } = usePrototype(id)
+  const { proto, loading, error, tests, blocks, setBlocks, params } = usePrototype(id)
   const { subsystemsOf } = useSeasons()
-  const { nameOf, people } = usePeople()
+  const { nameOf } = usePeople()
   const { isAdmin, userId } = useAuth()
   const who = useWho()
   const toast = useToast()
@@ -65,7 +65,8 @@ export default function PrototypePage() {
   const newest = tests.slice().sort((a, b) => b.n - a.n)
   const current = newest[0]?.values ?? {}
   const others = siblings.prototypes.filter((p) => p.id !== proto.id && p.subsystem_number === proto.subsystem_number && proto.subsystem_number != null)
-  const canDelete = isAdmin || proto.owner_id === userId || proto.created_by === userId
+  const lead = leadOf(proto, subs)
+  const canDelete = isAdmin || lead === userId || proto.created_by === userId
   const leads = [sub?.lead_id ?? null, ...subsystemsOf(proto.season).filter((s) => s.number === proto.subsystem_number).map((s) => s.lead_id)]
 
   const pickStatus = async (s: ProtoStatus) => {
@@ -86,7 +87,7 @@ export default function PrototypePage() {
           <p className="soft sub-meta">
             {sub ? <Link to={`/prototypes?sub=${sub.number}`}>{subName}</Link> : subName ?? 'No subsystem yet'}
             {proto.concept ? <> · <span dir="auto">{proto.concept}</span></> : null}
-            {nameOf(proto.owner_id) ? ` · ${nameOf(proto.owner_id)}` : ''}
+            {nameOf(lead) ? ` · ${nameOf(lead)}` : ''}
             {' · '}
             <button type="button" className="text-btn" onClick={() => setEditing(true)}>
               Edit
@@ -132,7 +133,7 @@ export default function PrototypePage() {
             ) : (
               <div className="pt-tests">
                 {newest.map((t) => (
-                  <TestCard key={t.id} proto={proto} test={t} tests={tests} params={params} canDelete={isAdmin || t.by_id === userId || proto.owner_id === userId} />
+                  <TestCard key={t.id} proto={proto} test={t} tests={tests} params={params} canDelete={isAdmin || t.by_id === userId || lead === userId} />
                 ))}
               </div>
             )}
@@ -158,42 +159,6 @@ export default function PrototypePage() {
 
         <aside className="pt-aside">
           <ParamsPanel proto={proto} params={params} current={current} subName={subName} />
-          <section className="pt-panel">
-            <h2 className="section__title">People</h2>
-            <ul className="pt-people">
-              {members.map((m) => (
-                <li key={m}>
-                  <span>{nameOf(m) ?? 'Someone'}</span>
-                  {m === proto.owner_id && <span className="soft small">Owner</span>}
-                  {m !== proto.owner_id && (
-                    <button
-                      type="button"
-                      className="icon-btn pt-x"
-                      aria-label={`Remove ${nameOf(m)}`}
-                      onClick={async () => {
-                        await supabase.from('prototype_members').delete().eq('prototype_id', proto.id).eq('user_id', m)
-                        reloadMembers()
-                      }}
-                    >
-                      <Icon name="close" size={16} />
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <Select
-              value=""
-              placeholder="Add someone"
-              onChange={async (v) => {
-                if (!v) return
-                const { error } = await supabase.from('prototype_members').insert({ prototype_id: proto.id, user_id: v })
-                if (error) toast(error.message)
-                reloadMembers()
-              }}
-              options={people.filter((p) => !p.banned && !members.includes(p.id)).map((p) => ({ value: p.id, label: p.name }))}
-            />
-            <p className="soft small">People here hear about every new test.</p>
-          </section>
         </aside>
       </div>
 
@@ -269,19 +234,22 @@ function EditDetails({
   onDelete,
 }: {
   proto: Prototype
-  subs: { number: number; name: string }[]
+  subs: { number: number; name: string; lead_id: string | null }[]
   canDelete: boolean
   onDone: () => void
   onDelete: () => void
 }) {
   const toast = useToast()
-  const { people } = usePeople()
+  const { people, nameOf } = usePeople()
   const [name, setName] = useState(proto.name)
   const [concept, setConcept] = useState(proto.concept)
   const [sub, setSub] = useState(proto.subsystem_number != null ? String(proto.subsystem_number) : '')
   const [owner, setOwner] = useState(proto.owner_id ?? '')
   const [note, setNote] = useState(proto.status_note)
   const [confirm, setConfirm] = useState(false)
+  // Left empty, the lead follows the subsystem's lead (or whoever made it, with no subsystem).
+  const subLead = (sub && subs.find((s) => String(s.number) === sub)?.lead_id) || null
+  const autoLead = sub ? `Subsystem lead${nameOf(subLead) ? ` (${nameOf(subLead)})` : ''}` : `Whoever made it${nameOf(proto.created_by) ? ` (${nameOf(proto.created_by)})` : ''}`
   return (
     <form
       className="form"
@@ -307,8 +275,8 @@ function EditDetails({
         {String(proto.subsystem_number ?? '') !== sub && <span className="soft small">Shared parameters come from the new subsystem. Its own parameters stay.</span>}
       </label>
       <label className="ctl">
-        <span className="ctl__name">Owner</span>
-        <Select value={owner} onChange={setOwner} options={[{ value: '', label: 'No owner' }, ...people.filter((p) => !p.banned).map((p) => ({ value: p.id, label: p.name }))]} />
+        <span className="ctl__name">Lead</span>
+        <Select value={owner} onChange={setOwner} options={[{ value: '', label: autoLead }, ...people.filter((p) => !p.banned).map((p) => ({ value: p.id, label: p.name }))]} />
       </label>
       {(proto.status === 'chosen' || proto.status === 'dropped') && (
         <label className="ctl">

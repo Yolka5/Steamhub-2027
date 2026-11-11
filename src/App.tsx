@@ -37,6 +37,7 @@ import TestForm from './pages/proto/TestForm'
 import Compare from './pages/proto/Compare'
 import Record from './pages/proto/Record'
 import Summary from './pages/proto/Summary'
+import Library from './pages/proto/Library'
 import Plates from './pages/Plates'
 import EndMills from './pages/EndMills'
 import Notifications from './pages/Notifications'
@@ -248,6 +249,7 @@ export default function App() {
             <Route path="/prototypes/record" element={<Record />} />
             <Route path="/prototypes/compare" element={<Compare />} />
             <Route path="/prototypes/summary" element={<Summary />} />
+            <Route path="/prototypes/library" element={<Library />} />
             <Route path="/prototypes/:id" element={<PrototypePage />} />
             <Route path="/prototypes/:id/test" element={<TestForm key="new" />} />
             <Route path="/prototypes/:id/test/:testId" element={<TestForm />} />

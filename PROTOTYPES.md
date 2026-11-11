@@ -16,9 +16,13 @@ So the rules are:
 
 ## Decisions
 
-- **Prototype.** Name, subsystem, concept (one line: "2 rollers, over the bumper"), status, owner, members, cover picture. Status runs **Idea → Building → Testing → Chosen** or **Dropped**. Chosen and Dropped ask for one line of why, which is the most useful thing to read next season.
+- **Prototype.** Name, subsystem, concept (one line: "2 rollers, over the bumper"), status, lead, cover picture. The lead is the subsystem's lead from Manufacturing, read live, so a new lead there takes over every prototype of that subsystem. With no subsystem, the lead is whoever made the prototype. Edit can pick someone else by hand (`owner_id`). There is no People list (removed 2026-11-12, it was an extra step). Status runs **Idea → Building → Testing → Chosen** or **Dropped**. Chosen and Dropped ask for one line of why, which is the most useful thing to read next season.
 - **Subsystem link.** A prototype picks a subsystem from the season's robots (number + name, as in Manufacturing). Since V1 and V2 share subsystem numbers, the link is by **season + subsystem number**, so a prototype shows on the subsystem page of every robot that season. Prototypes made before the robot exists (week 1 after kickoff) can sit under **No subsystem yet** and be moved later. Renaming or adding a subsystem in Manufacturing shows here at once, because it's the same table.
-- **Parameters.** Each parameter has a name, a unit and a kind: number, text, choice (from a short list) or yes/no. Examples: compression (mm), roller diameter (in), wheel (choice: flex 30A, flex 45A, compliant), ratio, motor, RPM, voltage, ball type.
+- **Parameters.** Each parameter has a name, a unit and a kind: number, text, choice (from a short list) or yes/no. Examples: compression (mm), roller diameter (in), ratio, motor, RPM, voltage, ball type.
+  - **Parameter library** (`param_library`, edited at `/prototypes/library`, added 2026-11-12). It holds the + buttons and the starter sets. An item is one parameter or a group added together. For example, **Wheel** is Wheel type, Wheel diameter (tap 1.625 to 6 in, or type another), Compliant color (AndyMark: Green 35A, Orange 40A, Maroon 45A, Blue 50A, Black 60A) and Flex hardness (30A to 60A, sold by hardness, not color).
+  - **Starter sets:** each item lists the words in a subsystem's name it starts ("intake", "shooter", or "*" for every subsystem). A subsystem's first prototype gets those parameters.
+  - **Only when:** a parameter can show only when another one has a given value (`param_defs.only_if`), so Compliant color appears only when Wheel type is Compliant. Hidden values aren't saved with the test.
+  - **Lists grow from use:** a choice has Other, and a value typed there joins the list on the parameter and in the library when the test is saved. A number can have sizes to tap and still takes any number.
   - The **parameter set** belongs to the subsystem, not the prototype, so a new intake prototype starts with the intake's parameters. A prototype can add its own, and can push one up to the subsystem set with one tap.
   - A parameter can be marked **key**, which shows it on cards and on the video.
 - **Tests.** Each test has the video (or photos), the value of every parameter, a result (**Worked / Partly / Failed**), an optional 1–5 score, an optional measured number (cycle time, success out of 10, shot distance), a note, who and when.
@@ -40,7 +44,7 @@ So the rules are:
 - **Starting set.** A new prototype starts with Tests, Notes, Checklist and Links. A subsystem can save its current layout as the default for its next prototypes.
 - **Compare.** Pick two to four prototypes (or tests) of one subsystem. One table: a row per parameter, a column per prototype, differences highlighted, best result and best measured number marked. Their videos play side by side, started together.
 - **Choosing.** Marking a prototype Chosen shows it at the top of its subsystem's page in Manufacturing, with its key parameters. The others are kept, not deleted.
-- **Permissions.** Same as the rest of Steamhub: everyone signed in can do everything. Deleting a prototype is for its owner and the admin; deleting a test is for whoever filmed it, its prototype's owner and the admin.
+- **Permissions.** Same as the rest of Steamhub: everyone signed in can do everything. Deleting a prototype is for its lead, whoever made it, and the admin; deleting a test is for whoever filmed it, its prototype's lead and the admin.
 - **Navigation.**
   - Desktop rail: Home, Stock, Manufacturing, **Prototypes**, Tools, Handbook.
   - Phones: the tab bar stays as it is. Prototypes is a card on Tools and a **Record a test** quick action on Home, which opens the camera straight away. During the prototyping weeks after kickoff, swapping Tools for Prototypes in the tab bar is one line if the team wants it.
@@ -53,7 +57,7 @@ New Supabase tables (all in `supabase/migrations/20261107_prototypes.sql`, appli
 | Table | Holds |
 |---|---|
 | `prototypes` | id, season, subsystem_number (nullable), name, concept, status (idea/building/testing/chosen/dropped), status_note, owner_id, cover_path, created_by, timestamps. Block order lives on the blocks. |
-| `prototype_members` | prototype_id, user_id |
+| `prototype_members` | prototype_id, user_id. No longer used since 2026-11-12 (People list removed). |
 | `param_defs` | id, season, subsystem_number (null = this prototype only), prototype_id (null = subsystem set), name, unit, kind (number/text/choice/bool), options (text[]), key (bool), position |
 | `prototype_tests` | id, prototype_id, n (1, 2, 3… per prototype), values (jsonb: param_def id → value), result (worked/partly/failed), score, measure_name, measure_value, note, video_path, poster_path, video_link, duration_s, by_id, by_name, at |
 | `prototype_blocks` | id, prototype_id, kind, title, data (jsonb), position, collapsed, updated_by, updated_at |
@@ -92,7 +96,7 @@ Tick a phase here when it's done and checked in the browser.
 - [x] Calculator mechanism block: ratio, wheel or arm speed, surface speed and battery current from the team robot.
 - [x] Stock used block: type a piece ID to reserve it for the prototype, Release, kg of raw stock. Releasing a piece anywhere clears its prototype link.
 - [x] Ctrl K finds prototypes by name, concept or subsystem number.
-- [x] Notifications: owner and members hear about each new test; the subsystem's leads hear when a prototype is chosen.
+- [x] Notifications: the lead and everyone who filmed a test on it before hear about each new test; the subsystem's leads hear when a prototype is chosen.
 
 ### Phase 5: sharing (built 2026-11-07)
 - [x] "Share with parameters" on a test: a copy of the clip with the prototype, test number, parameters, result and measured number burned in along the bottom. Phones open the share sheet (WhatsApp); desktop downloads it and copies the text.

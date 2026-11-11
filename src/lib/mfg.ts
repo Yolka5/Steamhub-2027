@@ -77,6 +77,8 @@ export interface Robot {
   created_by: string | null
   created_at: string
   archived: boolean
+  /** 1 for V1, 2 for V2… of its season. Test and practice robots have none. */
+  version: number | null
 }
 
 export interface Subsystem {
@@ -326,12 +328,31 @@ export async function setStatus(p: Part, status: PartStatus, who: Who) {
   return res
 }
 
-export async function createRobot(name: string, season: number, who: Who, copyFrom?: string): Promise<Res<Robot>> {
-  const { data, error } = await supabase.from('robots').insert({ name, season, created_by: who.userId }).select().single()
-  if (error) return { error: error.message }
+/** "2027 V2" is version 2. Test robots ("Test robot (intake)") have none. */
+export const versionIn = (name: string) => {
+  const m = /\bv(\d{1,2})\b/i.exec(name)
+  return m ? Number(m[1]) : null
+}
+
+export async function createRobot(
+  name: string,
+  season: number,
+  who: Who,
+  copyFrom?: string,
+  /** Subsystems typed in at setup, used when nothing is copied. */
+  subsystems?: { number: number; name: string; lead_id: string | null }[],
+): Promise<Res<Robot>> {
+  const version = versionIn(name)
+  const { data, error } = await supabase.from('robots').insert({ name, season, version, created_by: who.userId }).select().single()
+  if (error) return { error: error.code === '23505' ? `This season already has a V${version}. Someone may have just made it.` : error.message }
+  let subs = subsystems ?? []
   if (copyFrom) {
-    const { data: subs } = await supabase.from('subsystems').select('number, name, lead_id').eq('robot_id', copyFrom)
-    if (subs?.length) await supabase.from('subsystems').insert(subs.map((s) => ({ ...s, robot_id: data.id })))
+    const { data: from } = await supabase.from('subsystems').select('number, name, lead_id').eq('robot_id', copyFrom)
+    subs = from ?? []
+  }
+  if (subs.length) {
+    const { error: e } = await supabase.from('subsystems').insert(subs.map((s) => ({ ...s, robot_id: data.id })))
+    if (e) return { data: data as Robot, error: `${name} was made, but its subsystems weren't: ${e.message}` }
   }
   return { data: data as Robot }
 }

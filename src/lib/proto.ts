@@ -43,19 +43,27 @@ export const DEFAULT_LAYOUT: { kind: BlockKind; title: string }[] = [
   { kind: 'links', title: 'Links' },
 ]
 
-/** One tap to add a common parameter. */
-export const COMMON_PARAMS: { name: string; unit: string; kind: ParamKind; options?: string[] }[] = [
-  { name: 'Compression', unit: 'mm', kind: 'number' },
-  { name: 'Roller diameter', unit: 'in', kind: 'number' },
-  { name: 'Wheel', unit: '', kind: 'choice', options: ['Flex 30A', 'Flex 45A', 'Compliant', 'Stealth', 'Mecanum'] },
-  { name: 'Motor', unit: '', kind: 'choice', options: ['Kraken X60', 'Kraken X44', 'NEO', 'NEO 550', 'Falcon'] },
-  { name: 'Ratio', unit: ':1', kind: 'number' },
-  { name: 'Speed', unit: 'RPM', kind: 'number' },
-  { name: 'Voltage', unit: 'V', kind: 'number' },
-  { name: 'Gap', unit: 'mm', kind: 'number' },
-  { name: 'Angle', unit: '°', kind: 'number' },
-  { name: 'Spacing', unit: 'mm', kind: 'number' },
-]
+/** One field of a library item, as the team edits it on /prototypes/library. */
+export interface LibField {
+  name: string
+  unit: string
+  kind: ParamKind
+  /** Choices, or for a number the sizes offered as one tap ("2, 2.25, 3"). */
+  options: string[]
+  /** Shown only when another field of the same item has one of these values. */
+  only_if?: { field: string; is: string[] } | null
+}
+
+/** A library item: one parameter, or a group of them added together (Wheel: type, diameter, color). */
+export interface LibItem {
+  id: string
+  name: string
+  fields: LibField[]
+  /** Words in a subsystem's name that start it with this item; "*" is every subsystem. */
+  starter_for: string[]
+  position: number
+  updated_at: string
+}
 
 export interface Prototype {
   id: string
@@ -83,6 +91,8 @@ export interface ParamDef {
   options: string[]
   key: boolean
   position: number
+  /** Shown only when another parameter has one of these values: Compliant color when Wheel type is Compliant. */
+  only_if: { def: string; is: string[] } | null
   created_at: string
 }
 
@@ -266,7 +276,6 @@ export function usePrototype(id: string) {
         .or(`prototype_id.eq.${id},and(prototype_id.is.null,season.eq.${season},subsystem_number.eq.${sub})`)
         .order('position'),
   )
-  const members = useLive<{ user_id: string }>('prototype_members', `one-${id}`, () => supabase.from('prototype_members').select('user_id').eq('prototype_id', id))
   return {
     proto: p,
     loading: proto.loading,
@@ -277,11 +286,18 @@ export function usePrototype(id: string) {
     blocks: blocks.rows,
     setBlocks: blocks.setRows,
     params: params.rows,
-    members: members.rows.map((m) => m.user_id),
-    reload: () => Promise.all([proto.reload(), tests.reload(), blocks.reload(), params.reload(), members.reload()]),
+    reload: () => Promise.all([proto.reload(), tests.reload(), blocks.reload(), params.reload()]),
     reloadParams: params.reload,
-    reloadMembers: members.reload,
   }
+}
+
+/**
+ * Who leads a prototype: someone picked by hand (owner_id), else its subsystem's lead from
+ * Manufacturing, read live so a new lead there takes over every prototype of the subsystem, else
+ * whoever made it.
+ */
+export function leadOf(p: Pick<Prototype, 'owner_id' | 'subsystem_number' | 'created_by'>, subs: { number: number; lead_id: string | null }[]) {
+  return p.owner_id ?? subs.find((s) => s.number === p.subsystem_number)?.lead_id ?? p.created_by
 }
 
 /** Parameters of one prototype: its subsystem's set first, then its own. */
@@ -289,6 +305,106 @@ export function paramsOf(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'
   const shared = all.filter((d) => !d.prototype_id && d.season === p.season && d.subsystem_number === p.subsystem_number && p.subsystem_number != null)
   const own = all.filter((d) => d.prototype_id === p.id)
   return [...shared.sort((a, b) => a.position - b.position), ...own.sort((a, b) => a.position - b.position)]
+}
+
+// ---------- Parameter library ----------
+
+/** The team's parameter library: what the + chips add and what a new subsystem starts with. */
+export function useLibrary() {
+  const lib = useLive<LibItem>('param_library', 'all', () => supabase.from('param_library').select('*').order('position'))
+  return { items: lib.rows, loading: lib.loading, error: lib.error, reload: lib.reload }
+}
+
+/** Library items with none of their fields on the prototype yet, for the + chips. */
+export function libSuggestions(items: LibItem[], params: Pick<ParamDef, 'name'>[]) {
+  const have = new Set(params.map((d) => d.name.toLowerCase()))
+  return items.filter((i) => i.fields.length && !i.fields.some((f) => have.has(f.name.toLowerCase())))
+}
+
+/** Items a subsystem (or a prototype with none yet) starts with, by the words in its name. */
+export function startersFor(items: LibItem[], name: string) {
+  const words = name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  return items.filter((i) => i.starter_for.some((w) => w === '*' || words.some((x) => x === w.toLowerCase() || x === `${w.toLowerCase()}s`)))
+}
+
+/**
+ * Adds library items' fields as parameters: to the subsystem's set, or to the prototype alone
+ * when it has no subsystem. Fields already there (same name) are skipped; "only when" links are
+ * turned from field names into the new parameter ids.
+ */
+export async function addLibItems(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, items: LibItem[], existing: ParamDef[]): Promise<{ error?: string }> {
+  const have = new Map(existing.map((d) => [d.name.toLowerCase(), d.id]))
+  let keys = existing.filter((d) => d.key).length
+  let position = Math.max(0, ...existing.map((d) => d.position))
+  const shared = p.subsystem_number != null
+  for (const item of items) {
+    // Plain fields first, so the ones that depend on them can point at their ids.
+    const order = [...item.fields].sort((a, b) => Number(!!a.only_if) - Number(!!b.only_if))
+    for (const f of order) {
+      if (have.has(f.name.toLowerCase())) continue
+      const on = f.only_if ? have.get(f.only_if.field.toLowerCase()) : undefined
+      const key = !f.only_if && keys < 3
+      const { data, error } = await supabase
+        .from('param_defs')
+        .insert({
+          season: p.season,
+          subsystem_number: p.subsystem_number,
+          prototype_id: shared ? null : p.id,
+          name: f.name,
+          unit: f.kind === 'number' ? f.unit : '',
+          kind: f.kind,
+          options: f.options ?? [],
+          // The first three plain ones are key: shown on cards and on the video.
+          key,
+          only_if: on && f.only_if ? { def: on, is: f.only_if.is } : null,
+          position: position + 1 + item.fields.indexOf(f) / 100,
+        })
+        .select('id')
+        .single()
+      if (error) return { error: error.message }
+      have.set(f.name.toLowerCase(), data.id)
+      if (key) keys++
+    }
+    position += 1
+  }
+  return {}
+}
+
+/** Whether a parameter is in use, given the values: one with "only when" hides otherwise. */
+export function shown(d: ParamDef, values: Record<string, Value>) {
+  if (!d.only_if) return true
+  const v = values[d.only_if.def]
+  return v != null && d.only_if.is.includes(String(v))
+}
+
+/**
+ * A choice typed in that isn't on the list yet joins it, here and in the library, so lists grow
+ * from use and the next person taps it.
+ */
+export async function growChoices(params: ParamDef[], values: Record<string, Value>, library: LibItem[]) {
+  for (const d of params) {
+    const v = values[d.id]
+    if (d.kind !== 'choice' || v == null || v === '' || d.options.includes(String(v))) continue
+    await supabase.from('param_defs').update({ options: [...d.options, String(v)] }).eq('id', d.id)
+    const same = (f: LibField) => f.name.toLowerCase() === d.name.toLowerCase()
+    const item = library.find((i) => i.fields.some(same))
+    if (!item) continue
+    const fields = item.fields.map((f) => (same(f) && !f.options.includes(String(v)) ? { ...f, options: [...f.options, String(v)] } : f))
+    await supabase.from('param_library').update({ fields, updated_at: new Date().toISOString() }).eq('id', item.id)
+  }
+}
+
+export async function saveLibItem(item: Pick<LibItem, 'name' | 'fields' | 'starter_for'> & { id?: string; position?: number }) {
+  const row = { name: item.name, fields: item.fields, starter_for: item.starter_for, updated_at: new Date().toISOString() }
+  const { error } = item.id
+    ? await supabase.from('param_library').update(row).eq('id', item.id)
+    : await supabase.from('param_library').insert({ ...row, position: item.position ?? 1000 })
+  return error ? { error: error.message } : {}
+}
+
+export async function deleteLibItem(id: string) {
+  const { error } = await supabase.from('param_library').delete().eq('id', id)
+  return error ? { error: error.message } : {}
 }
 
 // ---------- Values ----------
@@ -346,10 +462,13 @@ export function bestTest(tests: Test[]) {
 export async function createPrototype(
   row: { season: number; subsystem_number: number | null; name: string; concept: string },
   who: Who,
+  /** The subsystem's name, which picks the starter parameters. */
+  subName?: string | null,
 ): Promise<Res<Prototype>> {
   const { data, error } = await supabase
     .from('prototypes')
-    .insert({ ...row, owner_id: who.userId, created_by: who.userId, status: 'idea' })
+    // No owner: the lead follows the subsystem's lead (leadOf).
+    .insert({ ...row, owner_id: null, created_by: who.userId, status: 'idea' })
     .select()
     .single()
   if (error) return { error: error.message }
@@ -360,7 +479,17 @@ export async function createPrototype(
     if (Array.isArray(l?.layout) && l.layout.length) layout = l.layout as typeof DEFAULT_LAYOUT
   }
   await supabase.from('prototype_blocks').insert(layout.map((b, i) => ({ prototype_id: data.id, kind: b.kind, title: b.title, position: i + 1, updated_by: who.userId })))
-  await supabase.from('prototype_members').insert({ prototype_id: data.id, user_id: who.userId })
+  // Starter parameters from the library, by the subsystem's name (or the prototype's, with none
+  // yet), unless the subsystem already has its set.
+  const had =
+    row.subsystem_number != null
+      ? (await supabase.from('param_defs').select('id').is('prototype_id', null).eq('season', row.season).eq('subsystem_number', row.subsystem_number).limit(1)).data
+      : []
+  if (!had?.length) {
+    const { data: lib } = await supabase.from('param_library').select('*').order('position')
+    const items = startersFor((lib ?? []) as LibItem[], subName ?? row.name)
+    if (items.length) await addLibItems(data as Prototype, items, [])
+  }
   return { data: data as Prototype }
 }
 
@@ -406,7 +535,8 @@ export interface TestInput {
   video_link: string | null
 }
 
-export async function saveTest(p: Prototype, input: TestInput, who: Who, members: string[], existing?: Test): Promise<Res<Test>> {
+/** `followers`: the lead and everyone who filmed a test before hear about a new one. */
+export async function saveTest(p: Prototype, input: TestInput, who: Who, followers: (string | null)[], existing?: Test): Promise<Res<Test>> {
   if (existing) {
     const { data, error } = await supabase.from('prototype_tests').update(input).eq('id', existing.id).select().single()
     return error ? { error: error.message } : { data: data as Test }
@@ -423,7 +553,7 @@ export async function saveTest(p: Prototype, input: TestInput, who: Who, members
     if (error) return { error: error.message }
     // A first test moves an idea or build into testing.
     if (p.status === 'idea' || p.status === 'building') await updatePrototype(p.id, { status: 'testing' })
-    await notify([p.owner_id, ...members], 'proto_test', `${who.name} added test ${n} to ${p.name}`, `/prototypes/${p.id}#test-${n}`, who.userId)
+    await notify(followers, 'proto_test', `${who.name} added test ${n} to ${p.name}`, `/prototypes/${p.id}#test-${n}`, who.userId)
     return { data: data as Test }
   }
   return { error: 'Someone else is saving tests right now. Try again.' }

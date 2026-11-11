@@ -5,7 +5,7 @@ import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
 import { Rename } from './SubsystemPage'
 import { useAuth } from '../../lib/auth'
 import { empty, subStatus, useCounts } from '../../lib/counts'
-import { createSubsystem, type Subsystem } from '../../lib/mfg'
+import { createSubsystem, versionIn, type Subsystem } from '../../lib/mfg'
 import { supabase } from '../../lib/supabase'
 import { usePeople, useRobots } from '../../lib/useMfg'
 import { Select } from '../../components/Select'
@@ -35,7 +35,8 @@ export default function RobotPage() {
 
   const rename = (name: string) =>
     run(async () => {
-      const { error } = await supabase.from('robots').update({ name }).eq('id', robot.id)
+      const { error } = await supabase.from('robots').update({ name, version: versionIn(name) }).eq('id', robot.id)
+      if (error?.code === '23505') return toast(`This season already has a V${versionIn(name)}.`)
       if (error) return toast(error.message)
       await reload()
       setRenaming(false)

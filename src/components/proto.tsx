@@ -129,8 +129,14 @@ export function TestVideo({ test, params }: { test: Test; params: ParamDef[] }) 
   return null
 }
 
-/** One parameter's value, by its kind. Choice uses buttons up to 5 options, a dropdown above that. */
+/**
+ * One parameter's value, by its kind. Choices are buttons (a dropdown past 8) with Other to type
+ * a new one, which joins the list when the test is saved. A number with sizes in the library
+ * (wheel diameter 2, 2.25, 3) offers them as one tap, and still takes any number typed.
+ */
 export function ValueInput({ def, value, onChange, changed }: { def: ParamDef; value: Value | undefined; onChange: (v: Value) => void; changed?: boolean }) {
+  const custom = def.kind === 'choice' && value != null && value !== '' && !def.options.includes(String(value))
+  const [other, setOther] = useState(custom)
   const name = (
     <span className="ctl__name">
       {def.name}
@@ -151,42 +157,109 @@ export function ValueInput({ def, value, onChange, changed }: { def: ParamDef; v
         </div>
       </div>
     )
-  if (def.kind === 'choice' && def.options.length <= 5)
-    return (
-      <div className="ctl">
-        {name}
-        <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label={def.name}>
-          {def.options.map((o) => (
-            <button key={o} type="button" role="radio" className="pick" aria-checked={value === o} onClick={() => onChange(value === o ? null : o)}>
-              {o}
-            </button>
-          ))}
-        </div>
-      </div>
+  if (def.kind === 'choice') {
+    const typed = other && (
+      <input
+        className="field"
+        dir="auto"
+        autoFocus={!custom}
+        value={custom ? String(value) : ''}
+        onChange={(e) => onChange(e.target.value || null)}
+        placeholder="Type it. It joins the list for next time."
+        aria-label={`${def.name}, other`}
+      />
     )
-  if (def.kind === 'choice')
+    if (def.options.length <= 8)
+      return (
+        <div className="ctl">
+          {name}
+          <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label={def.name}>
+            {def.options.map((o) => (
+              <button
+                key={o}
+                type="button"
+                role="radio"
+                className="pick"
+                aria-checked={value === o}
+                onClick={() => {
+                  setOther(false)
+                  onChange(value === o ? null : o)
+                }}
+              >
+                {o}
+              </button>
+            ))}
+            <button
+              type="button"
+              role="radio"
+              className="pick"
+              aria-checked={other}
+              onClick={() => {
+                if (other && custom) onChange(null)
+                setOther(!other)
+              }}
+            >
+              Other
+            </button>
+          </div>
+          {typed}
+        </div>
+      )
     return (
       <label className="ctl">
         {name}
-        <Select value={String(value ?? '')} onChange={(v) => onChange(v || null)} options={[{ value: '', label: 'Not set' }, ...def.options.map((o) => ({ value: o, label: o }))]} />
+        <Select
+          value={other ? '__other' : String(value ?? '')}
+          onChange={(v) => {
+            setOther(v === '__other')
+            onChange(v && v !== '__other' ? v : null)
+          }}
+          options={[{ value: '', label: 'Not set' }, ...def.options.map((o) => ({ value: o, label: o })), { value: '__other', label: 'Other' }]}
+        />
+        {typed}
       </label>
+    )
+  }
+  const field = (
+    <input
+      className="field num"
+      inputMode={def.kind === 'number' ? 'decimal' : undefined}
+      value={value === null || value === undefined ? '' : String(value)}
+      aria-label={def.options.length ? `${def.name}, other size` : undefined}
+      placeholder={def.options.length ? 'Other' : undefined}
+      onChange={(e) => {
+        const t = e.target.value
+        if (def.kind !== 'number') return onChange(t || null)
+        // Kept as typed until the test is saved (TestForm turns it into a number then).
+        // Turning it into a number on every key dropped zeros: 1.05 became 15.
+        const clean = t.replace(',', '.').replace(/[^\d.-]/g, '')
+        onChange(clean === '' ? null : clean)
+      }}
+    />
+  )
+  if (def.kind === 'number' && def.options.length)
+    return (
+      <div className="ctl">
+        {name}
+        <div className="pt-sizes">
+          <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label={def.name}>
+            {def.options.map((o) => {
+              const on = value != null && value !== '' && Number(value) === Number(o)
+              return (
+                <button key={o} type="button" role="radio" className="pick num" aria-checked={on} onClick={() => onChange(on ? null : o)}>
+                  {o}
+                </button>
+              )
+            })}
+          </div>
+          {field}
+        </div>
+      </div>
     )
   return (
     <label className="ctl">
       {name}
-      <input
-        className="field num"
-        inputMode={def.kind === 'number' ? 'decimal' : undefined}
-        value={value === null || value === undefined ? '' : String(value)}
-        onChange={(e) => {
-          const t = e.target.value
-          if (def.kind !== 'number') return onChange(t || null)
-          // Kept as typed until the test is saved (TestForm turns it into a number then).
-          // Turning it into a number on every key dropped zeros: 1.05 became 15.
-          const clean = t.replace(',', '.').replace(/[^\d.-]/g, '')
-          onChange(clean === '' ? null : clean)
-        }}
-      />
+      {field}
     </label>
   )
 }

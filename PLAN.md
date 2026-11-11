@@ -110,6 +110,18 @@ A second full review, then every finding built. Judged on the same question: fas
 - Accessibility: big titles and tags pass contrast in light mode (`--brand-text`, darker meaning colours), small buttons and checkboxes are 44 px on touch screens, Ctrl K works with a screen reader and keeps the highlight in view, the status bar moved to the top so it never covers the toast or the picked-parts bar.
 - Admin (People, from the account menu): emails for the admin only, section use over the last 14 days, and Download a backup (every list as CSV in one zip).
 
+## Season card and prototype defaults (2026-11-12)
+
+Asked for by Yoni on 2026-11-11, built on 2026-11-12.
+
+- **Season card on Home** (`src/components/SeasonCard.tsx`). It takes the countdown's place once kickoff is past, with no new numbers: content on the left and a robot drawn in lines (or the newest prototype video's frame) blurred into the right side. The card moves through four stages:
+  1. **Set up V1:** one sheet with the robot name and a row per subsystem (number, name, lead). The subsystem list is typed in at kickoff.
+  2. **Prototype week:** while V1 has no parts uploaded, the card shows prototypes and tests per subsystem. A subsystem with none links to New prototype (`/prototypes?sub=N&new=1`).
+  3. **Production:** parts done per subsystem, how many were made today, and how many are in progress.
+  4. **Start V2:** once **25% of V1's made parts are done**, the card offers V2. Its sheet copies V1's subsystems and leads; then the card follows V2, and V3 works the same way.
+- **Which robot counts:** robots have a `version` (`20261112_robot_versions.sql`), read from "V1" or "V2" in the name when a robot is made or renamed. Only one V1 is allowed per season. Test robots have no version and never count.
+- To see the card before kickoff, open `localhost:5173/?kickoff=past` on the dev server.
+
 ## Still open
 
 - **Run `supabase/migrations/20261111_members_only.sql`** (members-only stock, page counts) and **deploy `supabase/functions/sync-sheet`** (end mill and 0-plate fixes). Both were held for Yoni's go-ahead on 2026-11-11.

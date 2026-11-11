@@ -16,7 +16,8 @@ export default function Prototypes() {
   const season = Number(q.get('season')) || current
   const { prototypes, tests, params, loading, error, reload } = usePrototypes(season)
   const subs = subsystemsOf(season)
-  const [adding, setAdding] = useState(false)
+  // ?new=1 opens New prototype straight away (from the season card on Home).
+  const [adding, setAdding] = useState(q.get('new') === '1')
   const navigate = useNavigate()
 
   const subFilter = q.get('sub') // a number, "none" or null for all
@@ -190,7 +191,7 @@ export function NewPrototype({
     run(async () => {
       if (!who) return
       if (!name.trim()) return toast('Give it a name, like "Double roller"')
-      const res = await createPrototype({ season, subsystem_number: sub ? Number(sub) : null, name: name.trim(), concept: concept.trim() }, who)
+      const res = await createPrototype({ season, subsystem_number: sub ? Number(sub) : null, name: name.trim(), concept: concept.trim() }, who, subs.find((s) => String(s.number) === sub)?.name)
       if (res.error) return toast(res.error)
       onDone(res.data!)
     })

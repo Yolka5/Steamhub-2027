@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { PartStatusTag, UrgentTag } from '../../components/mfg'
 import { PartStock } from '../../components/PartStock'
 import { cutPiece } from '../../lib/actions'
 import { useStore } from '../../lib/store'
-import { Copy, useToast } from '../../components/ui'
+import { Copy, LoadError, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { canDraw, partDrawing, saveDxf, savePdf, saveStep, type Ctx } from '../../lib/drawing'
 import {
@@ -31,6 +31,60 @@ import { supabase } from '../../lib/supabase'
 import { Combo, Select } from '../../components/Select'
 
 // One part: its drawing, one main action for where it stands, the files, and its history.
+
+/**
+ * Saves a second after typing stops, and when the field is left, so a note survives swiping back.
+ * Someone else's saved note replaces it only while this person isn't typing.
+ */
+function NotesField({ value, placeholder, onSave }: { value: string; placeholder: string; onSave: (v: string) => Promise<unknown> }) {
+  const [text, setText] = useState(value)
+  const typing = useRef(false)
+  const timer = useRef(0)
+  const latest = useRef(value)
+  useEffect(() => {
+    latest.current = value
+    if (!typing.current) setText(value)
+  }, [value])
+  const pending = useRef(value)
+  const save = useRef(onSave)
+  save.current = onSave
+  const flush = (v: string) => {
+    window.clearTimeout(timer.current)
+    typing.current = false
+    if (v !== latest.current) {
+      latest.current = v
+      save.current(v)
+    }
+  }
+  // Leaving the page mid-sentence still saves.
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current)
+      if (typing.current && pending.current !== latest.current) save.current(pending.current)
+    },
+    [],
+  )
+  return (
+    <label className="ctl">
+      <span className="ctl__name">Notes</span>
+      <textarea
+        className="field part__notes"
+        rows={3}
+        value={text}
+        placeholder={placeholder}
+        onChange={(e) => {
+          const v = e.target.value
+          setText(v)
+          pending.current = v
+          typing.current = true
+          window.clearTimeout(timer.current)
+          timer.current = window.setTimeout(() => flush(v), 1000)
+        }}
+        onBlur={(e) => flush(e.target.value)}
+      />
+    </label>
+  )
+}
 
 interface Event {
   id: number
@@ -64,10 +118,12 @@ export default function PartPage() {
   const [part, setPart] = useState<Part | null>(null)
   const [ctx, setCtx] = useState<(Ctx & { robot: Robot; sub: Subsystem }) | null>(null)
   const [missing, setMissing] = useState(false)
+  const [loadErr, setLoadErr] = useState<string | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [svg, setSvg] = useState<string | null>(null)
   const [drawErr, setDrawErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const busyRef = useRef(false)
   const [cut, setCut] = useState<{ id: string; leftover: number } | null>(null)
   const { byId, upsertLocal } = useStore()
 
@@ -77,7 +133,8 @@ export default function PartPage() {
       .select('*, sub:subsystems(*, robot:robots(*))')
       .eq('id', id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) return setLoadErr(error.message)
         if (!data) return setMissing(true)
         const { sub, ...p } = data as Part & { sub: Subsystem & { robot: Robot } }
         const { robot, ...s } = sub
@@ -118,7 +175,12 @@ export default function PartPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawKey])
 
-  if (!part || !ctx) return <div className="page page--narrow">{missing ? <p className="soft">This part doesn't exist anymore.</p> : <p className="soft">Loading</p>}</div>
+  if (!part || !ctx)
+    return (
+      <div className="page page--narrow">
+        {loadErr ? <LoadError /> : missing ? <p className="soft">This part doesn't exist anymore.</p> : <p className="soft">Loading</p>}
+      </div>
+    )
 
   const save = async (patch: Partial<Part>, action?: string, details?: Record<string, unknown>) => {
     const res = await updatePart(part.id, patch)
@@ -131,19 +193,30 @@ export default function PartPage() {
     return true
   }
 
+  /** Runs one action at a time; a second tap while saving does nothing. True when it saved. */
   const act = async (fn: () => Promise<{ data?: Part | Part[]; error?: string }>, msg: string) => {
-    if (busy) return
+    if (busyRef.current) return false
+    busyRef.current = true
     setBusy('saving')
-    const res = await fn()
-    setBusy(null)
-    if (res.error) return toast(res.error)
-    const row = Array.isArray(res.data) ? res.data[0] : res.data
-    if (row) setPart(row)
-    toast(msg)
+    try {
+      const res = await fn()
+      if (res.error) {
+        toast(res.error)
+        return false
+      }
+      const row = Array.isArray(res.data) ? res.data[0] : res.data
+      if (row) setPart(row)
+      toast(msg)
+      return true
+    } finally {
+      busyRef.current = false
+      setBusy(null)
+    }
   }
 
   const file = async (what: 'pdf' | 'dxf' | 'step') => {
-    if (busy) return
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(what)
     try {
       if (what === 'pdf') await savePdf([part], ctx)
@@ -152,14 +225,17 @@ export default function PartPage() {
     } catch (e) {
       toast(`Couldn't make the file: ${e instanceof Error ? e.message : e}`)
     }
+    busyRef.current = false
     setBusy(null)
   }
 
   const bought = part.machine === 'Bought'
   const status = async (s: PartStatus, msg: string) => {
     if (!who) return
-    await act(() => setStatus(part, s, who), msg)
+    const ok = await act(() => setStatus(part, s, who), msg)
+    if (!ok) return
     // Done with stock reserved for it: cut the piece, leftover goes back to stock under the same ID.
+    // Only after the part really saved as done, so a failed or repeated tap never cuts the stock.
     const piece = s === 'done' && part.piece_id ? byId(part.piece_id) : undefined
     if (piece && piece.status === 'reserved') {
       const res = await cutPiece(piece, stockLength(part), who)
@@ -338,17 +414,7 @@ export default function PartPage() {
             )}
           </dl>
 
-          <label className="ctl">
-            <span className="ctl__name">Notes</span>
-            <textarea
-              className="field part__notes"
-              rows={3}
-              defaultValue={part.notes}
-              key={part.notes}
-              placeholder={bought ? 'Where it is, what to order' : 'Taps, pockets, anything the drawing misses'}
-              onBlur={(e) => e.target.value !== part.notes && save({ notes: e.target.value })}
-            />
-          </label>
+          <NotesField value={part.notes} placeholder={bought ? 'Where it is, what to order' : 'Taps, pockets, anything the drawing misses'} onSave={(notes) => save({ notes })} />
         </div>
       </div>
 

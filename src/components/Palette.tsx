@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { findThreads, looksLikeThread } from '../lib/threads'
 import { handbookIndex } from '../pages/Handbook'
 import { OUR_TOOLS, OUTSIDE_TOOLS } from '../pages/Tools'
-import { supabase } from '../lib/supabase'
+import { selectAll, supabase } from '../lib/supabase'
 import { partName, type Part } from '../lib/mfg'
 
 /** A part as Ctrl K needs it: enough to find it by number or name and say where it belongs. */
@@ -54,11 +54,16 @@ const PAGES: Item[] = [
   { key: 'p-sources', label: 'FRC information sources', to: '/handbook/sources', keywords: 'מקורות מידע tba chief delphi' },
 ]
 
-export function Palette({ open, animated, onClose }: { open: boolean; animated: boolean; onClose: () => void }) {
+export function Palette({ open, animated, initial = '', onClose }: { open: boolean; animated: boolean; initial?: string; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const input = useRef<HTMLInputElement>(null)
+  const list = useRef<HTMLDivElement>(null)
   const [text, setText] = useState('')
   const [sel, setSel] = useState(0)
+  // Arrow keys move the highlight; the list follows it so it never goes off the bottom.
+  useEffect(() => {
+    list.current?.querySelector<HTMLElement>(`[data-i="${sel}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [sel])
   const { pieces } = useStore()
   const navigate = useNavigate()
   const [parts, setParts] = useState<FoundPart[]>([])
@@ -72,13 +77,14 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
       .limit(200)
       .then(({ data }) => setProtos(data ?? []))
     // Parts of the robots being built, so "3004" or "side plate" jumps to the part and its drawing.
-    supabase
-      .from('parts')
-      .select('id, part_no, name, cls, size, machine, status, sub:subsystems(number, name, robot:robots(name, archived))')
-      .neq('status', 'cancelled')
-      .order('part_no')
-      .limit(3000)
-      .then(({ data }) => setParts(((data ?? []) as unknown as FoundPart[]).filter((p) => !p.sub?.robot?.archived)))
+    selectAll<FoundPart>(() =>
+      supabase
+        .from('parts')
+        .select('id, part_no, name, cls, size, machine, status, sub:subsystems(number, name, robot:robots(name, archived))')
+        .neq('status', 'cancelled')
+        .order('part_no')
+        .order('id'),
+    ).then(({ data }) => setParts((data ?? []).filter((p) => !p.sub?.robot?.archived)))
   }, [open])
 
   useEffect(() => {
@@ -86,12 +92,12 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
     if (!d) return
     if (open && !d.open) {
       d.showModal()
-      setText('')
+      setText(initial)
       setSel(0)
       input.current?.focus()
     }
     if (!open && d.open) d.close()
-  }, [open])
+  }, [open, initial])
 
   const items = useMemo<Item[]>(() => {
     const t = text.trim().toLowerCase()
@@ -172,6 +178,13 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
           ref={input}
           className="palette__input"
           placeholder="Stock (20x40x1 700), part number (3004), M5, or a page"
+          aria-label="Search Steamhub"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="palette-list"
+          aria-autocomplete="list"
+          aria-activedescendant={items[sel] ? `palette-${sel}` : undefined}
+          enterKeyHint="go"
           value={text}
           onChange={(e) => {
             setText(e.target.value)
@@ -189,10 +202,13 @@ export function Palette({ open, animated, onClose }: { open: boolean; animated: 
             }
           }}
         />
-        <div className="picks picks--stack palette__list" role="listbox">
+        <div ref={list} id="palette-list" className="picks picks--stack palette__list" role="listbox" aria-label="Results">
           {items.map((it, i) => (
             <button
               key={it.key}
+              id={`palette-${i}`}
+              data-i={i}
+              tabIndex={-1}
               type="button"
               role="option"
               className="pick"

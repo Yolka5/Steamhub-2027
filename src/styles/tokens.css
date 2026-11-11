@@ -28,12 +28,16 @@
   --main: #fe6a00;
   --on-main: #141413;
   --brand: #fe6a00;
+  /* The brand orange as text on the light surfaces: a shade darker, so big titles pass 3:1
+     (#fe6a00 was 2.8:1 on the page). Dark mode keeps the bright one. */
+  --brand-text: #e86000;
 
   /* Meaning colours, only in content.
-     a = reserved (orange), b = available (green), c = problem (red). */
-  --meaning-a: #b54b00;
+     a = reserved (orange), b = available (green), c = problem (red).
+     a and b are dark enough for small tag text on their soft backgrounds (4.5:1). */
+  --meaning-a: #a04000;
   --meaning-a-soft: #ffe8d6;
-  --meaning-b: #2f7d32;
+  --meaning-b: #276b2a;
   --meaning-b-soft: #e1f2e1;
   --meaning-c: #c9341f;
   --meaning-c-soft: #fdeae7;
@@ -63,6 +67,7 @@
   --line: rgba(255, 255, 255, 0.1);
   --main: #fe6a00;
   --on-main: #0c0c0c;
+  --brand-text: #fe6a00;
   --meaning-a: #ff9a4d;
   --meaning-a-soft: #3a2111;
   --meaning-b: #7fd283;

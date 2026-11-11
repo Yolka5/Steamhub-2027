@@ -39,7 +39,7 @@
 }
 
 .brand__name {
-  color: var(--brand);
+  color: var(--brand-text);
   font-family: var(--font-display);
   font-size: 1.35rem;
   line-height: 1;
@@ -208,6 +208,18 @@
   padding: 0.35rem 0.85rem;
 }
 
+/* Fingers, not a mouse: small buttons and checkboxes grow to a 44 px target. */
+@media (pointer: coarse) {
+  .q-btn--small {
+    min-height: 2.75rem;
+  }
+
+  .main input[type='checkbox'] {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
 .q-btn--big {
   min-height: 3.25rem;
   font-size: 1.0625rem;
@@ -326,7 +338,7 @@
 
 .page__title {
   font-size: clamp(2rem, 6vw, 2.75rem);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .page__actions {
@@ -376,7 +388,7 @@
 
 .hero__title {
   font-size: clamp(3rem, 12vw, 5.5rem);
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .hero__sub {
@@ -898,6 +910,34 @@ dialog {
 
 .toast[data-open='true'] {
   opacity: 1;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100% - 2rem);
+}
+
+.toast[data-undo] {
+  padding: 0.3rem 0.35rem 0.3rem 1rem;
+}
+
+.toast[data-open='true'][data-undo] {
+  pointer-events: auto;
+}
+
+.toast__undo {
+  flex: none;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface-0);
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
 }
 
 @media (min-width: 900px) {
@@ -1576,11 +1616,12 @@ dialog {
   contain-intrinsic-size: auto 24rem;
 }
 
-/* No connection, or a new version ready. Floats above the phone tab bar. */
+/* No connection, slow connection or a new version ready. At the top, so it never covers the
+   toast, the picked-parts bar or the tab bar at the bottom. */
 .app-status {
   position: fixed;
   left: 50%;
-  bottom: calc(5rem + env(safe-area-inset-bottom));
+  top: calc(4.25rem + env(safe-area-inset-top));
   z-index: 26;
   display: flex;
   align-items: center;
@@ -1607,6 +1648,6 @@ dialog {
 @media (min-width: 900px) {
   .app-status {
     left: calc(50% + 7.5rem);
-    bottom: 1.5rem;
+    top: 1rem;
   }
 }

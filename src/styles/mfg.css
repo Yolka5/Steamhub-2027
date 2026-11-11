@@ -1095,3 +1095,41 @@
 .sheet-pending .mfg-bar-head {
   margin: 0;
 }
+
+/* ===== Rename a robot or subsystem in place ===== */
+.rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  max-width: 34rem;
+  margin: 0.5rem 0;
+}
+
+.rename .field {
+  flex: 1;
+  min-width: 12rem;
+}
+
+/* Workshop filters folded into one line on phones, like Stock's options. */
+.mfg-filters-fold {
+  margin-bottom: 0.75rem;
+}
+
+.mfg-filters-fold .mfg-filters {
+  margin-bottom: 0;
+}
+
+/* ===== Section use on the admin's People page ===== */
+.use-row {
+  gap: 0.75rem;
+}
+
+.use-row__name {
+  flex: none;
+  width: 8.5rem;
+}
+
+.use-row__bar {
+  flex: 1;
+}

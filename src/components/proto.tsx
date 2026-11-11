@@ -6,6 +6,7 @@ import {
   keyLines,
   RESULT_TAG,
   RESULT_WORD,
+  retryVideo,
   STATUS_TAG,
   STATUS_WORD,
   useJobs,
@@ -43,7 +44,15 @@ export function Poster({ path, className = 'pt-poster' }: { path: string | null 
 export function JobLine({ testId }: { testId: string }) {
   const job = useJobs().find((j) => j.testId === testId)
   if (!job || job.stage === 'done') return job?.note ? <p className="soft small">{job.note}</p> : null
-  if (job.stage === 'failed') return <p className="pt-job pt-job--bad small">The video didn't upload: {job.error}</p>
+  if (job.stage === 'failed')
+    return (
+      <div className="pt-job pt-job--bad small" role="alert">
+        <span>The video didn't upload: {job.error}</span>
+        <button type="button" className="q-btn q-btn--small" onClick={() => retryVideo(testId)}>
+          Try again
+        </button>
+      </div>
+    )
   const pct = Math.round(job.progress * 100)
   return (
     <div className="pt-job small">
@@ -172,8 +181,10 @@ export function ValueInput({ def, value, onChange, changed }: { def: ParamDef; v
         onChange={(e) => {
           const t = e.target.value
           if (def.kind !== 'number') return onChange(t || null)
+          // Kept as typed until the test is saved (TestForm turns it into a number then).
+          // Turning it into a number on every key dropped zeros: 1.05 became 15.
           const clean = t.replace(',', '.').replace(/[^\d.-]/g, '')
-          onChange(clean === '' ? null : clean.endsWith('.') || clean === '-' ? clean : Number(clean))
+          onChange(clean === '' ? null : clean)
         }}
       />
     </label>

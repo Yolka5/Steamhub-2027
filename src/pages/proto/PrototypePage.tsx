@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { JobLine, ResultTag, TestVideo } from '../../components/proto'
 import { Select } from '../../components/Select'
-import { Sheet, useToast } from '../../components/ui'
+import { LoadError, Sheet, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
 import { ago, saveFile } from '../../lib/mfg'
 import {
@@ -37,7 +37,7 @@ import { ParamsPanel } from './Params'
 
 export default function PrototypePage() {
   const { id = '' } = useParams()
-  const { proto, loading, tests, blocks, setBlocks, params, members, reloadMembers } = usePrototype(id)
+  const { proto, loading, error, tests, blocks, setBlocks, params, members, reloadMembers } = usePrototype(id)
   const { subsystemsOf } = useSeasons()
   const { nameOf, people } = usePeople()
   const { isAdmin, userId } = useAuth()
@@ -56,7 +56,8 @@ export default function PrototypePage() {
     return () => window.clearTimeout(t)
   }, [tests.length])
 
-  if (!proto) return <div className="page">{loading ? <p className="soft">Loading</p> : <p className="soft">This prototype doesn't exist anymore.</p>}</div>
+  if (!proto)
+    return <div className="page">{error ? <LoadError /> : loading ? <p className="soft">Loading</p> : <p className="soft">This prototype doesn't exist anymore.</p>}</div>
 
   const subs = subsystemsOf(proto.season)
   const sub = subs.find((s) => s.number === proto.subsystem_number)

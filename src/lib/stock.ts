@@ -168,8 +168,15 @@ export function parseQuery(text: string): Query {
 
   const dims: number[] = []
   const loose: number[] = []
+  // "ø20" is a diameter, never a length.
+  let dia: number | null = null
   for (let tok of t.split(/\s+/)) {
     tok = tok.replace(/mm$/, '')
+    if (/^ø\d+(\.\d+)?$/.test(tok)) {
+      dia ??= Number(tok.slice(1))
+      if (!q.kind) q.kind = 'round'
+      continue
+    }
     const kw = KIND_WORDS.find(([re]) => re.test(tok))
     if (kw) {
       q.kind = kw[1]
@@ -191,10 +198,14 @@ export function parseQuery(text: string): Query {
   // ID (20/16) mean the "tube" word was about the hollow, not the shape.
   if (q.kind === 'round' && dims.length >= 2 && !/[/ø]|round/.test(t)) q.kind = 'rect_tube'
 
+  if (dia != null) dims.unshift(dia)
+
   if (dims.length) {
     if (loose.length) q.length = loose[loose.length - 1]
   } else if (loose.length === 1) {
-    q.length = loose[0]
+    // "rod 12" or "hex 12.7" is a size; a bare "700" is a length.
+    if (q.kind) dims.push(loose[0])
+    else q.length = loose[0]
   } else if (loose.length > 1) {
     q.length = loose.pop()
     dims.push(...loose)
@@ -326,11 +337,11 @@ export function planCuts(candidates: Piece[], lengths: number[]): CutResult {
   return { plans: open.map((o) => ({ piece: o.piece, cuts: o.cuts, leftover: o.left })), unplaced }
 }
 
-/** "700 x4, 350x2 120" becomes [700,700,700,700,350,350,120]. */
+/** "700 x4, 350x2 120" becomes [700,700,700,700,350,350,120]. A comma always separates lengths. */
 export function parseLengths(text: string): number[] {
   const out: number[] = []
-  for (const m of text.matchAll(/(\d+(?:[.,]\d+)?)\s*(?:mm)?\s*(?:[x×*]\s*(\d+))?/gi)) {
-    const len = Number(m[1].replace(',', '.'))
+  for (const m of text.matchAll(/(\d+(?:\.\d+)?)\s*(?:mm)?\s*(?:[x×*]\s*(\d+))?/gi)) {
+    const len = Number(m[1])
     const n = m[2] ? Math.min(50, Number(m[2])) : 1
     if (len > 0) for (let i = 0; i < n; i++) out.push(len)
   }

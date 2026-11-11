@@ -5,8 +5,8 @@ import { Icon } from '../components/Icon'
 import { Photo, StatusTag } from '../components/PieceCard'
 import { PieceEditor } from '../components/PieceEditor'
 import { ReserveSheet } from '../components/ReserveSheet'
-import { Copy, useToast } from '../components/ui'
-import { markUsed, releasePiece, updatePiece, uploadPhoto } from '../lib/actions'
+import { Copy, useBusy, useToast } from '../components/ui'
+import { markUsed, releasePiece, reservePiece, updatePiece, uploadPhoto } from '../lib/actions'
 import { useAuth } from '../lib/auth'
 import { KINDS, area, sizeLabel, weight } from '../lib/stock'
 import { useStore } from '../lib/store'
@@ -44,7 +44,7 @@ export default function PiecePage() {
   const [cutting, setCutting] = useState(false)
   const [events, setEvents] = useState<Event[]>([])
   const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, guard] = useBusy()
 
   useEffect(() => {
     supabase
@@ -71,13 +71,27 @@ export default function PiecePage() {
   const grams = weight(piece, densities)
   const gPerM = area(piece) && piece.material ? (area(piece)! * (densities.get(piece.material) ?? 0)) : null
 
-  const run = async (fn: () => Promise<{ piece?: typeof piece; error?: string }>, done: string) => {
-    setBusy(true)
-    const res = await fn()
-    setBusy(false)
-    if (res.error) return toast(res.error)
-    if (res.piece) upsertLocal(res.piece)
-    toast(done)
+  const run = (fn: () => Promise<{ piece?: typeof piece; error?: string }>, done: string, undo?: () => void) =>
+    guard(async () => {
+      const res = await fn()
+      if (res.error) return toast(res.error)
+      if (res.piece) upsertLocal(res.piece)
+      toast(done, { undo })
+    })
+
+  /** Release by mistake: put the same reservation back. */
+  const release = () => {
+    if (!who) return
+    const before = piece
+    run(
+      () => releasePiece(piece.id, who),
+      'Released',
+      () =>
+        run(
+          () => reservePiece(before.id, who, before.reserved_for ?? '', before.planned_length, before.subsystem_id ?? null),
+          `${before.id} reserved again`,
+        ),
+    )
   }
 
   return (
@@ -109,7 +123,7 @@ export default function PiecePage() {
                 <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={() => setCutting(true)}>
                   Cut
                 </button>
-                <button type="button" className="q-btn" disabled={busy} onClick={() => run(() => releasePiece(piece.id, who), 'Released')}>
+                <button type="button" className="q-btn" disabled={busy} onClick={release}>
                   Release
                 </button>
                 <button type="button" className="q-btn" disabled={busy} onClick={() => run(() => markUsed(piece.id, who), 'Marked used')}>
@@ -132,13 +146,14 @@ export default function PiecePage() {
                     hidden
                     onChange={async (e) => {
                       const file = e.target.files?.[0]
+                      e.target.value = ''
                       if (!file) return
-                      setBusy(true)
-                      const up = await uploadPhoto(piece.id, file)
-                      setBusy(false)
-                      if (up.error) return toast(up.error)
                       const notes = piece.notes && /reshoot|blurry|no photo/i.test(piece.notes) ? null : piece.notes
-                      run(() => updatePiece(piece.id, { photo_url: up.url!, notes }, who), 'Photo saved')
+                      run(async () => {
+                        const up = await uploadPhoto(piece.id, file).catch((err) => ({ url: undefined, error: err instanceof Error ? err.message : "That photo couldn't be read" }))
+                        if (up.error || !up.url) return { error: up.error ?? 'Upload failed' }
+                        return updatePiece(piece.id, { photo_url: up.url, notes }, who)
+                      }, 'Photo saved')
                     }}
                   />
                   <Icon name="camera" size={18} /> {piece.photo_url ? 'New photo' : 'Add photo'}
@@ -206,7 +221,8 @@ export default function PiecePage() {
           <div className="piece__visual">
             <StockRender piece={piece} />
           </div>
-          <Photo piece={piece} width={1200} className="piece__photo" />
+          {/* Photos are optional: no empty "No photo yet" box when there isn't one. */}
+          {piece.photo_url && <Photo piece={piece} width={1200} className="piece__photo" />}
         </div>
       </div>
 

@@ -28,9 +28,11 @@ function serviceWorker(): Plugin {
       outDir = c.build.outDir
     },
     closeBundle() {
-      // The app code and styles, plus KaTeX so formulas work offline. Not the video tools or the STEP worker.
+      // Every code file (the app, KaTeX, the video tools, the STEP reader) and KaTeX's woff2 fonts.
+      // Lazy files are saved too: a tab left open across a deploy otherwise can't load them, since
+      // the old file names are gone from the server. They install in the background.
       const assets = readdirSync(join(outDir, 'assets'))
-        .filter((f) => /^(index|katex)-[\w-]+\.(js|css)$/.test(f))
+        .filter((f) => /\.(js|css)$/.test(f) || /^KaTeX_.+\.woff2$/.test(f))
         .map((f) => `/assets/${f}`)
       const precache = ['/index.html', ...assets, ...PUBLIC_PRECACHE]
       const template = readFileSync('sw/sw.js', 'utf8')

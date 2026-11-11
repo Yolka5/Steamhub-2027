@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from './auth'
 import { supabase } from './supabase'
+import { useReloadOnReturn } from './useReturn'
 
 // The signed-in person's notifications, live. Shown as a count on the bell and as a list.
 
@@ -25,18 +26,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth()
   const [notes, setNotes] = useState<Note[]>([])
 
-  useEffect(() => {
-    if (!userId) {
-      setNotes([])
-      return
-    }
+  const load = useCallback(() => {
+    if (!userId) return
     supabase
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(60)
-      .then(({ data }) => setNotes((data as Note[]) ?? []))
+      .then(({ data, error }) => !error && setNotes((data as Note[]) ?? []))
+  }, [userId])
+  // Notes sent while realtime was down (phone in a pocket, wifi blip) arrive here.
+  useReloadOnReturn(load)
+
+  useEffect(() => {
+    if (!userId) {
+      setNotes([])
+      return
+    }
+    load()
     const channel = supabase
       .channel(`notes-${userId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (msg) =>
@@ -46,7 +54,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [userId, load])
 
   const markRead = useCallback(
     async (ids?: number[]) => {

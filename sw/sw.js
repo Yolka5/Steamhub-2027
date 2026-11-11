@@ -4,7 +4,8 @@
    - The app (HTML, code, styles, main fonts, logo) is saved on install, so Steamhub opens
      instantly and works with no signal.
    - Team data from Supabase is fetched fresh when online. If the network is slow (over 4 s) or
-     gone, the last saved copy is used, so pages still show what they showed last time.
+     gone, the last saved copy is used, so pages still show what they showed last time, and the
+     app is told (SAVED_DATA) so it can say so. FRESH_DATA follows once the network answers.
    - A new deploy installs in the background and waits. The app shows "New version" and only
      switches when someone taps Refresh, so nobody loses what they're typing.
    - Writes (reserve, add stock, uploads) are never cached: they need a connection. */
@@ -56,10 +57,30 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Supabase reads: database rows and stored files. Login, realtime and writes go straight through.
-  if (url.hostname.endsWith('.supabase.co') && (url.pathname.startsWith('/rest/v1/') || url.pathname.startsWith('/storage/v1/object/'))) {
+  // Not signed links (/object/sign/): their token changes every hour, so a saved copy is never
+  // asked for again and would only fill the phone.
+  if (url.hostname.endsWith('.supabase.co') && (url.pathname.startsWith('/rest/v1/') || (url.pathname.startsWith('/storage/v1/object/') && !url.pathname.startsWith('/storage/v1/object/sign/')))) {
     event.respondWith(networkFirst(req))
   }
 })
+
+/** Tells the open pages whether what they show is the saved copy (slow or no network) or fresh again. */
+let showingSaved = false
+async function tell(saved) {
+  if (saved === showingSaved) return
+  showingSaved = saved
+  for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage(saved ? 'SAVED_DATA' : 'FRESH_DATA')
+}
+
+/** Saved team data stays small: the oldest answers go once there are more than this. */
+const MAX_DATA_ENTRIES = 400
+let putsSinceTrim = 0
+async function trim(cache) {
+  if (++putsSinceTrim < 50) return
+  putsSinceTrim = 0
+  const keys = await cache.keys()
+  for (const k of keys.slice(0, Math.max(0, keys.length - MAX_DATA_ENTRIES))) await cache.delete(k)
+}
 
 async function cacheFirst(req) {
   // ignoreVary: file names are unique per version, and the page's requests carry headers (Origin)
@@ -78,20 +99,29 @@ async function networkFirst(req) {
   const cache = await caches.open(DATA)
   const network = fetch(req).then((res) => {
     const size = Number(res.headers.get('content-length') || 0)
-    if (res.ok && size <= MAX_DATA_BYTES) cache.put(req, res.clone())
+    if (res.ok && size <= MAX_DATA_BYTES) cache.put(req, res.clone()).then(() => trim(cache))
+    if (res.ok) tell(false)
     return res
   })
   network.catch(() => {}) // handled below; this only silences the background rejection
   const saved = cache.match(req, { ignoreVary: true })
   // Online and quick: fresh data. Slow or offline: the saved copy, while the fetch finishes in the background.
-  const timeout = new Promise((resolve) => setTimeout(resolve, DATA_TIMEOUT))
+  const slow = new Promise((resolve) => setTimeout(resolve, DATA_TIMEOUT)).then(async () => ({ saved: await saved }))
   try {
-    const first = await Promise.race([network, timeout.then(() => saved)])
-    if (first) return first
+    const first = await Promise.race([network, slow])
+    if (first instanceof Response) return first
+    if (first.saved) {
+      // The page now shows the saved copy; it hears FRESH_DATA once the network answers.
+      tell(true)
+      return first.saved
+    }
     return await network
   } catch {
     const hit = await saved
-    if (hit) return hit
+    if (hit) {
+      tell(true)
+      return hit
+    }
     throw new Error('offline')
   }
 }

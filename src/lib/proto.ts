@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { notify, type Who } from './mfg'
 import { supabase } from './supabase'
 import { useRobots } from './useMfg'
+import { useReloadOnReturn } from './useReturn'
 
 // Prototypes: see PROTOTYPES.md. A prototype hangs off a subsystem by season + number, so one
 // intake prototype shows on the 2027 V1 and V2 intake alike. A test is one video plus the value
@@ -154,23 +155,35 @@ export const subLabel = (n: number | null, list: { number: number; name: string 
 const signed = new Map<string, { url: string; until: number }>()
 const HOUR = 3600
 
+// Every card asks for its own picture, so asks made in the same moment are collected and sent as
+// one request: a list of 20 prototypes signs its 20 posters in one round trip, not 20.
+const asked = new Set<string>()
+const signers = new Set<() => void>()
+let flushing = 0
+function askSigned(paths: string[]) {
+  for (const p of paths) asked.add(p)
+  if (flushing) return
+  flushing = window.setTimeout(async () => {
+    const want = [...asked]
+    asked.clear()
+    flushing = 0
+    const { data } = await supabase.storage.from('prototypes').createSignedUrls(want, HOUR)
+    for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(d.path, { url: d.signedUrl, until: Date.now() + HOUR * 1000 })
+    signers.forEach((s) => s())
+  }, 0)
+}
+
 /** Signed links for files in the private prototypes bucket, cached for most of an hour. */
 export function useSigned(paths: (string | null | undefined)[]) {
   const key = paths.filter(Boolean).join('|')
   const [, bump] = useState(0)
   useEffect(() => {
+    const again = () => bump((n) => n + 1)
+    signers.add(again)
     const want = [...new Set(key ? key.split('|') : [])].filter((p) => (signed.get(p)?.until ?? 0) < Date.now() + 60_000)
-    if (!want.length) return
-    let live = true
-    supabase.storage
-      .from('prototypes')
-      .createSignedUrls(want, HOUR)
-      .then(({ data }) => {
-        for (const d of data ?? []) if (d.signedUrl && d.path) signed.set(d.path, { url: d.signedUrl, until: Date.now() + HOUR * 1000 })
-        if (live) bump((n) => n + 1)
-      })
+    if (want.length) askSigned(want)
     return () => {
-      live = false
+      signers.delete(again)
     }
   }, [key])
   return (path: string | null | undefined) => (path ? (signed.get(path)?.url ?? null) : null)
@@ -186,20 +199,29 @@ export async function signedUrl(path: string) {
 
 // ---------- Loading ----------
 
-/** Live list of a table's rows, reloaded on any change. Lists here are small. key changes when the query does. */
-function useLive<T>(table: string, key: string, load: () => PromiseLike<{ data: unknown }>) {
+/**
+ * Live list of a table's rows, reloaded on any change. Lists here are small. key changes when the
+ * query does; `skip` waits for what the query needs (the prototype's season).
+ */
+function useLive<T>(table: string, key: string, load: () => PromiseLike<{ data: unknown; error?: { message: string } | null }>, skip = false) {
   const [rows, setRows] = useState<T[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const loader = useRef(load)
   loader.current = load
   const reload = useCallback(async () => {
-    const { data } = await loader.current()
-    setRows((data as T[]) ?? [])
+    if (skip) return
+    const { data, error } = await loader.current()
+    // A failed reload keeps what's on screen.
+    if (!error) setRows((data as T[]) ?? [])
+    setError(error?.message ?? null)
     setLoading(false)
     // key stands for the query, which lives in the loader
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, skip])
+  useReloadOnReturn(reload)
   useEffect(() => {
+    if (skip) return
     reload()
     const ch = supabase
       .channel(`${table}-${Math.random().toString(36).slice(2, 9)}`)
@@ -208,20 +230,23 @@ function useLive<T>(table: string, key: string, load: () => PromiseLike<{ data: 
     return () => {
       supabase.removeChannel(ch)
     }
-  }, [reload, table])
-  return { rows, setRows, loading, reload }
+  }, [reload, table, skip])
+  return { rows, setRows, loading, error, reload }
 }
 
+/** Every prototype of a season. With no season yet (a prototype page still loading), nothing is fetched. */
 export function usePrototypes(season: number | null) {
-  const protos = useLive<Prototype>('prototypes', `list-${season}`, () => supabase.from('prototypes').select('*').eq('season', season ?? 0).order('created_at'))
+  const none = season == null
+  const protos = useLive<Prototype>('prototypes', `list-${season}`, () => supabase.from('prototypes').select('*').eq('season', season ?? 0).order('created_at'), none)
   const ids = protos.rows.map((p) => p.id)
   const tests = useLive<Test>(
     'prototype_tests',
     `list-${ids.join(',')}`,
     () => (ids.length ? supabase.from('prototype_tests').select('*').in('prototype_id', ids).order('n') : Promise.resolve({ data: [] })),
+    none,
   )
-  const params = useLive<ParamDef>('param_defs', `list-${season}`, () => supabase.from('param_defs').select('*').eq('season', season ?? 0).order('position'))
-  return { prototypes: protos.rows, tests: tests.rows, params: params.rows, loading: protos.loading, reload: protos.reload }
+  const params = useLive<ParamDef>('param_defs', `list-${season}`, () => supabase.from('param_defs').select('*').eq('season', season ?? 0).order('position'), none)
+  return { prototypes: protos.rows, tests: tests.rows, params: params.rows, loading: protos.loading, error: protos.error, reload: protos.reload }
 }
 
 export function usePrototype(id: string) {
@@ -245,6 +270,7 @@ export function usePrototype(id: string) {
   return {
     proto: p,
     loading: proto.loading,
+    error: proto.error,
     /** Tests load after the prototype; forms that copy the last test's values wait for this. */
     testsLoading: tests.loading,
     tests: tests.rows,
@@ -297,11 +323,22 @@ export function keyLines(params: ParamDef[], values: Record<string, Value>, all 
 
 export const resultScore = (t: Pick<Test, 'result'>) => (t.result === 'worked' ? 1 : t.result === 'partly' ? 0.5 : t.result === 'failed' ? 0 : null)
 
+/**
+ * Whether a smaller measured number is the better one. Times are (cycle time, seconds to intake);
+ * counts and distances aren't (balls in out of 10, shot distance). Read from the measure's name,
+ * so nobody has to fill in another field.
+ */
+export const lowerIsBetter = (name: string | null | undefined) => /\b(time|times|sec|secs|seconds|cycle|ms)\b|\(s\)/i.test(name ?? '')
+
+/** The measured number as a score where bigger is always better, or null when there's none. */
+export const measureScore = (t: Pick<Test, 'measure_value' | 'measure_name'>) =>
+  t.measure_value == null ? null : lowerIsBetter(t.measure_name) ? -t.measure_value : t.measure_value
+
 /** The test that best shows a prototype: worked over partly over failed, then score, then measured, then newest. */
 export function bestTest(tests: Test[]) {
   return tests
     .slice()
-    .sort((a, b) => (resultScore(b) ?? -1) - (resultScore(a) ?? -1) || (b.score ?? 0) - (a.score ?? 0) || (b.measure_value ?? -1e9) - (a.measure_value ?? -1e9) || b.n - a.n)[0]
+    .sort((a, b) => (resultScore(b) ?? -1) - (resultScore(a) ?? -1) || (b.score ?? 0) - (a.score ?? 0) || (measureScore(b) ?? -1e9) - (measureScore(a) ?? -1e9) || b.n - a.n)[0]
 }
 
 // ---------- Actions ----------
@@ -489,12 +526,21 @@ if (typeof window !== 'undefined')
   })
 
 let chain: Promise<unknown> = Promise.resolve()
+/** The clip of each job, kept until it's uploaded so a failed upload can be tried again. */
+const clips = new Map<string, { test: Test; file: File }>()
 
 /** One clip at a time, so a phone doesn't encode three videos at once. */
 export function queueVideo(test: Test, file: File) {
+  clips.set(test.id, { test, file })
   jobs = [...jobs.filter((j) => j.testId !== test.id), { testId: test.id, protoId: test.prototype_id, stage: 'shrinking', progress: 0 }]
   emit()
   chain = chain.then(() => runJob(test, file)).catch(() => {})
+}
+
+/** Try a failed upload again with the same clip (the connection dropped, the app was updated). */
+export function retryVideo(testId: string) {
+  const c = clips.get(testId)
+  if (c) queueVideo(c.test, c.file)
 }
 
 async function runJob(test: Test, file: File) {
@@ -525,8 +571,12 @@ async function runJob(test: Test, file: File) {
       if (!p?.cover_path || old.includes(p.cover_path)) await updatePrototype(test.prototype_id, { cover_path: poster })
     }
     setJob(test.id, { stage: 'done' })
+    clips.delete(test.id)
   } catch (e) {
-    setJob(test.id, { stage: 'failed', error: e instanceof Error ? e.message : String(e) })
+    const msg = e instanceof Error ? e.message : String(e)
+    // A tab left open across a deploy can't load the video tools any more: say what fixes it.
+    const stale = /dynamically imported module|Importing a module script failed|error loading/i.test(msg)
+    setJob(test.id, { stage: 'failed', error: stale ? 'Steamhub was updated. Tap Refresh at the top, then try again.' : msg })
   }
 }
 

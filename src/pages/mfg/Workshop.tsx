@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { MfgTabs, PartRow } from '../../components/mfg'
 import { PrintSheet } from '../../components/PrintSheet'
-import { useToast } from '../../components/ui'
+import { LoadError, useToast } from '../../components/ui'
+import { usePhone } from '../../lib/usePhone'
 import { useWho } from '../../lib/auth'
 import { claimPart, MADE, partName, setStatus, type Machine, type Part, type Robot, type Subsystem } from '../../lib/mfg'
 import { useParts, useRobots } from '../../lib/useMfg'
@@ -27,10 +28,20 @@ export default function Workshop() {
   const machine = (params.get('m') as Machine | null) ?? null
   const subId = params.get('s')
   const showDone = params.get('done') === '1'
-  const { parts, loading, put } = useParts({ released: true })
+  const { parts, loading, error, reload, put } = useParts({ released: true })
   const who = useWho()
   const toast = useToast()
-  const [busy, setBusy] = useState<string | null>(null)
+  const phone = usePhone()
+  // Rows that are saving, or that just started and are still settling (see `cool`).
+  const [held, setHeld] = useState<Set<string>>(new Set())
+  const running = useRef(new Set<string>())
+  const hold = (id: string, on: boolean) =>
+    setHeld((s) => {
+      const n = new Set(s)
+      if (on) n.add(id)
+      else n.delete(id)
+      return n
+    })
 
   /** Start and Done right on the row, like the Monday board: one tap, no page to open. */
   const quick = (p: Part) => {
@@ -45,15 +56,34 @@ export default function Workshop() {
     }
     const start = p.status === 'todo'
     const run = async () => {
-      setBusy(p.id)
+      if (running.current.has(p.id)) return
+      running.current.add(p.id)
+      hold(p.id, true)
       const res = start ? await claimPart(p, who) : await setStatus(p, 'done', who)
-      setBusy(null)
-      if (res.error) return toast(res.error)
+      running.current.delete(p.id)
+      if (res.error) {
+        hold(p.id, false)
+        return toast(res.error)
+      }
       if (res.data) put(res.data)
-      toast(start ? `${p.part_no} is yours` : `${p.part_no} ${partName(p)} done`)
+      if (start) {
+        toast(`${p.part_no} is yours`)
+        // Start turns into Done in the same spot, so the button rests a moment first: a double
+        // tap on Start used to finish the part and drop it off the list.
+        window.setTimeout(() => hold(p.id, false), 1200)
+      } else {
+        hold(p.id, false)
+        toast(`${p.part_no} ${partName(p)} done`, {
+          undo: async () => {
+            const back = await setStatus(res.data!, 'doing', who)
+            if (back.error) return toast(back.error)
+            if (back.data) put(back.data)
+          },
+        })
+      }
     }
     return (
-      <button type="button" className="q-btn q-btn--small mfg-row__act" disabled={busy === p.id} onClick={run}>
+      <button type="button" className="q-btn q-btn--small mfg-row__act" disabled={held.has(p.id)} onClick={run}>
         {start ? 'Start' : 'Done'}
       </button>
     )
@@ -99,6 +129,31 @@ export default function Workshop() {
   const robotName = (s: Subsystem) => robots.find((r) => r.id === s.robot_id)?.name ?? ''
   const total = groups.reduce((n, g) => n + g.open, 0)
 
+  const filters = (
+    <div className="mfg-filters">
+      <div className="picks picks--seg" role="radiogroup" aria-label="Machine">
+        {[null, ...MADE].map((m) => (
+          <button key={m ?? 'all'} type="button" role="radio" className="pick" aria-checked={machine === m} onClick={() => set('m', m)}>
+            {m ?? 'All'}
+          </button>
+        ))}
+      </div>
+      <div className="mfg-filters__sub">
+        <Select
+          className="field--inline"
+          label="Subsystem"
+          value={subId ?? ''}
+          onChange={(v) => set('s', v || null)}
+          options={[{ value: '', label: 'All subsystems' }, ...activeSubs.map((s) => ({ value: s.id, label: `${s.number} ${s.name}${multiRobot ? ` (${robotName(s)})` : ''}` }))]}
+        />
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={showDone} onChange={(e) => set('done', e.target.checked ? '1' : null)} />
+        Show done
+      </label>
+    </div>
+  )
+
   return (
     <div className="page">
       <div className="page__head">
@@ -106,30 +161,24 @@ export default function Workshop() {
         <MfgTabs />
       </div>
 
-      <div className="mfg-filters">
-        <div className="picks picks--seg" role="radiogroup" aria-label="Machine">
-          {[null, ...MADE].map((m) => (
-            <button key={m ?? 'all'} type="button" role="radio" className="pick" aria-checked={machine === m} onClick={() => set('m', m)}>
-              {m ?? 'All'}
-            </button>
-          ))}
-        </div>
-        <div className="mfg-filters__sub">
-          <Select
-            className="field--inline"
-            label="Subsystem"
-            value={subId ?? ''}
-            onChange={(v) => set('s', v || null)}
-            options={[{ value: '', label: 'All subsystems' }, ...activeSubs.map((s) => ({ value: s.id, label: `${s.number} ${s.name}${multiRobot ? ` (${robotName(s)})` : ''}` }))]}
-          />
-        </div>
-        <label className="check">
-          <input type="checkbox" checked={showDone} onChange={(e) => set('done', e.target.checked ? '1' : null)} />
-          Show done
-        </label>
-      </div>
+      {phone ? (
+        // Phones fold the filters into one line, so the first parts show on the first screen.
+        <details className="finder__more mfg-filters-fold">
+          <summary>
+            Filters{' '}
+            <span className="soft">
+              {[machine ?? 'All machines', subId ? (activeSubs.find((s) => s.id === subId)?.name ?? 'One subsystem') : 'All subsystems', showDone ? 'with done' : ''].filter(Boolean).join(' · ')}
+            </span>
+          </summary>
+          {filters}
+        </details>
+      ) : (
+        filters
+      )}
 
-      {loading || loadingR ? (
+      {error && !parts.length ? (
+        <LoadError onRetry={reload} />
+      ) : loading || loadingR ? (
         <p className="soft">Loading</p>
       ) : groups.length === 0 ? (
         <div className="mfg-empty">

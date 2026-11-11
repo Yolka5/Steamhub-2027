@@ -97,16 +97,33 @@ A full review of every section, on phone and desktop, judged on one question: is
 - Sign-in branches that could never show are gone (the whole site is behind sign-in).
 - Decided, don't reverse: everything loads at entry, KaTeX preloads, pages fetch fresh data on open.
 
+## Review fixes (2026-11-11)
+
+A second full review, then every finding built. Judged on the same question: faster, simpler or more trustworthy for a student in build season.
+
+- Trust: stock, the calculator robot and photos are members-only, for reading and writing (`20261111_members_only.sql`). A double tap on any Save, Start or Reserve does one thing once (`useBusy` in `src/components/ui.tsx`); before, Add stock saved two pieces and Start then Done finished a part. Start rests 1.2 s before it turns into Done. Done on a part cuts its stock only after the part saved. Two people can't both Start a part.
+- Numbers: "rod 12", "hex 12.7" and "ø20" are sizes, not lengths, and the cut list takes rod and hex. "700,350,120" is three lengths. Prototype values keep their zeros (1.05 stayed 15). End mills don't drop twice when the sheet catches up, and a sheet row with 0 plates means none. Partly used plates have to fit too. Hex spacers are named Hex. Times count lower-is-better in Compare and the summary.
+- Offline and slow: a phone opens with no signal however long since it was last used (the saved session is reported fresh while offline, `src/lib/supabase.ts`). A slow connection says it's showing saved data, and lists reload when it answers, when the connection returns, and after a minute away (`useReloadOnReturn`). The offline worker saves the video tools, the STEP reader and the KaTeX fonts too, skips signed links and keeps its saved data under 400 answers. Lists read past Supabase's 1000 rows (`selectAll`). A failed load says so with Try again instead of looking empty.
+- Fewer taps: the Home search searches everything (stock sizes go straight to Stock; 3004, M5 or a word open Ctrl K with it). The workshop filters fold into one line on phones. Undo on Done, plate Gone and Release. The cut list shows what it reserved instead of a new plan. Robots and subsystems can be renamed.
+- Storage: an upload deletes the files it replaces and keeps only the newest assembly STEP; storage refusing a file is reported.
+- Speed: no stagger on stock cards, and the Home search no longer waits behind the title animation. Prototype pictures are signed in one request per page.
+- Accessibility: big titles and tags pass contrast in light mode (`--brand-text`, darker meaning colours), small buttons and checkboxes are 44 px on touch screens, Ctrl K works with a screen reader and keeps the highlight in view, the status bar moved to the top so it never covers the toast or the picked-parts bar.
+- Admin (People, from the account menu): emails for the admin only, section use over the last 14 days, and Download a backup (every list as CSV in one zip).
+
 ## Still open
 
-- Press "Sync from sheet" on Plates once, so the merging sync runs and sync-on-open turns on.
+- **Run `supabase/migrations/20261111_members_only.sql`** (members-only stock, page counts) and **deploy `supabase/functions/sync-sheet`** (end mill and 0-plate fixes). Both were held for Yoni's go-ahead on 2026-11-11.
+- **After the 11 Nov code is deployed, run `20261111_emails_admin_only.sql`.** Before that, it would break the live site (older code reads profiles with select *).
+- **Upgrade the Supabase plan before kickoff** (calendar reminder on 3 Jan 2027). The free plan has 1 GB of file storage; one assembly upload is about 25–40 MB.
+- A one-page "how to" presentation for the workshop wall, with a QR code to it.
+- Press "Sync from sheet" on Plates once, so the merging sync runs and sync-on-open turns on. Deploy the sync fix above first.
 - Press "Copy from Drive" on Stock photos once. 80 pieces still point at Drive (the function is deployed).
 - Test the bolt table and assembly guide with a real assembly STEP (so far only folders of part files were uploaded).
 - Clear the test data ("(delete me)" prototypes, test robots) before kickoff.
 - Supabase advisor warnings: RLS policies that re-check auth per row, functions callable over the API.
 - Writing Steamhub's plate changes straight into the sheet needs a Google service account; on hold.
 - `scripts/verify-calc.ts`: 4 stall-load checks differ from the sheet since the stator-limited hold change.
-- Two weeks after kickoff: remove the prototype blocks nobody uses.
+- Two weeks after kickoff: remove the prototype blocks nobody uses, and check People → Sections used for whole sections nobody opens.
 - Manufacturing phase 6 (Onshape integration) in [MANUFACTURING.md](MANUFACTURING.md).
 - QR stickers, if the sharpie labels stop being enough.
 

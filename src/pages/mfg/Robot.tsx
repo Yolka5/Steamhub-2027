@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { MfgTabs } from '../../components/mfg'
-import { Sheet, useToast } from '../../components/ui'
+import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
+import { Rename } from './SubsystemPage'
 import { useAuth } from '../../lib/auth'
 import { empty, subStatus, useCounts } from '../../lib/counts'
 import { createSubsystem, type Subsystem } from '../../lib/mfg'
@@ -13,17 +14,33 @@ import { Select } from '../../components/Select'
 
 export default function RobotPage() {
   const { id = '' } = useParams()
-  const { robots, subs, loading, reload } = useRobots()
+  const { robots, subs, loading, error, reload } = useRobots()
   const { nameOf } = usePeople()
   const { isAdmin } = useAuth()
   const counts = useCounts()
   const toast = useToast()
   const navigate = useNavigate()
   const [adding, setAdding] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [busy, run] = useBusy()
   const robot = robots.find((r) => r.id === id)
   const mine = subs.filter((s) => s.robot_id === id)
 
-  if (!robot) return <div className="page">{loading ? <p className="soft">Loading</p> : <p className="soft">This robot doesn't exist anymore.</p>}</div>
+  if (!robot)
+    return (
+      <div className="page">
+        {error ? <LoadError onRetry={reload} /> : loading ? <p className="soft">Loading</p> : <p className="soft">This robot doesn't exist anymore.</p>}
+      </div>
+    )
+
+  const rename = (name: string) =>
+    run(async () => {
+      const { error } = await supabase.from('robots').update({ name }).eq('id', robot.id)
+      if (error) return toast(error.message)
+      await reload()
+      setRenaming(false)
+      toast('Saved. New drawings use the new name.')
+    })
 
   const archive = async () => {
     const { error } = await supabase.from('robots').update({ archived: !robot.archived }).eq('id', robot.id)
@@ -39,6 +56,16 @@ export default function RobotPage() {
         <h1 className="page__title">{robot.name}</h1>
         <MfgTabs />
       </div>
+      {renaming ? (
+        <Rename name={robot.name} label="Robot name" busy={busy} onSave={rename} onCancel={() => setRenaming(false)} />
+      ) : (
+        <p className="soft sub-meta">
+          {robot.season} season ·{' '}
+          <button type="button" className="text-btn" onClick={() => setRenaming(true)}>
+            Rename
+          </button>
+        </p>
+      )}
       <div className="mfg-bar-head">
         <h2 className="section__title">Subsystems</h2>
         <button type="button" className="q-btn q-btn--main" onClick={() => setAdding(true)}>
@@ -100,20 +127,18 @@ function NewSubsystem({ robotId, taken, onDone }: { robotId: string; taken: Subs
   const [number, setNumber] = useState(String(Math.max(0, ...taken.map((s) => s.number)) + 1))
   const [name, setName] = useState('')
   const [lead, setLead] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useBusy()
 
-  const save = async () => {
-    if (busy) return
-    const n = Number(number)
-    if (!n) return toast('Give it a number, like 3')
-    if (!name.trim()) return toast('Give it a name, like Intake')
-    if (!lead) return toast('Pick the lead first')
-    setBusy(true)
-    const res = await createSubsystem(robotId, n, name.trim(), lead)
-    setBusy(false)
-    if (res.error) return toast(res.error)
-    onDone(res.data!)
-  }
+  const save = () =>
+    run(async () => {
+      const n = Number(number)
+      if (!n) return toast('Give it a number, like 3')
+      if (!name.trim()) return toast('Give it a name, like Intake')
+      if (!lead) return toast('Pick the lead first')
+      const res = await createSubsystem(robotId, n, name.trim(), lead)
+      if (res.error) return toast(res.error)
+      onDone(res.data!)
+    })
 
   return (
     <form

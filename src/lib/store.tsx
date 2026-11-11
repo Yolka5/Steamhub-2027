@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { supabase } from './supabase'
+import { selectAll, supabase } from './supabase'
 import { useAuth } from './auth'
+import { useReloadOnReturn } from './useReturn'
 import type { Material, Piece } from './stock'
 
 // The whole stock list is small (hundreds of rows), so it is loaded once and searched in the
@@ -29,14 +30,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(async () => {
     const [p, m, l] = await Promise.all([
-      supabase.from('pieces').select('*').order('id'),
+      selectAll<Piece>(() => supabase.from('pieces').select('*').order('id')),
       supabase.from('materials').select('name, density').order('sort'),
       supabase.from('locations').select('name').order('sort'),
     ])
     const err = p.error ?? m.error ?? l.error
     if (err) setError(err.message)
     else {
-      setPieces(p.data as Piece[])
+      setPieces(p.data!)
       setMaterials(m.data as Material[])
       setLocations((l.data ?? []).map((r) => r.name as string))
       setError(null)
@@ -64,20 +65,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       })
       .subscribe()
-    // Realtime keeps the list current while the app is open. A phone drops that connection
-    // when the app is in the background, so coming back after more than a minute reloads it.
-    // Shorter trips (switching apps for a second) don't reload the whole stock list.
-    let hiddenAt = 0
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') hiddenAt = Date.now()
-      else if (hiddenAt && Date.now() - hiddenAt > 60_000) reload()
-    }
-    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       supabase.removeChannel(channel)
-      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [reload, userId])
+  // Realtime keeps the list current while the app is open. A phone drops that connection in the
+  // background and wifi blips drop it too, so coming back (after a minute away, or when the
+  // connection returns) reloads it. Switching apps for a second doesn't reload the whole list.
+  useReloadOnReturn(() => userId && reload())
 
   const value = useMemo<Store>(() => {
     const map = new Map(pieces.map((p) => [p.id, p]))

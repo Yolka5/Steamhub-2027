@@ -4,7 +4,9 @@ import { Activity } from '../components/Activity'
 import { Icon, type IconName } from '../components/Icon'
 import { Season } from '../components/Season'
 import { useAuth } from '../lib/auth'
-import { sizeLabel, type Piece } from '../lib/stock'
+import { parseQuery, queryIsEmpty, sizeLabel, type Piece } from '../lib/stock'
+import { looksLikeThread } from '../lib/threads'
+import { useOpenPalette } from '../lib/palette'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { PartRow } from '../components/mfg'
@@ -69,6 +71,7 @@ function Letters({ text }: { text: string }) {
 
 export default function Home() {
   const navigate = useNavigate()
+  const openPalette = useOpenPalette()
   const { pieces } = useStore()
   const { userId, name } = useAuth()
   const [text, setText] = useState('')
@@ -86,17 +89,23 @@ export default function Home() {
           className="hero__search"
           onSubmit={(e) => {
             e.preventDefault()
-            navigate(text.trim() ? `/stock?q=${encodeURIComponent(text.trim())}` : '/stock')
+            const t = text.trim()
+            // One search for everything, like Ctrl K. A stock size goes straight to the stock it
+            // fits; a part number (3004), a thread (M5) or a word opens the full search with it.
+            const q = parseQuery(t)
+            if (!t) navigate('/stock')
+            else if (/^\d{2,5}$/.test(t) || looksLikeThread(t) || queryIsEmpty(q)) openPalette(t)
+            else navigate(`/stock?q=${encodeURIComponent(t)}`)
           }}
         >
           <input
             className="field field--big num"
             type="search"
             enterKeyHint="search"
-            placeholder="20x40x1 700 · round 20/16 500 · TB-014"
+            placeholder="20x40x1 700 · part 3004 · M5"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            aria-label="Search stock"
+            aria-label="Search stock, parts, threads and pages"
           />
           <button type="submit" className="q-btn q-btn--main q-btn--big">
             Find

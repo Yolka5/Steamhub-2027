@@ -133,22 +133,16 @@
   }
 }
 
-/* ----- Cards: stagger in when a page opens, lift and sweep on hover, from the TTM site ----- */
+/* ----- Cards: one short fade when a page opens, lift and sweep on hover, from the TTM site -----
+   No stagger: with stock loaded in under a second, a stagger of up to 0.8 s had become the wait. */
 .card {
-  animation: card-in 420ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 40ms);
-}
-
-.cards[data-settled] .card {
-  animation-delay: 0ms;
-  animation-duration: 260ms;
+  animation: card-in 200ms var(--ease-out) both;
 }
 
 @keyframes card-in {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
-    filter: blur(2px);
+    transform: translateY(6px);
   }
 }
 
@@ -232,36 +226,8 @@
   }
 }
 
-/* The rest of the hero follows the title in. */
-.letters[data-play] ~ * {
-  animation: page-in 600ms var(--ease-out) both;
-  animation-delay: 520ms;
-}
-
-.letters[data-play] ~ .hero__search {
-  animation-delay: 600ms;
-}
-
-.letters[data-play] ~ .small {
-  animation-delay: 680ms;
-}
-
-.page:has(.letters[data-play]) .quick__item {
-  animation: card-in 520ms var(--ease-out) both;
-  animation-delay: calc(720ms + var(--i, 0) * 60ms);
-}
-
-.quick__item:nth-child(2) {
-  --i: 1;
-}
-
-.quick__item:nth-child(3) {
-  --i: 2;
-}
-
-.quick__item:nth-child(4) {
-  --i: 3;
-}
+/* The title plays its greeting, but the search under it is there from the first frame: it used
+   to wait 0.6 s behind the letters. */
 
 /* ----- Sheet: scales up in the middle on desktop, slides up from the bottom on phones ----- */
 .sheet {

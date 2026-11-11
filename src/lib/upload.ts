@@ -34,7 +34,8 @@ function parse(files: File[], onProgress: (t: string) => void): Promise<Parsed> 
     else if (m.type === 'error') waiting?.reject(new Error(m.message))
     else waiting?.resolve(m)
   }
-  worker.onerror = (e) => waiting?.reject(new Error(e.message || 'The STEP reader crashed'))
+  // No message usually means the reader's file didn't load: a tab left open across a deploy.
+  worker.onerror = (e) => waiting?.reject(new Error(e.message || "The STEP reader didn't start. If Steamhub just updated, tap Refresh at the top and drop the file again."))
   const ask = (msg: unknown, transfer: Transferable[] = []) =>
     new Promise<WorkerMsg>((resolve, reject) => {
       waiting = { resolve, reject }
@@ -179,12 +180,19 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
   const files = new Map<Plan, { geometry?: string; step?: string }>()
   const needFiles = plans.filter((p) => p.kind !== 'same' || !p.part?.geometry_path)
   let done = 0
+  // Storage refusing a file (usually because it's full) used to leave parts without a drawing silently.
+  let refused = 0
+  let refusedWhy = ''
   await pool(needFiles, 6, async (p, i) => {
     const out: { geometry?: string; step?: string } = {}
     const key = `${sub.id}/${upload.id}/${i}`
     if (p.item.geometry) {
       const r = await supabase.storage.from('parts').upload(`${key}.json.gz`, await gzip(p.item.geometry), { contentType: 'application/gzip' })
       if (!r.error) out.geometry = `${key}.json.gz`
+      else {
+        refused++
+        refusedWhy = r.error.message
+      }
     }
     if (p.item.step) {
       const r = await supabase.storage.from('parts').upload(`${key}.step`, new Blob([p.item.step], { type: 'application/step' }))
@@ -199,6 +207,9 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
   const link = (id: string) => `/manufacturing/p/${id}`
   const subLink = `/manufacturing/s/${sub.id}`
   const errors: string[] = []
+  if (refused) errors.push(`${refused} ${refused === 1 ? 'part was' : 'parts were'} saved without a drawing: file storage refused it (${refusedWhy}). Storage may be full.`)
+  // Files the new ones replace, removed once the part list points at the new ones.
+  const replaced: string[] = []
 
   const newRows = fresh.map((p) => {
     const machine = p.item.custom ? fromMethod(p.item.method) : 'Bought'
@@ -224,7 +235,13 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
   if (newRows.length) {
     const { data, error } = await supabase.from('parts').insert(newRows).select('id')
     if (error) errors.push(error.message)
-    else await Promise.all((data ?? []).map((r) => logPart(r.id, 'added', who, { file: file.name })))
+    else
+      await logPart(
+        (data ?? []).map((r) => r.id as string),
+        'added',
+        who,
+        { file: file.name },
+      )
   }
 
   const toLead: string[] = []
@@ -249,6 +266,10 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
       }
       const { error } = await supabase.from('parts').update(patch).eq('id', part.id)
       if (error) errors.push(error.message)
+      else {
+        if (f.geometry && part.geometry_path && part.geometry_path !== f.geometry) replaced.push(part.geometry_path)
+        if (f.step && part.step_path && part.step_path !== f.step) replaced.push(part.step_path)
+      }
     },
   )
 
@@ -261,8 +282,13 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
         gone.map((p) => p.id),
       )
     if (error) errors.push(error.message)
+    await logPart(
+      gone.map((p) => p.id),
+      'cancelled',
+      who,
+      { reason: 'not in the new STEP', file: file.name },
+    )
     for (const p of gone) {
-      await logPart(p.id, 'cancelled', who, { reason: 'not in the new STEP', file: file.name })
       if (p.status === 'doing' || p.status === 'done')
         await notify([sub.lead_id, p.maker_id], 'part_gone', `${p.part_no} ${p.name} is gone from the CAD but was ${p.status === 'done' ? 'already made' : 'in progress'}`, link(p.id), who.userId)
     }
@@ -281,10 +307,39 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
   if (single) {
     try {
       await saveAnalysis(parsed, sub, upload.id, onProgress)
+      await removeOldAnalyses(sub.id, upload.id)
     } catch (e) {
       errors.push(`Parts saved, but the bolt table and guide failed: ${e instanceof Error ? e.message : e}`)
     }
   }
+  // Storage is the free plan's tightest limit: every upload used to leave its files behind.
+  await removeQuietly('parts', replaced)
+  if (stepPath) await removeOldSteps(sub.id, stepPath)
   if (errors.length) return { summary, error: errors[0] }
   return { summary }
+}
+
+async function removeQuietly(bucket: string, paths: string[]) {
+  for (let i = 0; i < paths.length; i += 100) await supabase.storage.from(bucket).remove(paths.slice(i, i + 100))
+}
+
+/** Only the newest assembly STEP of a subsystem is kept. Nothing reads the older ones. */
+async function removeOldSteps(subId: string, keep: string) {
+  const { data } = await supabase.storage.from('step').list(subId, { limit: 1000 })
+  await removeQuietly(
+    'step',
+    (data ?? []).map((f) => `${subId}/${f.name}`).filter((p) => p !== keep),
+  )
+}
+
+/** The bolt table and guide pictures of older uploads, once the new ones are saved. */
+async function removeOldAnalyses(subId: string, keepUpload: string) {
+  const { data: old } = await supabase.from('step_uploads').select('id').eq('subsystem_id', subId).neq('id', keepUpload).not('analysis_path', 'is', null)
+  for (const u of old ?? []) {
+    const dir = `${subId}/${u.id}`
+    const { data: list } = await supabase.storage.from('parts').list(dir, { limit: 1000 })
+    const gone = (list ?? []).filter((f) => f.name === 'analysis.json.gz' || f.name.startsWith('guide-')).map((f) => `${dir}/${f.name}`)
+    await removeQuietly('parts', gone)
+    await supabase.from('step_uploads').update({ analysis_path: null }).eq('id', u.id)
+  }
 }

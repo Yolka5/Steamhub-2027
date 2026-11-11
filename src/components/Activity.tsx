@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useReloadOnReturn } from '../lib/useReturn'
 import { Link } from 'react-router-dom'
 import { partName, type Part } from '../lib/mfg'
 import { supabase } from '../lib/supabase'
@@ -26,6 +27,8 @@ interface PartEvent {
 
 /** Only the moments people care about; a release of 50 parts would flood the feed. */
 const PART_ACTIONS = ['claimed', 'status_done', 'urgent', 'status_missing']
+/** Stock moments. Not photo_copied: copying 80 Drive photos at once would fill the feed. */
+const PIECE_ACTIONS = ['reserved', 'released', 'used', 'added', 'edited', 'cut']
 
 type Item = { key: string; at: string; by_name: string | null; text: ReactNode }
 
@@ -61,6 +64,13 @@ function describe(e: Event) {
       return <>used {piece}</>
     case 'added':
       return <>added {piece}</>
+    case 'cut':
+      return (
+        <>
+          cut {piece}
+          {d.final ? ` to ${d.final} mm` : ''}
+        </>
+      )
     case 'edited':
       if ('photo_url' in d) return <>shot a photo of {piece}</>
       if ('length' in d) return <>changed the length of {piece}</>
@@ -106,21 +116,30 @@ export function Activity() {
   const [events, setEvents] = useState<Item[] | null>(null)
   const [now, setNow] = useState(() => Date.now())
 
-  useEffect(() => {
+  const load = useCallback(() => {
     Promise.all([
-      supabase.from('piece_events').select('id, piece_id, action, by_name, at, details').order('at', { ascending: false }).limit(LIMIT),
+      supabase.from('piece_events').select('id, piece_id, action, by_name, at, details').in('action', PIECE_ACTIONS).order('at', { ascending: false }).limit(LIMIT),
       supabase.from('part_events').select(PART_SELECT).in('action', PART_ACTIONS).order('at', { ascending: false }).limit(LIMIT),
-    ]).then(([s, p]) =>
-      setEvents(newest([...((s.data as Event[]) ?? []).map(fromPiece), ...((p.data as unknown as PartEvent[]) ?? []).map(fromPart)])),
-    )
+    ]).then(([s, p]) => {
+      if (s.error && p.error) return
+      setEvents(newest([...((s.data as Event[]) ?? []).map(fromPiece), ...((p.data as unknown as PartEvent[]) ?? []).map(fromPart)]))
+      setNow(Date.now())
+    })
+  }, [])
+  useReloadOnReturn(load)
 
+  useEffect(() => {
+    load()
     const add = (item: Item) => {
-      setEvents((list) => newest([item, ...(list ?? [])]))
+      setEvents((list) => newest([item, ...(list ?? []).filter((x) => x.key !== item.key)]))
       setNow(Date.now())
     }
     const channel = supabase
       .channel('activity')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'piece_events' }, (msg) => add(fromPiece(msg.new as Event)))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'piece_events' }, (msg) => {
+        const row = msg.new as Event
+        if (PIECE_ACTIONS.includes(row.action)) add(fromPiece(row))
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'part_events' }, async (msg) => {
         const row = msg.new as PartEvent
         if (!PART_ACTIONS.includes(row.action)) return
@@ -134,7 +153,7 @@ export function Activity() {
       supabase.removeChannel(channel)
       window.clearInterval(t)
     }
-  }, [])
+  }, [load])
 
   return (
     <section className="activity" aria-label="Team activity">

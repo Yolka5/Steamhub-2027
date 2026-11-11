@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Part, Profile, Robot, Subsystem, Upload } from './mfg'
-import { supabase } from './supabase'
+import { PROFILE_COLUMNS, type Part, type Profile, type Robot, type Subsystem, type Upload } from './mfg'
+import { selectAll, supabase } from './supabase'
+import { useReloadOnReturn } from './useReturn'
 
 // Small loaders for the Manufacturing pages. Lists are small (hundreds of parts), so each page
 // loads what it shows and keeps it live with realtime.
 
 let peopleCache: Promise<Profile[]> | null = null
+const loadPeople = () => Promise.resolve(supabase.from('profiles').select(PROFILE_COLUMNS).order('name')).then(({ data }) => (data as Profile[] | null) ?? [])
 
 export function usePeople() {
   const [people, setPeople] = useState<Profile[]>([])
   useEffect(() => {
-    peopleCache ??= Promise.resolve(supabase.from('profiles').select('*').order('name')).then(({ data }) => (data as Profile[]) ?? [])
+    peopleCache ??= loadPeople()
     peopleCache.then(setPeople)
   }, [])
   const reload = useCallback(async () => {
-    peopleCache = Promise.resolve(supabase.from('profiles').select('*').order('name')).then(({ data }) => (data as Profile[]) ?? [])
+    peopleCache = loadPeople()
     setPeople(await peopleCache)
   }, [])
   return { people, nameOf: (id: string | null) => people.find((p) => p.id === id)?.name ?? null, reload }
@@ -24,16 +26,22 @@ export function usePeople() {
 export function useParts(filter: { subsystemId?: string; released?: boolean }) {
   const [parts, setParts] = useState<Part[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { subsystemId, released } = filter
 
   const reload = useCallback(async () => {
-    let q = supabase.from('parts').select('*').order('part_no')
-    if (subsystemId) q = q.eq('subsystem_id', subsystemId)
-    if (released) q = q.not('released_at', 'is', null)
-    const { data } = await q
-    setParts((data as Part[]) ?? [])
+    const { data, error } = await selectAll<Part>(() => {
+      let q = supabase.from('parts').select('*').order('part_no').order('id')
+      if (subsystemId) q = q.eq('subsystem_id', subsystemId)
+      if (released) q = q.not('released_at', 'is', null)
+      return q
+    })
+    // A failed reload keeps what's on screen; only the first load shows the error.
+    if (data) setParts(data)
+    setError(error?.message ?? null)
     setLoading(false)
   }, [subsystemId, released])
+  useReloadOnReturn(reload)
 
   useEffect(() => {
     reload()
@@ -72,26 +80,29 @@ export function useParts(filter: { subsystemId?: string; released?: boolean }) {
     })
   }, [])
 
-  return { parts, loading, reload, put }
+  return { parts, loading, error, reload, put }
 }
 
 export function useRobots() {
   const [robots, setRobots] = useState<Robot[]>([])
   const [subs, setSubs] = useState<Subsystem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
     const [r, s] = await Promise.all([
       supabase.from('robots').select('*').order('created_at', { ascending: false }),
       supabase.from('subsystems').select('*').order('number'),
     ])
-    setRobots((r.data as Robot[]) ?? [])
-    setSubs((s.data as Subsystem[]) ?? [])
+    if (r.data) setRobots(r.data as Robot[])
+    if (s.data) setSubs(s.data as Subsystem[])
+    setError(r.error?.message ?? s.error?.message ?? null)
     setLoading(false)
   }, [])
   useEffect(() => {
     reload()
   }, [reload])
-  return { robots, subs, loading, reload }
+  useReloadOnReturn(reload)
+  return { robots, subs, loading, error, reload }
 }
 
 export function useSubsystem(id: string) {
@@ -99,9 +110,10 @@ export function useSubsystem(id: string) {
   const [robot, setRobot] = useState<Robot | null>(null)
   const [uploads, setUploads] = useState<Upload[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
     // Both at once: the uploads don't depend on the subsystem row.
-    const [{ data }, u] = await Promise.all([
+    const [{ data, error }, u] = await Promise.all([
       supabase.from('subsystems').select('*, robot:robots(*)').eq('id', id).maybeSingle(),
       supabase.from('step_uploads').select('*').eq('subsystem_id', id).order('uploaded_at', { ascending: false }).limit(5),
     ])
@@ -110,11 +122,12 @@ export function useSubsystem(id: string) {
       setSub(s)
       setRobot(r)
     }
-    setUploads((u.data as Upload[]) ?? [])
+    if (u.data) setUploads(u.data as Upload[])
+    setError(error?.message ?? null)
     setLoading(false)
   }, [id])
   useEffect(() => {
     reload()
   }, [reload])
-  return { sub, robot, uploads, loading, reload, setSub }
+  return { sub, robot, uploads, loading, error, reload, setSub }
 }

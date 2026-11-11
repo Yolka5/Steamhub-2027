@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { MfgTabs } from '../../components/mfg'
-import { Sheet, useToast } from '../../components/ui'
+import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { empty, useCounts } from '../../lib/counts'
 import { createRobot } from '../../lib/mfg'
@@ -11,7 +11,7 @@ import { Select } from '../../components/Select'
 // Every robot: V1, V2, prototypes. Each holds its own subsystems and parts.
 
 export default function Robots() {
-  const { robots, subs, loading } = useRobots()
+  const { robots, subs, loading, error, reload } = useRobots()
   const counts = useCounts()
   const [adding, setAdding] = useState(false)
   const active = robots.filter((r) => !r.archived)
@@ -55,7 +55,9 @@ export default function Robots() {
         </button>
       </div>
 
-      {loading ? (
+      {error && !robots.length ? (
+        <LoadError onRetry={reload} />
+      ) : loading ? (
         <p className="soft">Loading</p>
       ) : active.length === 0 ? (
         <p className="soft">No robots yet. Add the first one, like "2027 V1", then its subsystems.</p>
@@ -90,18 +92,17 @@ function NewRobotForm({ robots, onClose }: { robots: { id: string; name: string 
   const [name, setName] = useState('')
   const [season, setSeason] = useState(String(new Date().getMonth() >= 8 ? new Date().getFullYear() + 1 : new Date().getFullYear()))
   const [copy, setCopy] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useBusy()
 
-  const save = async () => {
-    if (busy || !who) return
-    if (!name.trim()) return toast('Give the robot a name first')
-    setBusy(true)
-    const res = await createRobot(name.trim(), Number(season) || new Date().getFullYear(), who, copy || undefined)
-    setBusy(false)
-    if (res.error) return toast(res.error)
-    onClose()
-    navigate(`/manufacturing/r/${res.data!.id}`)
-  }
+  const save = () =>
+    run(async () => {
+      if (!who) return
+      if (!name.trim()) return toast('Give the robot a name first')
+      const res = await createRobot(name.trim(), Number(season) || new Date().getFullYear(), who, copy || undefined)
+      if (res.error) return toast(res.error)
+      onClose()
+      navigate(`/manufacturing/r/${res.data!.id}`)
+    })
 
   return (
     <form

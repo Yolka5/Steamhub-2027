@@ -5,12 +5,13 @@ import { Link, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { PartStatusTag, UrgentTag } from '../../components/mfg'
 import { PrintSheet } from '../../components/PrintSheet'
-import { useToast } from '../../components/ui'
+import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { countParts, subStatus } from '../../lib/counts'
 import {
   ago,
   guessMaterial,
+  logPart,
   MACHINES,
   MATERIALS,
   partName,
@@ -37,16 +38,23 @@ import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
 
 export default function SubsystemPage() {
   const { id = '' } = useParams()
-  const { sub, robot, uploads, loading, reload, setSub } = useSubsystem(id)
-  const { parts, put, reload: reloadParts } = useParts({ subsystemId: id })
+  const { sub, robot, uploads, loading, error, reload, setSub } = useSubsystem(id)
+  const { parts, put, reload: reloadParts, error: partsError } = useParts({ subsystemId: id })
   const { people } = usePeople()
   const who = useWho()
   const toast = useToast()
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [printing, setPrinting] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [busy, run] = useBusy()
   const { pieces, densities } = useStore()
 
-  if (!sub || !robot) return <div className="page">{loading ? <p className="soft">Loading</p> : <p className="soft">This subsystem doesn't exist anymore.</p>}</div>
+  if (!sub || !robot)
+    return (
+      <div className="page">
+        {error ? <LoadError onRetry={reload} /> : loading ? <p className="soft">Loading</p> : <p className="soft">This subsystem doesn't exist anymore.</p>}
+      </div>
+    )
 
   const live = parts.filter((p) => p.status !== 'cancelled')
   const design = live.filter((p) => p.machine !== 'Bought' && !p.released_at)
@@ -76,24 +84,37 @@ export default function SubsystemPage() {
       return n
     })
 
-  const release = async (list: Part[]) => {
-    if (!who) return
-    const todo = list.filter((p) => !p.released_at && p.machine !== 'Bought')
-    if (!todo.length) return toast('Those are already released')
-    const res = await releaseParts(todo, who)
-    if (res.error) return toast(res.error)
-    put(res.data!)
-    setPicked(new Set())
-    toast(`${todo.length} released to the workshop`)
-  }
+  const release = (list: Part[]) =>
+    run(async () => {
+      if (!who) return
+      const todo = list.filter((p) => !p.released_at && p.machine !== 'Bought')
+      if (!todo.length) return toast('Those are already released')
+      const res = await releaseParts(todo, who)
+      if (res.error) return toast(res.error)
+      put(res.data!)
+      setPicked(new Set())
+      toast(`${todo.length} released to the workshop`)
+    })
 
-  const setUrgent = async (urgent: boolean) => {
-    const res = await updateParts([...picked], { urgent })
-    if (res.error) return toast(res.error)
-    put(res.data!)
-    setPicked(new Set())
-    toast(urgent ? 'Marked urgent' : 'No longer urgent')
-  }
+  const setUrgent = (urgent: boolean) =>
+    run(async () => {
+      const ids = [...picked]
+      const res = await updateParts(ids, { urgent })
+      if (res.error) return toast(res.error)
+      put(res.data!)
+      setPicked(new Set())
+      if (who) await logPart(ids, urgent ? 'urgent' : 'not_urgent', who)
+      toast(urgent ? 'Marked urgent' : 'No longer urgent')
+    })
+
+  const rename = (name: string) =>
+    run(async () => {
+      const { data, error } = await supabase.from('subsystems').update({ name }).eq('id', sub.id).select().single()
+      if (error) return toast(error.message)
+      setSub(data as typeof sub)
+      setRenaming(false)
+      toast('Saved. New drawings use the new name.')
+    })
 
   const setLead = async (leadId: string) => {
     const { error } = await supabase.from('subsystems').update({ lead_id: leadId || null }).eq('id', sub.id)
@@ -112,11 +133,20 @@ export default function SubsystemPage() {
           <h1 className="page__title">
             <span className="num">{sub.number}</span> {sub.name}
           </h1>
+          {renaming && <Rename name={sub.name} label="Subsystem name" busy={busy} onSave={rename} onCancel={() => setRenaming(false)} />}
           <p className="soft sub-meta">
             <Link to={`/manufacturing/r/${robot.id}`}>{robot.name}</Link> · {status}
             {c.made ? ` · ${c.done} of ${c.made} made` : ''}
             {c.bought ? ` · ${c.got} of ${c.bought} bought parts collected` : ''}
             {stock.length ? ` · ${(grams / 1000).toFixed(2)} kg of stock reserved` : ''}
+            {!renaming && (
+              <>
+                {' · '}
+                <button type="button" className="text-btn" onClick={() => setRenaming(true)}>
+                  Rename
+                </button>
+              </>
+            )}
             {(status === 'Ready for assembly' || sub.assembled) && (
               <>
                 {' · '}
@@ -161,7 +191,9 @@ export default function SubsystemPage() {
         last={last ? `Last upload: ${last.filename}, ${last.uploaded_by_name ?? 'someone'}, ${ago(last.uploaded_at)}` : null}
       />
 
-      {parts.length === 0 ? (
+      {partsError && !parts.length ? (
+        <LoadError onRetry={reloadParts} />
+      ) : parts.length === 0 ? (
         <div className="mfg-help">
           <h2 className="section__title">Getting the STEP from Onshape</h2>
           <ol>
@@ -182,7 +214,7 @@ export default function SubsystemPage() {
             put={put}
             action={
               design.length > 0 && (
-                <button type="button" className="q-btn q-btn--small" onClick={() => release(design)}>
+                <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => release(design)}>
                   Release all {design.length}
                 </button>
               )
@@ -228,16 +260,16 @@ export default function SubsystemPage() {
             <div className="mfg-actionbar" role="toolbar" aria-label="Picked parts">
               <span className="num">{picked.size} picked</span>
               {pickedParts.some((p) => !p.released_at && p.machine !== 'Bought') && (
-                <button type="button" className="q-btn q-btn--main" onClick={() => release(pickedParts)}>
+                <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={() => release(pickedParts)}>
                   Release
                 </button>
               )}
               {pickedParts.some((p) => !p.urgent) ? (
-                <button type="button" className="q-btn" onClick={() => setUrgent(true)}>
+                <button type="button" className="q-btn" disabled={busy} onClick={() => setUrgent(true)}>
                   <Icon name="flag" size={18} /> Urgent
                 </button>
               ) : (
-                <button type="button" className="q-btn" onClick={() => setUrgent(false)}>
+                <button type="button" className="q-btn" disabled={busy} onClick={() => setUrgent(false)}>
                   Not urgent
                 </button>
               )}
@@ -250,6 +282,31 @@ export default function SubsystemPage() {
 
       <PrintSheet open={printing} parts={released} ctx={{ robot, sub }} onClose={() => setPrinting(false)} />
     </div>
+  )
+}
+
+/**
+ * A typo in a subsystem name prints on every drawing, so it can be fixed in place. Only the name:
+ * the number is in every part number and links the prototypes, so it stays.
+ */
+export function Rename({ name, label, busy, onSave, onCancel }: { name: string; label: string; busy: boolean; onSave: (name: string) => void; onCancel: () => void }) {
+  const [t, setT] = useState(name)
+  return (
+    <form
+      className="rename"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (t.trim()) onSave(t.trim())
+      }}
+    >
+      <input className="field" aria-label={label} autoFocus value={t} onChange={(e) => setT(e.target.value)} />
+      <button type="submit" className="q-btn" disabled={busy || !t.trim()}>
+        Save
+      </button>
+      <button type="button" className="q-btn" onClick={onCancel}>
+        Cancel
+      </button>
+    </form>
   )
 }
 

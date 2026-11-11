@@ -5,12 +5,12 @@ import { Link } from 'react-router-dom'
 import { reservePiece } from '../lib/actions'
 import { useWho } from '../lib/auth'
 import { loadGeometry } from '../lib/drawing'
-import { barDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
+import { barDims, hexDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
 import { plateArea, platesFor, setPlateState, STATE_WORD, tText, usePlates, type Plate, type PlateState } from '../lib/plates'
 import { tubeWall } from '../lib/step/engine'
 import { findMatches, sizeLabel, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
-import { useToast } from './ui'
+import { useBusy, useToast } from './ui'
 
 // Where a part's material comes from: plates that fit for CNC parts, tube, rod or hex stock for
 // the rest. Reserving a stock piece ties it to the part; Done on the part cuts it (see PartPage).
@@ -33,8 +33,8 @@ async function stockQuery(p: Part): Promise<Query | null> {
     }
     return { kind: 'rect_tube', a: y, b: z, wall: wall ? Math.round(wall * 100) / 100 : undefined, length }
   }
-  // Hex: across corners is 2/√3 times across flats.
-  if (z > 0 && Math.abs(y / z - 2 / Math.sqrt(3)) < 0.02) return { kind: 'hex', a: z, length }
+  const hex = hexDims(p.size)
+  if (hex) return { kind: 'hex', a: hex.flats, length }
   // Round when the section is a circle and it's turned; a milled square bar isn't round stock.
   if (Math.abs(y - z) < 0.05 && (p.cls === 'round' || p.machine === 'Lathe')) return { kind: 'round', a: y, length }
   return null
@@ -62,17 +62,29 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
   }, [plates, part.size])
   const used = plates.find((p) => p.id === part.plate_id)
   const thick = Math.round(Math.min(...part.size.map(Number)) * 100) / 100
+  const [busy, run] = useBusy()
 
-  const cutFrom = async (plateId: string, state: PlateState) => {
-    if (!who) return
-    const res = await setPlateState(plateId, state, who)
-    if (res.error) return toast(res.error)
-    setPlates((cur) => cur.map((x) => (x.id === plateId ? { ...x, state } : x)))
-    const r2 = await updatePart(part.id, { plate_id: plateId })
-    if (r2.error) return toast(r2.error)
-    onPart(r2.data!)
-    toast(state === 'gone' ? 'Plate marked gone' : 'Plate marked partly used')
-  }
+  const cutFrom = (plateId: string, state: PlateState) =>
+    run(async () => {
+      if (!who) return
+      const before = plates.find((x) => x.id === plateId)?.state
+      const res = await setPlateState(plateId, state, who)
+      if (res.error) return toast(res.error)
+      setPlates((cur) => cur.map((x) => (x.id === plateId ? { ...x, state } : x)))
+      const r2 = await updatePart(part.id, { plate_id: plateId })
+      if (r2.error) return toast(r2.error)
+      onPart(r2.data!)
+      toast(state === 'gone' ? 'Plate marked gone' : 'Plate marked partly used', {
+        undo: before
+          ? async () => {
+              await setPlateState(plateId, before, who)
+              setPlates((cur) => cur.map((x) => (x.id === plateId ? { ...x, state: before } : x)))
+              const r3 = await updatePart(part.id, { plate_id: part.plate_id })
+              if (r3.data) onPart(r3.data)
+            }
+          : undefined,
+      })
+    })
 
   return (
     <section className="stock-pick">
@@ -88,7 +100,7 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
             </span>
           </span>
           {used.state !== 'gone' && (
-            <button type="button" className="q-btn q-btn--small" onClick={() => cutFrom(used.id, 'gone')}>
+            <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => cutFrom(used.id, 'gone')}>
               Used it up
             </button>
           )}
@@ -112,10 +124,10 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
                 </span>
               </span>
               <span className="stock-pick__btns">
-                <button type="button" className="q-btn q-btn--small" onClick={() => cutFrom(pl.id, 'partly_used')}>
+                <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => cutFrom(pl.id, 'partly_used')}>
                   Some left
                 </button>
-                <button type="button" className="q-btn q-btn--small" onClick={() => cutFrom(pl.id, 'gone')}>
+                <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => cutFrom(pl.id, 'gone')}>
                   Used up
                 </button>
               </span>
@@ -144,19 +156,21 @@ function BarPick({ part, sub, onPart }: { part: Part; sub: Subsystem; onPart: (p
   const held = part.piece_id ? byId(part.piece_id) : undefined
   // Round and hex bar has to be the size; a profile can be off a little.
   const matches = useMemo(() => (q ? findMatches(pieces, q, q.kind === 'rect_tube' ? 0.5 : 0.2).slice(0, 4) : []), [pieces, q])
+  const [busy, run] = useBusy()
   if (q === undefined || (q === null && !held)) return null
   const need = stockLength(part)
 
-  const reserve = async (id: string) => {
-    if (!who) return
-    const res = await reservePiece(id, who, `${sub.number} ${sub.name}`, need, sub.id)
-    if (res.error) return toast(res.error)
-    upsertLocal(res.piece!)
-    const r2 = await updatePart(part.id, { piece_id: id })
-    if (r2.error) return toast(r2.error)
-    onPart(r2.data!)
-    toast(`${id} reserved. It gets cut when the part is done.`)
-  }
+  const reserve = (id: string) =>
+    run(async () => {
+      if (!who) return
+      const res = await reservePiece(id, who, `${sub.number} ${sub.name}`, need, sub.id)
+      if (res.error) return toast(res.error)
+      upsertLocal(res.piece!)
+      const r2 = await updatePart(part.id, { piece_id: id })
+      if (r2.error) return toast(r2.error)
+      onPart(r2.data!)
+      toast(`${id} reserved. It gets cut when the part is done.`)
+    })
 
   return (
     <section className="stock-pick">
@@ -194,7 +208,7 @@ function BarPick({ part, sub, onPart }: { part: Part; sub: Subsystem; onPart: (p
                   {sizeLabel(m.piece)}, {m.piece.length} mm{m.piece.location ? `, ${m.piece.location}` : ''}
                 </span>
               </span>
-              <button type="button" className="q-btn q-btn--small" onClick={() => reserve(m.piece.id)}>
+              <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => reserve(m.piece.id)}>
                 Reserve
               </button>
             </div>

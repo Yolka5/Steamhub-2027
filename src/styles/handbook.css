@@ -29,7 +29,7 @@
   font-size: clamp(2rem, 6vw, 2.75rem);
   font-weight: 800;
   line-height: 1.1;
-  color: var(--brand);
+  color: var(--brand-text);
 }
 
 .hb-sub {

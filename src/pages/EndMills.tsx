@@ -1,5 +1,6 @@
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useToast } from '../components/ui'
+import { LoadError, useToast } from '../components/ui'
 import { useAutoSync, useEndMills, useSheetSetting, type EndMill } from '../lib/plates'
 import { supabase } from '../lib/supabase'
 
@@ -7,18 +8,25 @@ import { supabase } from '../lib/supabase'
 // are both kept: a sync applies only what changed in the sheet, so a count changed here stays.
 
 export default function EndMills() {
-  const { mills, loading, setMills, reload } = useEndMills()
+  const { mills, loading, error, setMills, reload } = useEndMills()
   const { setting } = useSheetSetting()
   useAutoSync(setting, reload)
   const pending = mills.filter((m) => m.sheet_qty != null && m.sheet_qty !== m.qty)
   const toast = useToast()
   const groups = [...new Set(mills.map((m) => m.flutes))]
 
+  // Counts from the latest tap, not the render the button was drawn in, so quick taps add up.
+  const latest = useRef(mills)
+  latest.current = mills
   const bump = async (m: EndMill, d: number) => {
-    const qty = Math.max(0, m.qty + d)
-    setMills((cur) => cur.map((x) => (x.id === m.id ? { ...x, qty } : x)))
+    const qty = Math.max(0, (latest.current.find((x) => x.id === m.id)?.qty ?? m.qty) + d)
+    latest.current = latest.current.map((x) => (x.id === m.id ? { ...x, qty } : x))
+    setMills(latest.current)
     const { error } = await supabase.from('end_mills').update({ qty }).eq('id', m.id)
-    if (error) toast(error.message)
+    if (error) {
+      toast(error.message)
+      reload()
+    }
   }
 
   return (
@@ -39,7 +47,9 @@ export default function EndMills() {
           <p className="soft small">They leave this list on their own once the sheet has the same count.</p>
         </section>
       )}
-      {loading ? (
+      {error && !mills.length ? (
+        <LoadError onRetry={reload} />
+      ) : loading ? (
         <p className="soft">Loading</p>
       ) : mills.length === 0 ? (
         <p className="soft">Nothing yet. Sync from the sheet on the Plates page.</p>

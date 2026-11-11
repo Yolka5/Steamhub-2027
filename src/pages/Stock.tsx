@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import { PieceCard } from '../components/PieceCard'
@@ -52,12 +52,6 @@ export default function Stock() {
   const { pieces, loading, error } = useStore()
   const phone = usePhone()
   const [reserving, setReserving] = useState<Piece | null>(null)
-  // Cards stagger in when the page opens. After that, new results just appear.
-  const [settled, setSettled] = useState(false)
-  useEffect(() => {
-    const t = window.setTimeout(() => setSettled(true), 700)
-    return () => window.clearTimeout(t)
-  }, [])
 
   const text = params.get('q') ?? ''
   const kindPick = params.get('k') ?? ''
@@ -213,11 +207,10 @@ export default function Stock() {
       {view === 'table' ? (
         matches.length > 0 && <PieceTable matches={matches} showLeft={q.length != null} best={words.length > 0} onReserve={setReserving} />
       ) : (
-        <div className="cards" data-settled={settled || undefined}>
+        <div className="cards">
           {matches.map((m, i) => (
             <PieceCard
               key={m.piece.id}
-              index={i}
               piece={m.piece}
               leftover={m.leftover}
               main={i === 0 && words.length > 0}

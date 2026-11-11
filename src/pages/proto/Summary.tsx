@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { ProtoStatusTag, ResultTag, TestVideo } from '../../components/proto'
 import { Select } from '../../components/Select'
-import { bestTest, keyLines, paramsOf, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
+import { bestTest, keyLines, measureScore, paramsOf, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
 
 // One subsystem's season of prototyping on one page: what was tried, what was chosen and why,
 // and the best video of each. Written for next season's team to read before kickoff.
@@ -88,7 +88,9 @@ export default function Summary() {
                   {mine.map((p) => {
                     const ts = testsOf(p.id)
                     const best = bestTest(ts)
-                    const topMeasure = ts.reduce<number | null>((m, t) => (t.measure_value != null && (m == null || t.measure_value > m) ? t.measure_value : m), null)
+                    // Best measured: the lowest time, or the highest count.
+                    const topTest = ts.reduce<Test | null>((m, t) => (measureScore(t) != null && (m == null || measureScore(t)! > measureScore(m)!) ? t : m), null)
+                    const topMeasure = topTest?.measure_value ?? null
                     return (
                       <tr key={p.id}>
                         <th scope="row" className="pt-sum__name">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { deletePiece, updatePiece } from '../lib/actions'
 import { KINDS, KIND_ORDER, type Kind, type Piece } from '../lib/stock'
 import { useStore } from '../lib/store'
-import { useToast } from './ui'
+import { useBusy, useToast } from './ui'
 import { Select } from './Select'
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
@@ -20,11 +20,12 @@ export function PieceEditor({ piece, who, onDone }: { piece: Piece; who: { userI
   const [material, setMaterial] = useState(piece.material ?? '')
   const [notes, setNotes] = useState(piece.notes ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useBusy()
 
   const fields = KINDS[kind].fields
 
-  const save = async () => {
+  const save = () => run(saveNow)
+  const saveNow = async () => {
     const len = num(length)
     if (!len || len <= 0) return toast('Length has to be a number')
     const a = num(dims.a)
@@ -39,19 +40,16 @@ export function PieceEditor({ piece, who, onDone }: { piece: Piece; who: { userI
       material: material || null,
       notes: notes.trim() || null,
     }
-    setBusy(true)
     const res = await updatePiece(piece.id, patch, who)
-    setBusy(false)
     if (res.error) return toast(res.error)
     upsertLocal(res.piece!)
     toast('Saved')
     onDone()
   }
 
-  const remove = async () => {
-    setBusy(true)
+  const remove = () => run(removeNow)
+  const removeNow = async () => {
     const res = await deletePiece(piece.id)
-    setBusy(false)
     if (res.error) return toast(res.error)
     await reload()
     toast(`${piece.id} deleted`)

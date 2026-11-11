@@ -96,7 +96,9 @@ Deno.serve(async (req) => {
       const a = num(r[1])
       const b = num(r[2])
       if (t == null || a == null || b == null) continue // header and blank rows
-      const n = Math.max(1, Math.round(num(r[3]) ?? 1))
+      // Blank means one plate; 0 means none left (it used to count as one).
+      const n = Math.max(0, Math.round(num(r[3]) ?? 1))
+      if (n === 0) continue
       const l = Math.max(a, b)
       const w = Math.min(a, b)
       const key = `${t}|${l}|${w}`
@@ -176,7 +178,10 @@ Deno.serve(async (req) => {
         const rows = [...found.entries()].map(([key, f]) => {
           const m = curBy.get(key)
           if (!m) return { ...f, sheet_qty: f.qty }
-          // Only the sheet's change since the last sync: 5 → 4 in the sheet takes one off Steamhub's count.
+          // The sheet caught up with Steamhub (someone typed Steamhub's count in): nothing to apply.
+          // Without this, Steamhub 5 → 4 and then the sheet 5 → 4 took the same end mill off twice.
+          if (f.qty === m.qty) return { flutes: f.flutes, diameter: f.diameter, qty: m.qty, sheet_qty: f.qty }
+          // Otherwise only the sheet's change since the last sync: 5 → 4 in the sheet takes one off Steamhub's count.
           const before = m.sheet_qty ?? m.qty
           return { flutes: f.flutes, diameter: f.diameter, qty: Math.max(0, m.qty + (f.qty - before)), sheet_qty: f.qty }
         })

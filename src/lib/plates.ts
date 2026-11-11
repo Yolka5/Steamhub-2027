@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from './supabase'
+import { selectAll, supabase } from './supabase'
+import { useReloadOnReturn } from './useReturn'
 
 // CNC plate stock and end mills. Plates have no labels; they're found by size. One row per
 // physical plate, so each can be Available, Partly used (someone cut from it, there may be enough
@@ -49,11 +50,14 @@ export const tText = (t: number) => String(+Number(t).toFixed(3))
 export function usePlates() {
   const [plates, setPlates] = useState<Plate[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
-    const { data } = await supabase.from('plates').select('*').order('thickness').order('length', { ascending: false })
-    setPlates(((data as Plate[]) ?? []).map((p) => ({ ...p, thickness: Number(p.thickness), length: Number(p.length), width: Number(p.width) })))
+    const { data, error } = await selectAll<Plate>(() => supabase.from('plates').select('*').order('thickness').order('length', { ascending: false }).order('id'))
+    if (data) setPlates(data.map((p) => ({ ...p, thickness: Number(p.thickness), length: Number(p.length), width: Number(p.width) })))
+    setError(error?.message ?? null)
     setLoading(false)
   }, [])
+  useReloadOnReturn(reload)
   useEffect(() => {
     reload()
     const channel = supabase
@@ -64,7 +68,7 @@ export function usePlates() {
       supabase.removeChannel(channel)
     }
   }, [reload])
-  return { plates, loading, reload, setPlates }
+  return { plates, loading, error, reload, setPlates }
 }
 
 export async function setPlateState(id: string, state: PlateState, who: { userId: string; name: string }) {
@@ -106,7 +110,8 @@ export async function syncSheet(): Promise<{ plates?: number; added?: number; ad
 
 /**
  * Plates a part can be cut from: same thickness (±0.2 mm), big enough either way round with
- * 5 mm to spare on each side. Partly used ones first (use them up), then smallest first.
+ * 5 mm to spare on each side. Partly used ones first (use them up), then smallest first. A partly
+ * used plate may have enough left, but never more than the whole plate, so it has to fit too.
  */
 export function platesFor(plates: Plate[], size: number[]): Plate[] {
   const [x, y, t] = size.slice().sort((a, b) => b - a)
@@ -114,22 +119,25 @@ export function platesFor(plates: Plate[], size: number[]): Plate[] {
   const m = 10
   return plates
     .filter((p) => p.state !== 'gone' && Math.abs(p.thickness - t) <= 0.2)
-    .filter((p) => p.state === 'partly_used' || (p.length >= x + m && p.width >= y + m))
+    .filter((p) => p.length >= x + m && p.width >= y + m)
     .sort((a, b) => (a.state === b.state ? plateArea(a) - plateArea(b) : a.state === 'partly_used' ? -1 : 1))
 }
 
 export function useEndMills() {
   const [mills, setMills] = useState<EndMill[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
-    const { data } = await supabase.from('end_mills').select('*').order('flutes').order('diameter')
-    setMills(((data as EndMill[]) ?? []).map((m) => ({ ...m, diameter: Number(m.diameter) })))
+    const { data, error } = await supabase.from('end_mills').select('*').order('flutes').order('diameter')
+    if (data) setMills((data as EndMill[]).map((m) => ({ ...m, diameter: Number(m.diameter) })))
+    setError(error?.message ?? null)
     setLoading(false)
   }, [])
   useEffect(() => {
     reload()
   }, [reload])
-  return { mills, loading, reload, setMills }
+  useReloadOnReturn(reload)
+  return { mills, loading, error, reload, setMills }
 }
 
 /**

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { MfgTabs } from '../../components/mfg'
-import { Sheet, useToast } from '../../components/ui'
+import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
+import { useReloadOnReturn } from '../../lib/useReturn'
 import { useWho } from '../../lib/auth'
 import { ago, saveFile } from '../../lib/mfg'
 import { supabase } from '../../lib/supabase'
@@ -38,11 +39,14 @@ export default function Wishlist() {
   const [adding, setAdding] = useState(false)
   const [armed, setArmed] = useState<string | null>(null)
 
+  const [error, setError] = useState<string | null>(null)
   const reload = useCallback(async () => {
-    const { data } = await supabase.from('wishlist').select('*').order('created_at', { ascending: false })
-    setList((data as Wish[]) ?? [])
+    const { data, error } = await supabase.from('wishlist').select('*').order('created_at', { ascending: false })
+    if (data) setList(data as Wish[])
+    setError(error?.message ?? null)
     setLoading(false)
   }, [])
+  useReloadOnReturn(reload)
   useEffect(() => {
     reload()
     const channel = supabase
@@ -72,8 +76,12 @@ export default function Wishlist() {
     if (!rows.length) return toast('Nothing open to copy')
     // Tabs between cells and no quotes: Google Sheets splits it into columns on paste.
     const clean = (c: string) => c.replace(/[\t\n\r]+/g, ' ')
-    await navigator.clipboard.writeText([COLUMNS, ...rows].map((r) => r.map(clean).join('\t')).join('\n'))
-    toast(`Copied ${rows.length} ${rows.length === 1 ? 'item' : 'items'}. Paste into the first cell of a new sheet.`)
+    try {
+      await navigator.clipboard.writeText([COLUMNS, ...rows].map((r) => r.map(clean).join('\t')).join('\n'))
+      toast(`Copied ${rows.length} ${rows.length === 1 ? 'item' : 'items'}. Paste into the first cell of a new sheet.`)
+    } catch {
+      toast("This device didn't allow copying. Use CSV instead.")
+    }
   }
 
   const csv = () => {
@@ -126,7 +134,9 @@ export default function Wishlist() {
         ))}
       </div>
 
-      {loading ? (
+      {error && !list.length ? (
+        <LoadError onRetry={reload} />
+      ) : loading ? (
         <p className="soft">Loading</p>
       ) : shown.length === 0 ? (
         <p className="soft">{show === 'open' ? 'Nothing missing. Mark a bought part Missing, or add an item by hand.' : 'Nothing bought yet.'}</p>
@@ -189,8 +199,10 @@ function AddWish({ subs, subName, onDone }: { subs: { id: string }[]; subName: (
   const [link, setLink] = useState('')
   const [price, setPrice] = useState('')
   const [sub, setSub] = useState('')
+  const [busy, run] = useBusy()
 
-  const save = async () => {
+  const save = () => run(saveNow)
+  const saveNow = async () => {
     if (!item.trim()) return toast('Write what to buy first')
     const { error } = await supabase.from('wishlist').insert({
       item: item.trim(),
@@ -241,8 +253,8 @@ function AddWish({ subs, subName, onDone }: { subs: { id: string }[]; subName: (
         <span className="ctl__name">For which subsystem</span>
         <Select value={sub} onChange={setSub} options={[{ value: '', label: 'General' }, ...subs.map((s) => ({ value: s.id, label: subName(s.id) }))]} />
       </label>
-      <button type="submit" className="q-btn q-btn--main q-btn--wide">
-        Add to the wishlist
+      <button type="submit" className="q-btn q-btn--main q-btn--wide" disabled={busy}>
+        {busy ? 'Adding' : 'Add to the wishlist'}
       </button>
     </form>
   )

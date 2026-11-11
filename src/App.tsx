@@ -1,4 +1,6 @@
-import { useEffect, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useState, type MouseEvent } from 'react'
+import { PaletteContext } from './lib/palette'
+import { supabase } from './lib/supabase'
 import { flushSync } from 'react-dom'
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Icon, type IconName } from './components/Icon'
@@ -117,18 +119,32 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   // Opened by a click it drops in; opened by Ctrl K it appears instantly, since that happens constantly.
   const [paletteAnim, setPaletteAnim] = useState(false)
-  const openPalette = () => {
+  const [paletteText, setPaletteText] = useState('')
+  const openPalette = useCallback((text = '') => {
+    setPaletteText(text)
     setPaletteAnim(true)
     setPaletteOpen(true)
-  }
+  }, [])
   const { session, ready, banned } = useAuth()
   const location = useLocation()
+
+  // How often each section is opened, so two weeks after kickoff the unused ones can go.
+  // One counter per section per day, no names (count_view in the database).
+  const section = location.pathname.split('/')[1] || 'home'
+  useEffect(() => {
+    if (!session) return
+    supabase.rpc('count_view', { section }).then(
+      () => {},
+      () => {},
+    )
+  }, [section, session])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setPaletteAnim(false)
+        setPaletteText('')
         setPaletteOpen((o) => !o)
       }
     }
@@ -138,12 +154,19 @@ export default function App() {
 
   useEffect(() => setPaletteOpen(false), [location.pathname, location.search])
 
-  // Steamhub is for the team: nothing shows until you're signed in.
-  if (!ready) return null
+  // Steamhub is for the team: nothing shows until you're signed in. While that's being checked,
+  // the startup frame from index.html stays, so the screen never goes blank.
+  if (!ready)
+    return (
+      <div className="boot" aria-hidden="true">
+        <span className="boot__logo" />
+      </div>
+    )
   if (!session) return <SignIn />
   if (banned) return <NoAccess />
 
   return (
+    <PaletteContext.Provider value={openPalette}>
     <ToastProvider>
       <div className="app">
         <aside className="rail" aria-label="Main">
@@ -151,7 +174,7 @@ export default function App() {
             <span className="logo" style={{ width: 36, height: 36 }} aria-hidden="true" />
             <span className="brand__name">Steamhub</span>
           </NavLink>
-          <button type="button" className="rail__search" onClick={openPalette}>
+          <button type="button" className="rail__search" onClick={() => openPalette()}>
             <Icon name="search" size={18} />
             <span>Search</span>
             <kbd>Ctrl K</kbd>
@@ -183,7 +206,7 @@ export default function App() {
             <span className="brand__name">Steamhub</span>
           </NavLink>
           <div className="topbar__end">
-            <button type="button" className="icon-btn" aria-label="Search" onClick={openPalette}>
+            <button type="button" className="icon-btn" aria-label="Search" onClick={() => openPalette()}>
               <Icon name="search" />
             </button>
             <Bell compact />
@@ -232,6 +255,7 @@ export default function App() {
             <Route path="/stock/end-mills" element={<EndMills />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/people" element={<People />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
 
@@ -257,7 +281,26 @@ export default function App() {
           ))}
         </nav>
       </div>
-      <Palette open={paletteOpen} animated={paletteAnim} onClose={() => setPaletteOpen(false)} />
+      <Palette open={paletteOpen} animated={paletteAnim} initial={paletteText} onClose={() => setPaletteOpen(false)} />
     </ToastProvider>
+    </PaletteContext.Provider>
+  )
+}
+
+/** A mistyped or old link: say so, and offer the way back, instead of a blank page. */
+function NotFound() {
+  return (
+    <div className="page page--narrow">
+      <h1 className="page__title">Not here</h1>
+      <p className="soft">There's no page at this link. It may have moved, or a part or prototype was deleted.</p>
+      <div className="page__actions">
+        <Link to="/" className="q-btn q-btn--main">
+          Home
+        </Link>
+        <Link to="/manufacturing" className="q-btn">
+          Workshop list
+        </Link>
+      </div>
+    </div>
   )
 }

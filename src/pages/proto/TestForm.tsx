@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { ValueInput } from '../../components/proto'
-import { useToast } from '../../components/ui'
+import { useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { addParam, COMMON_PARAMS, MAX_SECONDS, queueVideo, RESULT_WORD, RESULTS, saveTest, usePrototype, type Result, type Value } from '../../lib/proto'
 
@@ -30,7 +30,7 @@ export default function TestForm() {
   const [preview, setPreview] = useState<string | null>(null)
   const [link, setLink] = useState('')
   const [showLink, setShowLink] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, guard] = useBusy()
 
   // Fill once the tests are in: the test being edited, or the last test's values for a new one.
   useEffect(() => {
@@ -64,8 +64,9 @@ export default function TestForm() {
   const hasSub = proto.subsystem_number != null
   const names = new Set(params.map((d) => d.name.toLowerCase()))
 
-  const save = async () => {
-    if (busy || !who) return
+  const save = () => guard(saveNow)
+  const saveNow = async () => {
+    if (!who) return
     let videoLink: string | null = link.trim() || null
     if (videoLink && !/^https?:\/\//i.test(videoLink)) videoLink = `https://${videoLink}`
     if (!file && !videoLink && !existing && !result && !note.trim()) return toast('Add a video, a result or a note first')
@@ -73,12 +74,12 @@ export default function TestForm() {
     for (const d of params) {
       const v = values[d.id]
       if (v === undefined || v === null || v === '') continue
-      clean[d.id] = d.kind === 'number' && Number.isFinite(Number(v)) ? Number(v) : v
+      if (d.kind !== 'number') clean[d.id] = v
+      else if (Number.isFinite(Number(v))) clean[d.id] = Number(v)
     }
     // Values of parameters that were deleted since stay as they were on an edited test.
     if (existing) for (const [k, v] of Object.entries(existing.values)) if (!params.some((d) => d.id === k)) clean[k] = v
     const m = measure.trim().replace(',', '.')
-    setBusy(true)
     const res = await saveTest(
       proto,
       {
@@ -94,7 +95,6 @@ export default function TestForm() {
       members,
       existing,
     )
-    setBusy(false)
     if (res.error) return toast(res.error)
     if (file) queueVideo(res.data!, file)
     toast(file ? 'Saved. The video uploads in the background.' : 'Test saved')

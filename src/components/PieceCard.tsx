@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { KINDS, photoSrc, sizeLabel, type Piece } from '../lib/stock'
 import { Copy } from './ui'
@@ -51,17 +51,15 @@ export function PieceCard({
   piece,
   leftover,
   main,
-  index = 0,
   onReserve,
 }: {
   piece: Piece
-  index?: number
   leftover: number | null
   main?: boolean
   onReserve?: (p: Piece) => void
 }) {
   return (
-    <article className="card" style={{ '--i': Math.min(index, 10) } as CSSProperties}>
+    <article className="card">
       <Link to={`/stock/${piece.id}`} className="card__link card__visual" aria-label={`Open ${piece.id}`}>
         <StockRender piece={piece} />
         <PhotoInset piece={piece} />

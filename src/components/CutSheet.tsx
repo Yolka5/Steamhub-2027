@@ -3,7 +3,7 @@ import { cutPiece } from '../lib/actions'
 import { useAuth } from '../lib/auth'
 import { KERF, sizeLabel, type Piece } from '../lib/stock'
 import { useStore } from '../lib/store'
-import { Sheet, useToast } from './ui'
+import { Sheet, useBusy, useToast } from './ui'
 
 // The part is made. The final length comes from the drawing, never from the reservation,
 // so the field starts empty. Afterwards the new length is shown big so it gets rewritten on the piece.
@@ -13,7 +13,7 @@ export function CutSheet({ piece, onClose }: { piece: Piece | null; onClose: () 
   const { upsertLocal } = useStore()
   const toast = useToast()
   const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useBusy()
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<{ id: string; leftover: number } | null>(null)
 
@@ -28,17 +28,16 @@ export function CutSheet({ piece, onClose }: { piece: Piece | null; onClose: () 
     onClose()
   }
 
-  const submit = async () => {
-    if (!piece || !valid || !userId || !name) return
-    setBusy(true)
-    setError(null)
-    const res = await cutPiece(piece, final, { userId, name })
-    setBusy(false)
-    if (res.error) return setError(res.error)
-    upsertLocal(res.piece!)
-    toast(`${piece.id} cut`)
-    setDone({ id: piece.id, leftover: res.leftover! })
-  }
+  const submit = () =>
+    run(async () => {
+      if (!piece || !valid || !userId || !name) return
+      setError(null)
+      const res = await cutPiece(piece, final, { userId, name })
+      if (res.error) return setError(res.error)
+      upsertLocal(res.piece!)
+      toast(`${piece.id} cut`)
+      setDone({ id: piece.id, leftover: res.leftover! })
+    })
 
   return (
     <Sheet open={!!piece} onClose={close} title={done ? `${done.id} is cut` : piece ? `Cut ${piece.id}` : ''}>

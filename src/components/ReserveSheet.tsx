@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'
 import { sizeLabel, type Piece } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { useRobots } from '../lib/useMfg'
-import { Sheet, useToast } from './ui'
+import { Sheet, useBusy, useToast } from './ui'
 import { Combo, Select } from './Select'
 
 export function ReserveSheet({
@@ -38,7 +38,7 @@ export function ReserveSheet({
     }
   })
   const sub = subs.find((s) => s.id === subId && active.some((r) => r.id === s.robot_id))
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useBusy()
   const [error, setError] = useState<string | null>(null)
 
   // Mechanisms people already reserve for, so the name is one tap away.
@@ -47,13 +47,13 @@ export function ReserveSheet({
     [pieces],
   )
 
-  const submit = async () => {
+  const submit = () => run(() => reserve())
+  const reserve = async () => {
     if (!piece || !userId || !name) return
-    setBusy(true)
     setError(null)
     const label = sub ? `${sub.number} ${sub.name}` : forWhat.trim()
-    const res = await reservePiece(piece.id, { userId, name }, label, len ? Number(len) : null, sub?.id ?? null)
-    setBusy(false)
+    const planned = len ? Number(len.replace(',', '.')) : null
+    const res = await reservePiece(piece.id, { userId, name }, label, planned != null && Number.isFinite(planned) && planned > 0 ? planned : null, sub?.id ?? null)
     if (res.error) return setError(res.error)
     try {
       localStorage.setItem('reserve-for', forWhat.trim())

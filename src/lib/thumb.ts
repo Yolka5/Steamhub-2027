@@ -43,6 +43,27 @@ async function build(path: string, name: string): Promise<string | null> {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true"><path d="${d}" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`
 }
 
+/**
+ * Pictures are about 3.5 KB each and the browser gives about 5 MB, shared with the sign-in
+ * session. So only the newest MAX are kept; older ones are rebuilt if they're needed again.
+ */
+const MAX = 300
+const INDEX = 'thumb-index'
+function keep(path: string, svg: string) {
+  try {
+    const saved = localStorage.getItem(INDEX)
+    // Pictures kept before the index existed join it, so they can be let go too.
+    const start: string[] = saved ? JSON.parse(saved) : Object.keys(localStorage).filter((k) => k.startsWith(KEY)).map((k) => k.slice(KEY.length))
+    const order = start.filter((p) => p !== path)
+    order.push(path)
+    for (const old of order.splice(0, Math.max(0, order.length - MAX))) localStorage.removeItem(KEY + old)
+    localStorage.setItem(KEY + path, svg)
+    localStorage.setItem(INDEX, JSON.stringify(order))
+  } catch {
+    /* full or blocked: keep it in memory only */
+  }
+}
+
 export function partThumb(path: string, name = ''): Promise<string | null> {
   let p = memory.get(path)
   if (p) return p
@@ -58,13 +79,7 @@ export function partThumb(path: string, name = ''): Promise<string | null> {
   }
   p = slot(() => build(path, name)).then(
     (svg) => {
-      if (svg) {
-        try {
-          localStorage.setItem(KEY + path, svg)
-        } catch {
-          /* full, keep it in memory only */
-        }
-      }
+      if (svg) keep(path, svg)
       return svg
     },
     () => null,

@@ -3,27 +3,84 @@ import { Icon } from './Icon'
 
 // ---------- Toast ----------
 
-const ToastContext = createContext<(msg: string) => void>(() => {})
+/** With undo, the toast gets an Undo button and stays long enough to reach it. */
+type Toast = (msg: string, opts?: { undo?: () => void }) => void
+
+const ToastContext = createContext<Toast>(() => {})
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [msg, setMsg] = useState<string | null>(null)
+  const [t, setT] = useState<{ msg: string; undo?: () => void } | null>(null)
   const timer = useRef<number>(0)
-  const show = useCallback((m: string) => {
-    setMsg(m)
+  const show = useCallback<Toast>((msg, opts) => {
+    setT({ msg, undo: opts?.undo })
     window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setMsg(null), 2600)
+    // Long messages (usually errors) and Undo stay up longer than a quick "Saved".
+    const ms = opts?.undo ? 6000 : Math.min(6000, Math.max(2600, msg.length * 55))
+    timer.current = window.setTimeout(() => setT(null), ms)
   }, [])
+  const undo = () => {
+    window.clearTimeout(timer.current)
+    const fn = t?.undo
+    setT(null)
+    fn?.()
+  }
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div className="toast" role="status" aria-live="polite" data-open={msg ? 'true' : 'false'}>
-        {msg}
+      <div className="toast" role="status" aria-live="polite" data-open={t ? 'true' : 'false'} data-undo={t?.undo ? 'true' : undefined}>
+        <span>{t?.msg}</span>
+        {t?.undo && (
+          <button type="button" className="toast__undo" onClick={undo}>
+            Undo
+          </button>
+        )}
       </div>
     </ToastContext.Provider>
   )
 }
 
 export const useToast = () => useContext(ToastContext)
+
+// ---------- Couldn't load ----------
+
+/**
+ * What a page shows when its data didn't arrive, so a failed load never looks like an empty list
+ * ("Nothing to make yet") or a deleted part.
+ */
+export function LoadError({ onRetry }: { onRetry?: () => void }) {
+  return (
+    <div className="mfg-empty" role="alert">
+      <p className="empty">Couldn't load this.</p>
+      <p className="soft">{navigator.onLine ? 'The connection dropped or the server is slow.' : 'No connection.'} Nothing was lost.</p>
+      <button type="button" className="q-btn" onClick={() => (onRetry ? onRetry() : location.reload())}>
+        Try again
+      </button>
+    </div>
+  )
+}
+
+// ---------- One tap at a time ----------
+
+/**
+ * For every button that writes. A second tap while the first is still saving does nothing.
+ * Busy state alone isn't enough: a double tap lands before the button re-renders as disabled.
+ */
+export function useBusy() {
+  const running = useRef(false)
+  const [busy, setBusy] = useState(false)
+  const run = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    if (running.current) return undefined
+    running.current = true
+    setBusy(true)
+    try {
+      return await fn()
+    } finally {
+      running.current = false
+      setBusy(false)
+    }
+  }, [])
+  return [busy, run] as const
+}
 
 // ---------- Copy a number ----------
 

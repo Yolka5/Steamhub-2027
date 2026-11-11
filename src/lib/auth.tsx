@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import type { Profile } from './mfg'
-import { supabase } from './supabase'
+import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js'
+import { PROFILE_COLUMNS, type Profile } from './mfg'
+import { savedSession, supabase } from './supabase'
 import { clearSavedData } from './pwa'
 
 interface Auth {
@@ -21,16 +21,21 @@ interface Auth {
 const AuthContext = createContext<Auth | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [ready, setReady] = useState(false)
+  // A saved session opens the app at once, without waiting for supabase-js to check or refresh it.
+  const [session, setSession] = useState<Session | null>(() => savedSession())
+  const [ready, setReady] = useState(() => savedSession() != null)
   const [profile, setProfile] = useState<Profile | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+    supabase.auth.getSession().then(({ data, error }) => {
+      // No network: keep the saved session rather than sending people to the sign-in screen.
+      if (data.session || !error || !isAuthRetryableFetchError(error)) setSession(data.session)
       setReady(true)
     })
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s))
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      // A failed refresh offline reports "no session" too; only a real sign-out clears it.
+      if (s || event === 'SIGNED_OUT') setSession(s)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
@@ -42,10 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     supabase
       .from('profiles')
-      .select('*')
+      .select(PROFILE_COLUMNS)
       .eq('id', uid)
       .maybeSingle()
-      .then(({ data }) => setProfile((data as Profile) ?? null))
+      .then(({ data }) => setProfile((data as Profile | null) ?? null))
   }, [uid])
 
   const meta = session?.user.user_metadata ?? {}

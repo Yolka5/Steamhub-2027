@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { Poster, ProtoStatusTag, ResultTag } from '../../components/proto'
 import { Select } from '../../components/Select'
-import { Sheet, useToast } from '../../components/ui'
+import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { ago } from '../../lib/mfg'
 import { createPrototype, keyLines, paramsOf, STATUS_WORD, STATUSES, subLabel, usePrototypes, useSeasons, type Prototype, type ProtoStatus, type Test } from '../../lib/proto'
@@ -14,7 +14,7 @@ export default function Prototypes() {
   const [q, setQ] = useSearchParams()
   const { seasons, current, subsystemsOf } = useSeasons()
   const season = Number(q.get('season')) || current
-  const { prototypes, tests, params, loading } = usePrototypes(season)
+  const { prototypes, tests, params, loading, error, reload } = usePrototypes(season)
   const subs = subsystemsOf(season)
   const [adding, setAdding] = useState(false)
   const navigate = useNavigate()
@@ -77,7 +77,9 @@ export default function Prototypes() {
         )}
       </div>
 
-      {loading ? (
+      {error && !prototypes.length ? (
+        <LoadError onRetry={reload} />
+      ) : loading ? (
         <p className="soft">Loading</p>
       ) : prototypes.length === 0 ? (
         <div className="mfg-empty">
@@ -182,17 +184,16 @@ export function NewPrototype({
   const [name, setName] = useState('')
   const [sub, setSub] = useState(defaultSub != null ? String(defaultSub) : '')
   const [concept, setConcept] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, run] = useBusy()
 
-  const save = async () => {
-    if (busy || !who) return
-    if (!name.trim()) return toast('Give it a name, like "Double roller"')
-    setBusy(true)
-    const res = await createPrototype({ season, subsystem_number: sub ? Number(sub) : null, name: name.trim(), concept: concept.trim() }, who)
-    setBusy(false)
-    if (res.error) return toast(res.error)
-    onDone(res.data!)
-  }
+  const save = () =>
+    run(async () => {
+      if (!who) return
+      if (!name.trim()) return toast('Give it a name, like "Double roller"')
+      const res = await createPrototype({ season, subsystem_number: sub ? Number(sub) : null, name: name.trim(), concept: concept.trim() }, who)
+      if (res.error) return toast(res.error)
+      onDone(res.data!)
+    })
 
   return (
     <form

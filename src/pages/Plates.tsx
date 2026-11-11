@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Sheet, useToast } from '../components/ui'
+import { LoadError, Sheet, useBusy, useToast } from '../components/ui'
 import { useAuth, useWho } from '../lib/auth'
 import { ago } from '../lib/mfg'
 import {
@@ -25,7 +25,7 @@ import { supabase } from '../lib/supabase'
 const STATES: PlateState[] = ['available', 'partly_used', 'gone']
 
 export default function Plates() {
-  const { plates, loading, setPlates, reload } = usePlates()
+  const { plates, loading, error, setPlates, reload } = usePlates()
   const { setting, reload: reloadSetting } = useSheetSetting()
   const { isAdmin } = useAuth()
   const who = useWho()
@@ -93,6 +93,8 @@ export default function Plates() {
     const res = await setPlateState(p.id, state, who)
     if (res.error) return toast(res.error)
     setPlates((cur) => cur.map((x) => (x.id === p.id ? { ...res.data!, thickness: x.thickness, length: x.length, width: x.width } : x)))
+    // A plate marked Gone leaves the list, so a slip needs a way back.
+    toast(`${Number(p.length)} × ${Number(p.width)} marked ${STATE_WORD[state].toLowerCase()}`, { undo: () => change({ ...p, state }, p.state) })
   }
 
   return (
@@ -132,7 +134,9 @@ export default function Plates() {
         </div>
       )}
 
-      {loading ? (
+      {error && !plates.length ? (
+        <LoadError onRetry={reload} />
+      ) : loading ? (
         <p className="soft">Loading</p>
       ) : plates.length === 0 ? (
         <div className="mfg-empty">
@@ -281,8 +285,10 @@ function AddPlate({ onDone }: { onDone: () => void }) {
   const [length, setLength] = useState('')
   const [width, setWidth] = useState('')
   const [qty, setQty] = useState('1')
+  const [busy, run] = useBusy()
 
-  const save = async () => {
+  const save = () => run(saveNow)
+  const saveNow = async () => {
     const [th, l, w, n] = [thickness, length, width, qty].map((v) => Number(v.replace(',', '.')))
     if (!th || !l || !w) return toast('Fill in thickness, length and width')
     const rows = Array.from({ length: Math.max(1, Math.min(50, n || 1)) }, () => ({
@@ -334,8 +340,8 @@ function AddPlate({ onDone }: { onDone: () => void }) {
         </label>
       </div>
       <p className="soft small">Plates added here stay when the sheet syncs.</p>
-      <button type="submit" className="q-btn q-btn--main q-btn--wide">
-        Add
+      <button type="submit" className="q-btn q-btn--main q-btn--wide" disabled={busy}>
+        {busy ? 'Adding' : 'Add'}
       </button>
     </form>
   )

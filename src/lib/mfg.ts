@@ -56,10 +56,14 @@ export const MATERIALS = [
   'TPU',
 ]
 
+/** What everyone may read about an account. Emails are for the admin only (admin_people). */
+export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, created_at'
+
 export interface Profile {
   id: string
   name: string
-  email: string | null
+  /** Only from admin_people(), for the admin's People page. */
+  email?: string | null
   avatar: string | null
   is_admin: boolean
   banned: boolean
@@ -169,6 +173,23 @@ export function barDims(size: number[]): { length: number; section: [number, num
   return { length: s[0], section: [s[1], s[2]] }
 }
 
+/**
+ * A hex bar's across-flats and length, or null when it isn't hex. Across corners is across flats
+ * × 2/√3 (12.7 hex is 14.7 across corners). Any two sides can be the hex, so a short spacer
+ * (12.7 hex, 5 long) is found as well as a long shaft.
+ */
+export function hexDims(size: number[]): { flats: number; length: number } | null {
+  const s = size.map(Number)
+  // Two equal sides is a round section (a 12.7 rod 14.7 long would otherwise look like hex).
+  if (Math.abs(s[0] - s[1]) < 0.05 || Math.abs(s[0] - s[2]) < 0.05 || Math.abs(s[1] - s[2]) < 0.05) return null
+  for (let i = 0; i < 3; i++)
+    for (let j = 0; j < 3; j++) {
+      if (i === j || !(s[j] > 0)) continue
+      if (Math.abs(s[i] / s[j] - 2 / Math.sqrt(3)) < 0.02) return { flats: s[j], length: s[3 - i - j] }
+    }
+  return null
+}
+
 /** Onshape's own names for parts nobody named: "Part 1", "Part 17", "Body 2". */
 export const isDefaultName = (name: string) => /^\s*(part|body|solid)[\s_-]*\d+\s*$/i.test(name)
 
@@ -182,6 +203,9 @@ export function partName(p: Pick<Part, 'name' | 'cls' | 'size'>): string {
   const s = p.size.map(Number).sort((a, b) => b - a)
   const { length, section } = barDims(s)
   const [w, h] = section
+  // Hex first: a short hex spacer is classed as a block by its proportions.
+  const hex = p.cls !== 'plate' && p.cls !== 'print' ? hexDims(s) : null
+  if (hex) return `Hex ${fmtMm(hex.flats)}, ${fmtMm(hex.length)} long`
   switch (p.cls) {
     case 'plate': {
       // Over 12 mm it's cut from a block, as the material guess says.
@@ -195,8 +219,6 @@ export function partName(p: Pick<Part, 'name' | 'cls' | 'size'>): string {
     case 'round':
       return `Round Ø${fmtMm(w)}, ${fmtMm(length)} long`
     case 'long':
-      // Hex: across corners is across flats × 2/√3 (12.7 hex is 14.7 across corners).
-      if (Math.abs(w - (h * 2) / Math.sqrt(3)) < 0.3) return `Hex ${fmtMm(h)}, ${fmtMm(length)} long`
       return `Bar ${fmtMm(w)} × ${fmtMm(h)}, ${fmtMm(length)} long`
     case 'print':
       return `Printed part ${sizeText(s)}`
@@ -209,7 +231,7 @@ export function partName(p: Pick<Part, 'name' | 'cls' | 'size'>): string {
 
 /** Cut length for all of a part's copies from one piece: every copy plus a saw cut between them. */
 export const stockLength = (p: Pick<Part, 'size' | 'qty'>) => {
-  const len = barDims(p.size).length
+  const len = hexDims(p.size)?.length ?? barDims(p.size).length
   return Math.round((len * p.qty + KERF * (p.qty - 1)) * 10) / 10
 }
 
@@ -245,8 +267,11 @@ export function guessMaterial(machine: Machine, cls: string | null, size: number
 
 type Res<T> = { data?: T; error?: string }
 
-export async function logPart(partId: string, action: string, who: Who, details?: Record<string, unknown>) {
-  await supabase.from('part_events').insert({ part_id: partId, action, by_id: who.userId, by_name: who.name, details: details ?? null })
+/** One history row per part, all in one request when there are many (a release, an upload). */
+export async function logPart(partIds: string | string[], action: string, who: Who, details?: Record<string, unknown>) {
+  const ids = Array.isArray(partIds) ? partIds : [partIds]
+  if (!ids.length) return
+  await supabase.from('part_events').insert(ids.map((part_id) => ({ part_id, action, by_id: who.userId, by_name: who.name, details: details ?? null })))
 }
 
 export async function notify(userIds: (string | null | undefined)[], kind: string, text: string, link: string, except?: string) {
@@ -255,9 +280,14 @@ export async function notify(userIds: (string | null | undefined)[], kind: strin
   await supabase.from('notifications').insert(ids.map((user_id) => ({ user_id, kind, text, link })))
 }
 
-export async function updatePart(id: string, patch: Partial<Part>): Promise<Res<Part>> {
-  const { data, error } = await supabase.from('parts').update(patch).eq('id', id).select().single()
-  return error ? { error: error.message } : { data: data as Part }
+export async function updatePart(id: string, patch: Partial<Part>, expect?: Partial<Pick<Part, 'status'>>): Promise<Res<Part>> {
+  let q = supabase.from('parts').update(patch).eq('id', id)
+  // Only if it's still as the person saw it, so two people tapping Start can't both get the part.
+  if (expect?.status) q = q.eq('status', expect.status)
+  const { data, error } = await q.select().maybeSingle()
+  if (error) return { error: error.message }
+  if (!data) return { error: 'Someone else just changed this part. It shows their change now.' }
+  return { data: data as Part }
 }
 
 export async function updateParts(ids: string[], patch: Partial<Part>): Promise<Res<Part[]>> {
@@ -269,12 +299,12 @@ export async function releaseParts(parts: Part[], who: Who) {
   const ids = parts.filter((p) => !p.released_at).map((p) => p.id)
   if (!ids.length) return { data: [] as Part[] }
   const res = await updateParts(ids, { released_at: new Date().toISOString(), released_by: who.userId })
-  if (!res.error) await Promise.all(ids.map((id) => logPart(id, 'released', who)))
+  if (!res.error) await logPart(ids, 'released', who)
   return res
 }
 
 export async function claimPart(p: Part, who: Who) {
-  const res = await updatePart(p.id, { maker_id: who.userId, maker_name: who.name, status: 'doing' })
+  const res = await updatePart(p.id, { maker_id: who.userId, maker_name: who.name, status: 'doing' }, { status: p.status })
   if (!res.error) await logPart(p.id, 'claimed', who)
   return res
 }
@@ -283,7 +313,7 @@ export async function setStatus(p: Part, status: PartStatus, who: Who) {
   const patch: Partial<Part> = { status }
   // Finishing a part nobody claimed still records who made it.
   if (status === 'done' && !p.maker_id && p.machine !== 'Bought') Object.assign(patch, { maker_id: who.userId, maker_name: who.name })
-  const res = await updatePart(p.id, patch)
+  const res = await updatePart(p.id, patch, { status: p.status })
   if (res.error) return res
   await logPart(p.id, `status_${status}`, who)
   // Bought parts: missing goes on Uri's wishlist once; got it takes it off.

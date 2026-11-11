@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { ProtoStatusTag, ResultTag, TestVideo } from '../../components/proto'
 import { Select } from '../../components/Select'
-import { bestTest, fmtValue, paramsOf, RESULT_WORD, resultScore, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
+import { bestTest, fmtValue, measureScore, paramsOf, RESULT_WORD, resultScore, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
 import { supabase } from '../../lib/supabase'
 
 // Two to four prototypes of one subsystem side by side: one row per parameter, differences
@@ -68,7 +68,8 @@ export default function Compare() {
   }
   const bestResult = best(resultScore)
   const bestScore = best((t) => t.score)
-  const bestMeasure = best((t) => t.measure_value)
+  // Lower is better for times (cycle time), higher for counts (balls in out of 10).
+  const bestMeasure = best(measureScore)
   const measureName = cols.find((c) => c.t?.measure_name)?.t?.measure_name
 
   const playAll = () => {

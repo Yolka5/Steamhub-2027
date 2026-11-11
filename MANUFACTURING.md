@@ -103,7 +103,7 @@ Tick a phase here when it's done and checked in the browser.
 
 ### Phase 1: sign-in, robots, subsystems, upload → part list (built 2026-11-07)
 - [x] Migration `supabase/migrations/20261107_manufacturing_1.sql`: `profiles` (+ sign-up trigger that notifies admins), `is_member()`, `is_admin()`, `robots`, `subsystems`, `subsystem_members`, `step_uploads`, `parts`, `part_events`, `notifications`; buckets `step`, `parts`, `drawings`. Applied.
-- [ ] **Run `20261107_manufacturing_2_signin.sql` when this is deployed.** It moves stock, materials, locations and the calculator robot from public read to signed-in. Held back so the live site keeps working until the sign-in gate ships.
+- [ ] Stock, materials, locations and the calculator robot to members only: replaced on 2026-11-11 by `20261111_members_only.sql`, which also covers writing (see PLAN.md, Still open).
 - [x] Sign-in screen in front of the whole app; banned accounts see "No access".
 - [x] Notifications: table, live bell with count on rail and top bar, `/notifications` list.
 - [x] Admin: People and bans (`/people`) from the account menu, admin only. Yoni's profile has `is_admin`.

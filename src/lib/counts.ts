@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Part } from './mfg'
-import { supabase } from './supabase'
+import { selectAll, supabase } from './supabase'
 
 // Part counts per subsystem, for robot and subsystem cards. Only the columns the counts need.
 
@@ -42,14 +42,11 @@ export function subStatus(c: Counts, assembled: boolean) {
 export function useCounts() {
   const [bySub, setBySub] = useState<Map<string, Counts>>(new Map())
   useEffect(() => {
-    supabase
-      .from('parts')
-      .select('subsystem_id, status, machine, released_at')
-      .then(({ data }) => {
-        const groups = new Map<string, Slim[]>()
-        for (const p of (data as Slim[]) ?? []) groups.set(p.subsystem_id, [...(groups.get(p.subsystem_id) ?? []), p])
-        setBySub(new Map([...groups].map(([k, v]) => [k, countParts(v)])))
-      })
+    selectAll<Slim>(() => supabase.from('parts').select('subsystem_id, status, machine, released_at').order('id')).then(({ data }) => {
+      const groups = new Map<string, Slim[]>()
+      for (const p of data ?? []) groups.set(p.subsystem_id, [...(groups.get(p.subsystem_id) ?? []), p])
+      setBySub(new Map([...groups].map(([k, v]) => [k, countParts(v)])))
+    })
   }, [])
   return bySub
 }

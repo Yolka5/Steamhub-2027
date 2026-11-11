@@ -28,6 +28,36 @@ function localNextId(pieces: Piece[], prefix: string) {
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
 
+/**
+ * Why this piece can't be saved yet, or null when it can. Typing is never blocked; the save
+ * button says what's missing, so a slip like an ID bigger than the OD never reaches the list.
+ */
+function checkPiece(kind: Kind, dims: Dims, length: string): string | null {
+  const fields = KINDS[kind].fields
+  for (const f of fields) {
+    const v = num(dims[f.key])
+    if (v == null) {
+      if (f.key === 'inner_d') continue
+      return `Type the ${f.label.toLowerCase()}`
+    }
+    if (!Number.isFinite(v) || v <= 0) return `${f.label} has to be a number above 0`
+  }
+  const a = num(dims.a)!
+  const inner = num(dims.inner_d)
+  const wall = num(dims.wall)
+  if (inner != null && inner >= a) return `${kind === 'hex' ? 'Bore' : 'ID'} has to be smaller than ${kind === 'hex' ? 'across flats' : 'OD'}`
+  if ((kind === 'rect_tube' || kind === 'angle') && wall != null) {
+    const b = num(dims.b)!
+    if (kind === 'rect_tube' && wall * 2 >= Math.min(a, b)) return 'Wall is too thick for that profile'
+    if (kind === 'angle' && wall >= Math.min(a, b)) return 'Thickness has to be less than the legs'
+  }
+  if (kind === 'flat' && wall != null && wall > a) return 'Thickness is more than the width'
+  const len = num(length)
+  if (len == null) return 'Type the length'
+  if (!Number.isFinite(len) || len <= 0) return 'Length has to be a number above 0'
+  return null
+}
+
 export default function AddStock() {
   const { userId, name } = useAuth()
   const { pieces, materials, locations, upsertLocal } = useStore()
@@ -79,7 +109,8 @@ export default function AddStock() {
   }
 
   const fields = KINDS[kind].fields
-  const ready = num(length) != null && num(length)! > 0 && fields.every((f) => f.key === 'inner_d' || num(dims[f.key]) != null)
+  const problem = checkPiece(kind, dims, length)
+  const ready = problem == null
 
   /** The piece as typed so far. Used for the save and for the drawing preview. */
   const rowOf = () => {
@@ -105,8 +136,22 @@ export default function AddStock() {
       ? ({ ...draft, id, length: draft.length > 0 ? draft.length : 500, status: 'available', photo_url: null } as unknown as Piece)
       : null
 
+  // A ref, not the busy state: a double tap lands before the button re-renders as disabled, and
+  // used to save the same piece twice under two IDs.
+  const saving = useRef(false)
   const save = async () => {
-    if (!userId || !name || !ready) return
+    if (!userId || !name || !ready || saving.current) return
+    saving.current = true
+    try {
+      await saveNow(userId, name)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      saving.current = false
+      setBusy(false)
+    }
+  }
+  const saveNow = async (userId: string, name: string) => {
     setBusy(true)
     setError(null)
     const row = rowOf()
@@ -123,7 +168,7 @@ export default function AddStock() {
     }
     let piece = res.piece
     if (photo) {
-      const up = await uploadPhoto(newId, photo)
+      const up = await uploadPhoto(newId, photo).catch((e) => ({ url: undefined, error: e instanceof Error ? e.message : String(e) }))
       const withPhoto = up.url ? await updatePiece(newId, { photo_url: up.url }, { userId, name }) : null
       if (withPhoto?.piece) piece = withPhoto.piece
       else toast(`Saved, but the photo failed: ${up.error ?? withPhoto?.error}`)
@@ -261,10 +306,10 @@ export default function AddStock() {
               </button>
             </span>
             {editingPlaces && <LocationsEditor />}
-            <div className="picks picks--seg picks--wrap">
+            <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label="Location">
               <Indicator />
               {['', ...locations].map((l) => (
-                <button key={l || 'none'} type="button" className="pick" aria-checked={location === l} onClick={() => setLocation(l)}>
+                <button key={l || 'none'} type="button" role="radio" className="pick" aria-checked={location === l} onClick={() => setLocation(l)}>
                   {l || 'Not set'}
                 </button>
               ))}
@@ -285,6 +330,8 @@ export default function AddStock() {
           </div>
         )}
         {error && <p className="error">{error}</p>}
+        {/* Only once something is typed: an empty form doesn't need telling it's empty. */}
+        {problem && (dims.a || length) && <p className="soft small" aria-live="polite">{problem}</p>}
         <button type="submit" className="q-btn q-btn--main q-btn--wide q-btn--big" disabled={!ready || busy}>
           {busy ? 'Saving' : `Save as ${id}`}
         </button>

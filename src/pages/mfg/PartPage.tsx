@@ -6,7 +6,8 @@ import { PartStock } from '../../components/PartStock'
 import { cutPiece } from '../../lib/actions'
 import { useStore } from '../../lib/store'
 import { Copy, LoadError, useToast } from '../../components/ui'
-import { useWho } from '../../lib/auth'
+import { useAuth, useWho } from '../../lib/auth'
+import { useClaimAs } from '../../components/WhoPicker'
 import { canDraw, partDrawing, saveDxf, savePdf, saveStep, type Ctx } from '../../lib/drawing'
 import {
   ago,
@@ -126,6 +127,8 @@ export default function PartPage() {
   const busyRef = useRef(false)
   const [cut, setCut] = useState<{ id: string; leftover: number } | null>(null)
   const { byId, upsertLocal } = useStore()
+  const { pick: pickMaker, picker } = useClaimAs()
+  const shared = !!useAuth().profile?.shared
 
   useEffect(() => {
     supabase
@@ -245,6 +248,14 @@ export default function PartPage() {
     }
   }
 
+  // On the shared workshop PC this first asks who's making it.
+  const claim = async () => {
+    if (!who) return
+    const maker = await pickMaker(part)
+    if (maker === null) return
+    act(() => claimPart(part, who, maker), maker ? `Started by ${maker.name.split(' ')[0]}` : 'It’s yours')
+  }
+
   let main: { label: string; run: () => void } | null = null
   const others: { label: string; run: () => void }[] = []
   if (part.status === 'cancelled') main = null
@@ -255,11 +266,11 @@ export default function PartPage() {
   } else if (!part.released_at) {
     main = { label: 'Release to the workshop', run: () => who && act(() => releaseParts([part], who), 'Released') }
   } else if (part.status === 'todo') {
-    main = { label: "I'll make it", run: () => who && act(() => claimPart(part, who), 'It’s yours') }
+    main = { label: "I'll make it", run: claim }
     others.push({ label: 'Done', run: () => status('done', 'Done') })
   } else if (part.status === 'doing') {
     main = { label: 'Done', run: () => status('done', 'Done') }
-    if (who && part.maker_id !== who.userId) others.push({ label: "I'll make it instead", run: () => act(() => claimPart(part, who), 'It’s yours') })
+    if (who && (part.maker_id !== who.userId || shared)) others.push({ label: "I'll make it instead", run: claim })
     others.push({ label: 'Back to to do', run: () => save({ status: 'todo', maker_id: null, maker_name: null }, 'status_todo') })
   } else if (part.status === 'done') {
     others.push({ label: 'Not done yet', run: () => status('doing', 'Back in progress') })
@@ -425,13 +436,14 @@ export default function PartPage() {
             {events.map((e) => (
               <li key={e.id} className="row">
                 <span>{WORDS[e.action] ?? e.action}</span>
-                <span className="soft">{e.by_name}</span>
+                <span className="soft">{typeof e.details?.for === 'string' ? `${e.details.for}, on ${e.by_name}` : e.by_name}</span>
                 <span className="soft num row__end">{ago(e.at)}</span>
               </li>
             ))}
           </ul>
         </section>
       )}
+      {picker}
     </div>
   )
 }

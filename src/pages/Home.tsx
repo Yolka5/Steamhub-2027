@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Activity } from '../components/Activity'
 import { Icon, type IconName } from '../components/Icon'
 import { Season } from '../components/Season'
+import { WorkshopNow } from '../components/WorkshopNow'
 import { useAuth } from '../lib/auth'
 import { parseQuery, queryIsEmpty, sizeLabel, type Piece } from '../lib/stock'
 import { looksLikeThread } from '../lib/threads'
@@ -119,6 +120,8 @@ export default function Home() {
       <Activity />
 
       <Season />
+
+      <WorkshopNow />
 
       <div className="quick">
         {QUICK.map((q) => (

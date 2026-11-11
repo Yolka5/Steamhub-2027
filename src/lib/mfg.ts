@@ -57,7 +57,7 @@ export const MATERIALS = [
 ]
 
 /** What everyone may read about an account. Emails are for the admin only (admin_people). */
-export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, created_at'
+export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, created_at'
 
 export interface Profile {
   id: string
@@ -67,6 +67,8 @@ export interface Profile {
   avatar: string | null
   is_admin: boolean
   banned: boolean
+  /** The shared workshop PC account: Start asks who's making the part. */
+  shared?: boolean
   created_at: string
 }
 
@@ -120,6 +122,8 @@ export interface Part {
   /** The stock piece reserved for a tube, rod or hex part; cut when the part is done. */
   piece_id: string | null
   last_upload_id: string | null
+  /** When it went In progress. Kept by a database trigger; the workshop map reads it. */
+  started_at: string | null
   created_at: string
   updated_at: string
 }
@@ -305,9 +309,18 @@ export async function releaseParts(parts: Part[], who: Who) {
   return res
 }
 
-export async function claimPart(p: Part, who: Who) {
-  const res = await updatePart(p.id, { maker_id: who.userId, maker_name: who.name, status: 'doing' }, { status: p.status })
-  if (!res.error) await logPart(p.id, 'claimed', who)
+/** Who a part is credited to when it isn't the signed-in account (the shared workshop PC). */
+export interface Maker {
+  /** Null for a name typed in that has no account. */
+  id: string | null
+  name: string
+}
+
+export async function claimPart(p: Part, who: Who, maker?: Maker) {
+  const m = maker ?? { id: who.userId, name: who.name }
+  const res = await updatePart(p.id, { maker_id: m.id, maker_name: m.name, status: 'doing' }, { status: p.status })
+  // The event keeps the account that tapped Start; `for` says who is really making it.
+  if (!res.error) await logPart(p.id, 'claimed', who, maker ? { for: maker.name } : undefined)
   return res
 }
 

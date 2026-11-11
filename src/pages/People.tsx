@@ -40,6 +40,14 @@ function Admin({ userId }: { userId: string | null }) {
     toast(banned ? `${p.name} is banned` : `${p.name} can sign in again`)
   }
 
+  // The workshop PC's shared account: Start on it asks who's making the part.
+  const setShared = async (p: Profile, shared: boolean) => {
+    const { error } = await supabase.from('profiles').update({ shared }).eq('id', p.id)
+    if (error) return toast(error.message)
+    await load()
+    toast(shared ? `${p.name} is the shared workshop PC. Start on it asks who's making the part.` : `${p.name} is a personal account again`)
+  }
+
   return (
     <div className="page page--narrow">
       <div className="page__head">
@@ -60,8 +68,12 @@ function Admin({ userId }: { userId: string | null }) {
               </span>
             </span>
             {p.banned && <span className="tag tag--bad">Banned</span>}
+            {p.shared && <span className="tag">Shared workshop PC</span>}
             {p.id !== userId && (
-              <span className="row__end">
+              <span className="row__end people__acts">
+                <button type="button" className="q-btn q-btn--small" onClick={() => setShared(p, !p.shared)}>
+                  {p.shared ? 'Not shared' : 'Shared PC'}
+                </button>
                 {p.banned ? (
                   <button type="button" className="q-btn q-btn--small" onClick={() => setBan(p, false)}>
                     Unban

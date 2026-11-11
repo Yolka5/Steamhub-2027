@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { createPortal } from 'react-dom'
 import { Icon } from '../../components/Icon'
 import { MfgTabs, PartRow } from '../../components/mfg'
 import { PrintSheet } from '../../components/PrintSheet'
@@ -9,6 +10,9 @@ import { useWho } from '../../lib/auth'
 import { claimPart, MADE, partName, setStatus, type Machine, type Part, type Robot, type Subsystem } from '../../lib/mfg'
 import { useParts, useRobots } from '../../lib/useMfg'
 import { Select } from '../../components/Select'
+import { useClaimAs } from '../../components/WhoPicker'
+import { WorkshopPanel } from '../../components/WorkshopPanel'
+import { machineView } from '../../lib/workshopMap'
 
 // What the workshop makes: every released part of every active robot, one list for everyone.
 // Grouped by subsystem, urgent first. Filters live in the URL so a link shows the same view.
@@ -32,6 +36,7 @@ export default function Workshop() {
   const who = useWho()
   const toast = useToast()
   const phone = usePhone()
+  const { pick: pickMaker, picker } = useClaimAs()
   // Rows that are saving, or that just started and are still settling (see `cool`).
   const [held, setHeld] = useState<Set<string>>(new Set())
   const running = useRef(new Set<string>())
@@ -58,8 +63,14 @@ export default function Workshop() {
     const run = async () => {
       if (running.current.has(p.id)) return
       running.current.add(p.id)
+      // On the shared workshop PC, Start first asks who's making it.
+      const maker = start ? await pickMaker(p) : undefined
+      if (maker === null) {
+        running.current.delete(p.id)
+        return
+      }
       hold(p.id, true)
-      const res = start ? await claimPart(p, who) : await setStatus(p, 'done', who)
+      const res = start ? await claimPart(p, who, maker) : await setStatus(p, 'done', who)
       running.current.delete(p.id)
       if (res.error) {
         hold(p.id, false)
@@ -67,7 +78,7 @@ export default function Workshop() {
       }
       if (res.data) put(res.data)
       if (start) {
-        toast(`${p.part_no} is yours`)
+        toast(maker ? `${p.part_no} started by ${maker.name.split(' ')[0]}` : `${p.part_no} is yours`)
         // Start turns into Done in the same spot, so the button rests a moment first: a double
         // tap on Start used to finish the part and drop it off the list.
         window.setTimeout(() => hold(p.id, false), 1200)
@@ -124,6 +135,67 @@ export default function Workshop() {
       .sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.robot.name.localeCompare(b.robot.name) || a.sub.number - b.sub.number)
   }, [parts, robots, subs, machine, subId, showDone])
 
+  // What the map shows: every released, made-in-house part of the active robots, whatever the
+  // list's filters are.
+  const mapParts = useMemo(() => {
+    const live = new Set(subs.filter((s) => robots.some((r) => r.id === s.robot_id && !r.archived)).map((s) => s.id))
+    return parts.filter((p) => p.machine !== 'Bought' && p.status !== 'cancelled' && live.has(p.subsystem_id))
+  }, [parts, robots, subs])
+
+  // The map always starts closed; Home's card links here with ?map=1 to open it once.
+  const [mapOpen, setMapOpen] = useState(false)
+  const handleRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (params.get('map') !== '1') return
+    setMapOpen(true)
+    const next = new URLSearchParams(params)
+    next.delete('map')
+    setParams(next, { replace: true })
+  }, [params, setParams])
+  const closeMap = useCallback(() => {
+    setMapOpen(false)
+    handleRef.current?.focus({ preventScroll: true })
+  }, [])
+  const navigate = useNavigate()
+
+  /** Mark done from the map's "Forgot Done?" tag: the same Done as the row, with Undo. */
+  const doneFromMap = async (p: Part) => {
+    if (!who) return
+    // Done with stock reserved also cuts the piece, which the part page does.
+    if (p.piece_id) return navigate(`/manufacturing/p/${p.id}`)
+    const res = await setStatus(p, 'done', who)
+    if (res.error) return toast(res.error)
+    if (res.data) put(res.data)
+    toast(`${p.part_no} ${partName(p)} done`, {
+      undo: async () => {
+        const back = await setStatus(res.data!, 'doing', who)
+        if (back.error) return toast(back.error)
+        if (back.data) put(back.data)
+      },
+    })
+  }
+
+  /** "Show in list": close the map, clear the filters that would hide it, flash its row. */
+  const showInList = (p: Part) => {
+    setMapOpen(false)
+    const next = new URLSearchParams(params)
+    next.delete('m')
+    next.delete('s')
+    if (p.status === 'done') next.set('done', '1')
+    setParams(next, { replace: true })
+    window.setTimeout(() => {
+      const row = document.getElementById(`part-${p.id}`)
+      if (!row) return
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      row.classList.add('is-flash')
+      window.setTimeout(() => row.classList.remove('is-flash'), 1300)
+    }, 320)
+  }
+
+  // The edge tab: a click opens the map, and so does pulling it left.
+  const pull = useRef<{ x: number } | null>(null)
+  const dots = MADE.filter((m) => m === 'Lathe' || m === 'Mill').map((m) => ({ m, state: machineView(m, mapParts, Date.now(), null).state }))
+
   const activeSubs = subs.filter((s) => robots.some((r) => r.id === s.robot_id && !r.archived))
   const multiRobot = new Set(activeSubs.map((s) => s.robot_id)).size > 1
   const robotName = (s: Subsystem) => robots.find((r) => r.id === s.robot_id)?.name ?? ''
@@ -158,7 +230,14 @@ export default function Workshop() {
     <div className="page">
       <div className="page__head">
         <h1 className="page__title">Manufacturing</h1>
-        <MfgTabs />
+        <div className="mfg-head-end">
+          {phone && (
+            <button type="button" className="q-btn" onClick={() => setMapOpen(true)}>
+              Map
+            </button>
+          )}
+          <MfgTabs />
+        </div>
       </div>
 
       {phone ? (
@@ -215,7 +294,7 @@ export default function Workshop() {
                   // The button says the status (Start: to do, Done: in progress), so the tag isn't repeated.
                   const action = quick(p)
                   return (
-                    <li key={p.id}>
+                    <li key={p.id} id={`part-${p.id}`} className="mfg-row-wrap">
                       <PartRow part={p} action={action} showStatus={!action} />
                     </li>
                   )
@@ -232,6 +311,46 @@ export default function Workshop() {
         ctx={printing ? { robot: printing.robot, sub: printing.sub } : null}
         onClose={() => setPrinting(null)}
       />
+      {picker}
+
+      {!phone &&
+        createPortal(
+        <button
+          ref={handleRef}
+          type="button"
+          className="wmap-handle"
+          aria-label="Open the workshop map"
+          onPointerDown={(e) => {
+            pull.current = { x: e.clientX }
+            try {
+              e.currentTarget.setPointerCapture(e.pointerId)
+            } catch {
+              // No live pointer: a plain click still opens it.
+            }
+          }}
+          onPointerUp={(e) => {
+            const from = pull.current
+            pull.current = null
+            // A tap, or a pull of any length to the left, opens it.
+            if (from && from.x - e.clientX > -10) setMapOpen(true)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setMapOpen(true)
+            }
+          }}
+        >
+          <span className="wmap-handle__dots" aria-hidden="true">
+            {dots.map((d) => (
+              <i key={d.m} className={`wmap-chip ${d.state}`} title={d.m} />
+            ))}
+          </span>
+          <span className="wmap-handle__word">Map</span>
+        </button>,
+        document.body,
+      )}
+      <WorkshopPanel open={mapOpen} onClose={closeMap} parts={mapParts} onDone={doneFromMap} onShow={showInList} />
     </div>
   )
 }

@@ -27,6 +27,7 @@ import { showSuggest, useLinked, useSuggestNotify, type Progress } from '../../l
 import { applyRow, putRows, useCal, type Cal } from '../../lib/useCal'
 import { usePeople } from '../../lib/useMfg'
 import { QuickAdd } from './Board'
+import { TodayUpdate } from './TodayUpdate'
 import { usePhone } from '../../lib/usePhone'
 
 // One group: its lead, its phases in order (dates, progress, finish), its tasks and the history
@@ -75,7 +76,8 @@ export default function GroupPage() {
   const open = tasks.filter((t) => t.status !== 'done')
   const done = tasks.filter((t) => t.status === 'done')
   const updates = cal.updates
-    .filter((u) => u.group_id === group.id && (phaseFilter === 'all' || u.phase_id === (phaseFilter === 'none' ? null : phaseFilter)))
+    // Today's is in the box above the list.
+    .filter((u) => u.group_id === group.id && u.day !== todayIso() && (phaseFilter === 'all' || u.phase_id === (phaseFilter === 'none' ? null : phaseFilter)))
     .sort((a, b) => (a.day < b.day ? 1 : -1))
   const sentToday = cal.updates.some((u) => u.group_id === group.id && u.day === todayIso())
 
@@ -93,15 +95,29 @@ export default function GroupPage() {
     <div className="page cal-page">
       <div className="page__head">
         <div>
-          <Link to={`/calendar${group.team ? `?team=${group.team}` : ''}`} className="soft small cal-crumb">
-            {TEAM_WORD[group.team]}
-          </Link>
+          {TEAM_WORD[group.team] !== group.name && (
+            <Link to={`/calendar?team=${group.team}`} className="soft small cal-crumb">
+              {TEAM_WORD[group.team]}
+            </Link>
+          )}
           <h1 className="page__title">{group.name}</h1>
         </div>
         <div className="cal-head-end">
-          <Link to={`/calendar/update?g=${group.id}`} className={`q-btn${sentToday ? '' : ' q-btn--main'}`}>
-            {sentToday ? 'Edit today’s update' : 'Write today’s update'}
-          </Link>
+          {/* Takes you to today's box in Updates, where the update is written. */}
+          <button
+            type="button"
+            className="q-btn"
+            onClick={() => {
+              if (phone) go('updates')
+              window.setTimeout(() => {
+                const box = document.getElementById(`today-${group.id}`)
+                box?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                box?.focus({ preventScroll: true })
+              }, 60)
+            }}
+          >
+            {sentToday ? 'Today’s update ✓' : 'Write today’s update'}
+          </button>
           {!phone && <CalTabs />}
         </div>
       </div>
@@ -168,6 +184,7 @@ export default function GroupPage() {
         {shows('updates') && (
         <section className="section cal-updates">
           <h2 className="section__title">Updates</h2>
+          <TodayUpdate group={group} phase={cur} cal={cal} />
           {phases.length > 0 && (
             <div className="picks picks--seg cal-updates__filter" role="radiogroup" aria-label="Phase">
               <button type="button" role="radio" className="pick" aria-checked={phaseFilter === 'all'} onClick={() => setPhaseFilter('all')}>
@@ -181,7 +198,7 @@ export default function GroupPage() {
             </div>
           )}
           {updates.length === 0 ? (
-            <p className="soft">{phaseFilter === 'all' ? 'No updates yet. The lead writes one at the end of each day.' : 'No updates during this phase.'}</p>
+            <p className="soft">{phaseFilter === 'all' ? 'Earlier days show up here.' : 'No earlier updates during this phase.'}</p>
           ) : (
             <ol className="cal-feed">
               {updates.map((u) => (

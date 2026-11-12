@@ -1847,3 +1847,39 @@
     min-width: 0;
   }
 }
+
+/* Today's update box, at the top of a group's updates. */
+.cal-today {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+  box-shadow: inset 0 0 0 2px var(--surface-3);
+}
+
+.cal-today--sent {
+  box-shadow: inset 0 0 0 2px var(--meaning-b-soft);
+}
+
+.cal-today__text {
+  min-height: 6rem;
+  background: var(--surface-0);
+}
+
+.cal-today__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.cal-today__foot > .soft {
+  margin-right: auto;
+}
+
+.cal-today__edit {
+  margin-left: auto;
+}

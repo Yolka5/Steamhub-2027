@@ -1242,10 +1242,16 @@ dialog {
   grid-template-areas:
     'hero'
     'count'
+    'tasks'
     'quick'
     'activity'
     'mine';
   align-items: start;
+}
+
+.home > .home__cal {
+  grid-area: tasks;
+  min-width: 0;
 }
 
 .home > .hero {
@@ -1275,6 +1281,7 @@ dialog {
   .home {
     grid-template-areas:
       'hero'
+      'tasks'
       'mine'
       'activity'
       'quick'
@@ -1345,6 +1352,7 @@ dialog {
     grid-template-areas:
       'hero activity'
       'count count'
+      'tasks tasks'
       'quick quick'
       'mine mine';
     column-gap: 2.5rem;

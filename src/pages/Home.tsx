@@ -4,6 +4,8 @@ import { Activity } from '../components/Activity'
 import { Icon, type IconName } from '../components/Icon'
 import { Season } from '../components/Season'
 import { WorkshopNow } from '../components/WorkshopNow'
+import { YourTasks } from '../components/YourTasks'
+import { PushCard } from '../components/PushCard'
 import { useAuth } from '../lib/auth'
 import { parseQuery, queryIsEmpty, sizeLabel, type Piece } from '../lib/stock'
 import { looksLikeThread } from '../lib/threads'
@@ -18,6 +20,7 @@ const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?:
   { to: '/stock', label: 'Find stock', hint: 'By size and length', icon: 'search', tabbar: true },
   { to: '/stock/add', label: 'Add stock', hint: 'From your phone', icon: 'plus', tabbar: true },
   { to: '/manufacturing', label: 'Manufacturing', hint: 'What to make, drawings', icon: 'gear', tabbar: true },
+  { to: '/calendar', label: 'Calendar', hint: 'Tasks, Gantt, daily updates', icon: 'calendar' },
   { to: '/prototypes/record', label: 'Record a test', hint: 'Prototype video and parameters', icon: 'video' },
   { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench', tabbar: true },
   { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
@@ -116,6 +119,12 @@ export default function Home() {
           {available} pieces in stock.<span className="desk-only"> Press <kbd>Ctrl K</kbd> anywhere to search.</span>
         </p>
       </section>
+
+      {/* Always there, even empty, so the grid never leaves its row free for another card. */}
+      <div className="home__cal">
+        <PushCard home />
+        <YourTasks />
+      </div>
 
       <Activity />
 

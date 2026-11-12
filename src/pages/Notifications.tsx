@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ago } from '../lib/mfg'
 import { useNotifications } from '../lib/notifications'
+import { PushCard } from '../components/PushCard'
 
 export default function Notifications() {
   const { notes, unread, markRead } = useNotifications()
@@ -16,8 +17,9 @@ export default function Notifications() {
           </button>
         )}
       </div>
+      <PushCard />
       {notes.length === 0 ? (
-        <p className="soft">Nothing yet. You'll hear here when a part you lead or make changes in CAD.</p>
+        <p className="soft">Nothing yet. You'll hear here about tasks you're given, reminders, and parts you lead or make.</p>
       ) : (
         <ul className="rows">
           {notes.map((n) => (

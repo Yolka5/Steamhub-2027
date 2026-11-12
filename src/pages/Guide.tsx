@@ -213,6 +213,49 @@ const CHAPTERS: Chapter[] = [
     ],
   },
   {
+    id: 'calendar',
+    title: 'Calendar',
+    intro: 'Tasks for every team and subsystem, their phases, and the leads’ daily updates. It replaces the Monday board.',
+    steps: [
+      {
+        title: 'Add a task in one line',
+        body: (
+          <>
+            In the <A to="/calendar">Calendar</A>, press <b>Task</b> under a group and type it with the day at the end: <code>Roller test thu high @noa</code>. The day (thu, 14/11, mon-thu), High or Low, and @name for who are read from the end.
+          </>
+        ),
+      },
+      {
+        title: 'Move it along',
+        body: 'Tap the circle on a row: Not started, In progress, Done. Tap the name to open the task: dates, owners, subtasks, and what it waits for. A task that slips moves the ones waiting for it.',
+      },
+      {
+        title: 'For leads: today’s update',
+        body: (
+          <>
+            At the end of the day, <A to="/calendar/update">Send today's update</A>: one text box, one Send. It's filed under your group's current phase. <A to="/calendar/summary">Updates</A> shows every group's day on one screen, and Copy puts it in the team chat.
+          </>
+        ),
+      },
+      {
+        title: 'Phases and the Gantt',
+        body: 'Each subsystem goes Prototypes, CAD, Manufacturing. Their progress comes from Steamhub itself, and Steamhub asks the lead when one looks finished. On a computer, the Gantt lets you drag bars to move them and drag a task’s dot onto another to make it wait.',
+      },
+      {
+        title: 'Meetings and reminders',
+        body: 'Add meetings as a weekly event in Calendar. When a meeting ends, leads who haven’t sent their update get a reminder. Any event can remind everyone before it starts.',
+      },
+      {
+        title: 'Notifications on your phone',
+        body: (
+          <>
+            Open <A to="/notifications">Notifications</A> and press <b>Turn on</b>. On an iPhone, first add Steamhub to the home screen (Share, then Add to Home Screen), open it from there, and turn them on.
+          </>
+        ),
+      },
+    ],
+  },
+  {
     id: 'search',
     title: 'Search',
     steps: [

@@ -5,12 +5,13 @@ import { Icon } from './Icon'
 // history; when the page was opened straight from a link (nothing to go back to), it goes up
 // to the section the page belongs to instead of leaving Steamhub.
 
-const TOP = ['/', '/stock', '/tools', '/handbook', '/manufacturing', '/manufacturing/robots', '/manufacturing/wishlist', '/prototypes', '/notifications']
+const TOP = ['/', '/stock', '/tools', '/handbook', '/manufacturing', '/manufacturing/robots', '/manufacturing/wishlist', '/prototypes', '/notifications', '/calendar', '/calendar/summary']
 
 /** Where "up" is for a page opened from a link (a WhatsApp link to a prototype, a part, a piece). */
 function parentOf(path: string) {
   if (path.startsWith('/manufacturing/')) return '/manufacturing'
   if (path.startsWith('/prototypes/')) return '/prototypes'
+  if (path.startsWith('/calendar/')) return '/calendar'
   if (path.startsWith('/calculators') || path.startsWith('/tools/')) return '/tools'
   if (path.startsWith('/stock/')) return '/stock'
   if (path.startsWith('/handbook/')) return '/handbook'

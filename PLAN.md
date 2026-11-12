@@ -2,7 +2,7 @@
 
 Hub for FRC 1577 Steampunk. The goal is to save CAD members minutes and energy during build season. Every screen is judged on how many clicks it saves.
 
-Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: Manufacturing, planned in full in [MANUFACTURING.md](MANUFACTURING.md) on 2026-11-07, built phase by phase. Prototypes (Tomer's request in the team chat) planned and built on 2026-11-07, see [PROTOTYPES.md](PROTOTYPES.md).
+Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-11-03 (center distance, cheat sheet, mechanisms, cut, then Tools hub, tap drill lookup and the FRC sources in the handbook). Waiting on Tomer's finished calculator spreadsheet: port the differences and extend scripts/verify-calc.ts for them. Next: Manufacturing, planned in full in [MANUFACTURING.md](MANUFACTURING.md) on 2026-11-07, built phase by phase. Prototypes (Tomer's request in the team chat) planned and built on 2026-11-07, see [PROTOTYPES.md](PROTOTYPES.md). Calendar (replaces Monday: tasks per team and subsystem, phases, daily updates, Gantt, push notifications first) planned on 2026-11-12, see [CALENDAR.md](CALENDAR.md).
 
 ## Decisions
 
@@ -29,6 +29,7 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 | Handbook | Read (Hebrew) | Chapters, mechanism comparisons, approval checklist, and the FRC information sources (מקורות מידע) |
 | Manufacturing | Tool | Robots, subsystems, STEP upload → numbered part list and drawings, workshop list, plates, wishlist, bolt table, assembly guide ([MANUFACTURING.md](MANUFACTURING.md)) |
 | Prototypes | Tool | Prototypes per subsystem, tests as video + parameter values + result, modular blocks, compare, choose ([PROTOTYPES.md](PROTOTYPES.md)) |
+| Calendar | Tool (built 2026-11-12, not live yet) | Tasks per group (teams, CNC, Workshop, subsystems), phases, daily lead updates, Board, Calendar and Gantt views, reminders ([CALENDAR.md](CALENDAR.md)) |
 
 ## Stock
 
@@ -130,6 +131,7 @@ Asked for by Yoni on 2026-11-11, built on 2026-11-12.
 
 ## Still open
 
+- **Calendar go-live (built 2026-11-12):** apply `supabase/migrations/20261112_calendar.sql`, deploy `send-push` with `--no-verify-jwt`, merge. See [CALENDAR.md](CALENDAR.md#to-go-live).
 - **Run `supabase/migrations/20261111_members_only.sql`** (members-only stock, page counts) and **deploy `supabase/functions/sync-sheet`** (end mill and 0-plate fixes). Both were held for Yoni's go-ahead on 2026-11-11.
 - **After the 11 Nov code is deployed, run `20261111_emails_admin_only.sql`.** Before that, it would break the live site (older code reads profiles with select *).
 - **Upgrade the Supabase plan before kickoff** (calendar reminder on 3 Jan 2027). The free plan has 1 GB of file storage; one assembly upload is about 25–40 MB.
@@ -151,6 +153,7 @@ Asked for by Yoni on 2026-11-11, built on 2026-11-12.
 2. Calculator
 3. Handbook
 4. Manufacturing ([MANUFACTURING.md](MANUFACTURING.md)), then extras
+5. Calendar ([CALENDAR.md](CALENDAR.md)), push notifications first
 
 ## Speed (phones)
 

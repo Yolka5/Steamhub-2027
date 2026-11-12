@@ -33,6 +33,7 @@ import { uploadStep } from '../../lib/upload'
 import { useParts, usePeople, useSubsystem } from '../../lib/useMfg'
 import { Combo, Select } from '../../components/Select'
 import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
+import { SubsystemCalendar } from '../../components/SubsystemCalendar'
 
 // Where CAD works: drop the STEP, check machine and material, release parts to the workshop.
 
@@ -176,6 +177,7 @@ export default function SubsystemPage() {
       </div>
 
       <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} />
+      {robot.version != null && <SubsystemCalendar season={robot.season} number={sub.number} />}
 
       <Drop
         onFile={async (files, progress) => {

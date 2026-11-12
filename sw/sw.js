@@ -125,3 +125,36 @@ async function networkFirst(req) {
     throw new Error('offline')
   }
 }
+
+/* Phone notifications (send-push edge function). Each one shows with Steamhub's icon; a tap
+   opens its link in the open Steamhub window, or a new one. */
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch {
+    data = { body: event.data ? event.data.text() : '' }
+  }
+  const show = self.registration.showNotification(data.title || 'Steamhub', {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/favicon-64.png',
+    tag: data.tag,
+    data: { url: data.url || '/notifications' },
+  })
+  // The app icon's number, where the phone supports it.
+  const badge = 'setAppBadge' in self.navigator && data.badge ? self.navigator.setAppBadge(data.badge).catch(() => {}) : Promise.resolve()
+  event.waitUntil(Promise.all([show, badge]))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = new URL(event.notification.data?.url || '/', self.location.origin).href
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      const win = wins.find((w) => new URL(w.url).origin === self.location.origin)
+      if (win) return win.focus().then(() => win.navigate(url)).catch(() => self.clients.openWindow(url))
+      return self.clients.openWindow(url)
+    }),
+  )
+})

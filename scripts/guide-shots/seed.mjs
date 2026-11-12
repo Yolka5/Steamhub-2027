@@ -16,7 +16,7 @@ const people = [
   { id: uuid(), name: 'Ariel Cohen' },
   { id: uuid(), name: 'Maya Friedman' },
 ]
-const PC = { id: uuid(), name: 'Workshop PC' }
+export const PC = { id: uuid(), name: 'Workshop PC' }
 
 export function seed() {
   const db = {}
@@ -40,8 +40,9 @@ export function seed() {
     [2, 'Elevator'],
     [3, 'Intake'],
     [4, 'Shooter'],
+    [5, 'Climber'],
   ]
-  db.subsystems = subNames.map(([number, name], i) => ({ id: uuid(), robot_id: robot.id, number, name, lead_id: people[i + 1].id, assembled: false, created_at: ago(60 * 24 * 5) }))
+  db.subsystems = subNames.map(([number, name], i) => ({ id: uuid(), robot_id: robot.id, number, name, lead_id: people[(i % 4) + 1].id, assembled: false, created_at: ago(60 * 24 * 5) }))
   const sub = (num) => db.subsystems.find((s) => s.number === num)
   db.subsystem_members = []
 
@@ -157,6 +158,8 @@ export function seed() {
   part(s3, 3006, 'Intake crossbar', 'Mill', 'tube', [700, 40, 20], 'todo', { piece_id: 'PR-002' })
   part(s3, 3007, 'Ball guide', '3D print', 'print', [120, 60, 30], 'done', { qty: 2 })
   part(s3, 3008, 'Kraken X44', 'Bought', null, [], 'todo', { released_at: null })
+  part(s3, 3009, 'Hopper side wall', 'CNC', 'plate', [240, 160, 3], 'todo', { released_at: null, qty: 2, geo: plate(240, 160, 3, holes4(240, 160, 2.6, 10)) })
+  part(s3, 3010, 'Hopper standoff', 'Lathe', 'round', [12, 12, 40], 'todo', { released_at: null, qty: 4, geo: spacer(12, 5.1, 40) })
   part(s1, 1001, 'Bellypan', 'CNC', 'plate', [620, 540, 3], 'todo', { geo: plate(620, 540, 3, [...holes4(620, 540, 2.6, 20), [310, 270, 40]]) })
   part(s1, 1002, 'Module mount plate', 'CNC', 'plate', [140, 140, 6.35], 'done', { qty: 4, geo: plate(140, 140, 6.35, [[70, 70, 30], ...holes4(140, 140, 2.6, 14)]) })
   part(s1, 1003, 'Frame rail', 'Mill', 'tube', [580, 50.8, 25.4], 'doing', { qty: 2, piece_id: 'PR-007', ...doing(people[1], 70) })
@@ -185,7 +188,7 @@ export function seed() {
     { id: 3, piece_id: 'AN-003', action: 'added', by_id: people[4].id, by_name: people[4].name, at: ago(50), details: null },
   ]
 
-  db.step_uploads = db.subsystems.map((s) => ({
+  db.step_uploads = db.subsystems.filter((s) => parts.some((p) => p.subsystem_id === s.id)).map((s) => ({
     id: uuid(),
     subsystem_id: s.id,
     path: `${s.id}/assembly.step`,

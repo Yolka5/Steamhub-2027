@@ -1513,30 +1513,6 @@
   background: var(--surface-2);
 }
 
-.cal-fab {
-  position: fixed;
-  right: 1rem;
-  bottom: calc(5.4rem + env(safe-area-inset-bottom));
-  z-index: 15;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 3.25rem;
-  padding: 0 1.25rem 0 1rem;
-  font: inherit;
-  font-weight: 600;
-  color: var(--on-main);
-  background: var(--main);
-  border: 0;
-  border-radius: var(--radius-pill);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-}
-
-.cal-fab:active {
-  transform: scale(0.96);
-}
-
 /* Plan (the phone's Gantt) */
 .cal-plan__coming {
   display: grid;
@@ -1744,10 +1720,6 @@
 }
 
 @media (max-width: 899px) {
-  .cal-page {
-    padding-bottom: 4.5rem;
-  }
-
   .cal-page .page__head {
     margin-bottom: 0.75rem;
   }

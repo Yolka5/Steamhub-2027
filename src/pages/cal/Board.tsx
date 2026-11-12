@@ -8,7 +8,6 @@ import { createTask, currentPhase, dayLabel, firstName, groupOrder, parseQuick, 
 import type { Progress } from '../../lib/calLinked'
 import { putRows, type Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
-import { usePhone } from '../../lib/usePhone'
 
 // Every group's tasks, grouped by team. Groups fold (remembered on this device). A group with
 // phases shows the one it's in and its progress. Each group adds tasks with one typed line.
@@ -30,8 +29,6 @@ export interface BoardFilter {
 
 export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<string, Progress>; filter: BoardFilter; people: Profile[] }) {
   const who = useWho()
-  // Phones add tasks from one + button (NewTask), not a button in every group.
-  const phone = usePhone()
   const [folded, setFolded] = useState<Set<string>>(() => new Set(readFolded()))
   const nameOf = (id: string | null) => people.find((p) => p.id === id)?.name ?? null
   const fold = (id: string) =>
@@ -113,7 +110,7 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                       ))}
                     </ul>
                   )}
-                  {!phone && <QuickAdd group={g} cal={cal} people={people} />}
+                  <QuickAdd group={g} cal={cal} people={people} />
                 </>
               )}
             </section>

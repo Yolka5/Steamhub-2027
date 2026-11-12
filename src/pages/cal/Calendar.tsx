@@ -13,7 +13,6 @@ import { Board } from './Board'
 import { Gantt } from './Gantt'
 import { MonthView } from './MonthView'
 import { Plan } from './Plan'
-import { NewTaskButton } from './NewTask'
 
 // The Calendar: Board, Calendar and Gantt over the same tasks. View and filters live in the URL,
 // so a link shows the same screen to everyone.
@@ -123,7 +122,6 @@ export default function CalendarPage() {
         <Board cal={cal} linked={linked} filter={{ team, mine, done }} people={people} />
       )}
 
-      {phone && view !== 'calendar' && !cal.loading && <NewTaskButton cal={cal} people={people} team={team} />}
       <TaskSheetHost cal={cal} />
       <EventSheetHost cal={cal} />
     </div>

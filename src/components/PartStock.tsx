@@ -1,44 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Working } from './Working'
 import { plateFitWorking } from '../lib/workings'
 import { Link } from 'react-router-dom'
-import { reservePiece } from '../lib/actions'
 import { useWho } from '../lib/auth'
-import { loadGeometry } from '../lib/drawing'
-import { barDims, hexDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
+import { partNo, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
 import { plateArea, platesFor, setPlateState, STATE_WORD, tText, usePlates, type Plate, type PlateState } from '../lib/plates'
-import { tubeWall } from '../lib/step/engine'
-import { findMatches, sizeLabel, type Query } from '../lib/stock'
+import { sizeLabel } from '../lib/stock'
+import { isOpen } from '../lib/stockLinks'
 import { useStore } from '../lib/store'
+import { useParts } from '../lib/useMfg'
+import { useStockQuery } from '../lib/useStockQuery'
+import { StockChoices, StockSheet } from './StockLinks'
 import { useBusy, useToast } from './ui'
 
 // Where a part's material comes from: plates that fit for CNC parts, tube, rod or hex stock for
-// the rest. Reserving a stock piece ties it to the part; Done on the part cuts it (see PartPage).
-
-/** What to look for in stock, from the part's shape. Null when it isn't cut from bar stock. */
-async function stockQuery(p: Part): Promise<Query | null> {
-  if (p.machine === 'CNC' || p.machine === 'Bought' || p.machine === '3D print') return null
-  const {
-    section: [y, z],
-  } = barDims(p.size)
-  const length = stockLength(p)
-  if (p.cls === 'tube') {
-    let wall: number | undefined
-    if (p.geometry_path) {
-      try {
-        wall = tubeWall(await loadGeometry(p.geometry_path)) ?? undefined
-      } catch {
-        wall = undefined
-      }
-    }
-    return { kind: 'rect_tube', a: y, b: z, wall: wall ? Math.round(wall * 100) / 100 : undefined, length }
-  }
-  const hex = hexDims(p.size)
-  if (hex) return { kind: 'hex', a: hex.flats, length }
-  // Round when the section is a circle and it's turned; a milled square bar isn't round stock.
-  if (Math.abs(y - z) < 0.05 && (p.cls === 'round' || p.machine === 'Lathe')) return { kind: 'round', a: y, length }
-  return null
-}
+// the rest. Bar stock links are in StockLinks: a piece can feed several parts, Done cuts each one's length.
 
 export function PartStock({ part, sub, onPart }: { part: Part; sub: Subsystem; onPart: (p: Part) => void }) {
   if (part.status === 'cancelled' || part.machine === 'Bought' || part.machine === '3D print') return null
@@ -141,80 +117,51 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
 }
 
 function BarPick({ part, sub, onPart }: { part: Part; sub: Subsystem; onPart: (p: Part) => void }) {
-  const { pieces, byId, upsertLocal } = useStore()
-  const who = useWho()
-  const toast = useToast()
-  const [q, setQ] = useState<Query | null | undefined>(undefined)
-  useEffect(() => {
-    let stop = false
-    stockQuery(part).then((r) => !stop && setQ(r))
-    return () => {
-      stop = true
-    }
-  }, [part])
-
+  const { byId } = useStore()
+  const { parts: subParts } = useParts({ subsystemId: sub.id })
+  const q = useStockQuery(part)
+  const [changing, setChanging] = useState(false)
   const held = part.piece_id ? byId(part.piece_id) : undefined
-  // Round and hex bar has to be the size; a profile can be off a little.
-  const matches = useMemo(() => (q ? findMatches(pieces, q, q.kind === 'rect_tube' ? 0.5 : 0.2).slice(0, 4) : []), [pieces, q])
-  const [busy, run] = useBusy()
-  if (q === undefined || (q === null && !held)) return null
+  // Done parts had their stock cut already; the history says from which piece.
+  if (!isOpen(part) || q === undefined || (q === null && !held)) return null
   const need = stockLength(part)
-
-  const reserve = (id: string) =>
-    run(async () => {
-      if (!who) return
-      const res = await reservePiece(id, who, `${sub.number} ${sub.name}`, need, sub.id)
-      if (res.error) return toast(res.error)
-      upsertLocal(res.piece!)
-      const r2 = await updatePart(part.id, { piece_id: id })
-      if (r2.error) return toast(r2.error)
-      onPart(r2.data!)
-      toast(`${id} reserved. It gets cut when the part is done.`)
-    })
+  const shared = subParts.filter((p) => p.id !== part.id && isOpen(p) && p.piece_id && p.piece_id === part.piece_id)
+  const ok = held && held.status === 'reserved' && (!held.subsystem_id || held.subsystem_id === sub.id) && held.length >= need - 0.05
 
   return (
     <section className="stock-pick">
       <h3>Stock</h3>
-      {held ? (
-        <div className="stock-pick__row">
-          <span className="num">
-            <Link to={`/stock/${held.id}`}>
-              <strong>{held.id}</strong>
-            </Link>{' '}
-            <span className="soft">
-              {sizeLabel(held)}, {held.length} mm{held.location ? `, ${held.location}` : ''}
-            </span>
-          </span>
-          <span className="soft small">
-            {held.status === 'reserved' ? `Cut ${need} mm when done` : held.status === 'used' ? 'Used' : 'Back in stock'}
-          </span>
-        </div>
-      ) : matches.length === 0 ? (
-        <p className="soft small num">
-          No stock this size, {need} mm or longer. <Link to="/stock">Search stock</Link>
-        </p>
-      ) : (
+      {part.piece_id ? (
         <>
-          <p className="soft small num">
-            Needs {need} mm{part.qty > 1 ? ` for all ${part.qty}` : ''}. Least waste first.
-          </p>
-          {matches.map((m) => (
-            <div key={m.piece.id} className="stock-pick__row">
-              <span className="num">
-                <Link to={`/stock/${m.piece.id}`}>
-                  <strong>{m.piece.id}</strong>
-                </Link>{' '}
+          <div className="stock-pick__row">
+            <span className="num">
+              <Link to={`/stock/${part.piece_id}`}>
+                <strong>{part.piece_id}</strong>
+              </Link>{' '}
+              {held && (
                 <span className="soft">
-                  {sizeLabel(m.piece)}, {m.piece.length} mm{m.piece.location ? `, ${m.piece.location}` : ''}
+                  {sizeLabel(held)}, {held.length} mm{held.location ? `, ${held.location}` : ''}
                 </span>
-              </span>
-              <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => reserve(m.piece.id)}>
-                Reserve
-              </button>
-            </div>
-          ))}
+              )}
+            </span>
+            <button type="button" className="q-btn q-btn--small" onClick={() => setChanging(true)}>
+              Change
+            </button>
+          </div>
+          {ok ? (
+            <p className="soft small num">
+              Cuts {need} mm when it's done{shared.length ? `. Also cut from it: ${shared.map(partNo).join(', ')}` : ''}.
+            </p>
+          ) : (
+            <p className="mfg-note mfg-note--warn small">
+              {!held || held.status !== 'reserved' ? `${part.piece_id} isn't reserved anymore` : held.length < need - 0.05 ? `${part.piece_id} is ${held.length} mm and this needs ${need} mm` : `${part.piece_id} is reserved for another subsystem now`}. Nothing gets cut from it. Pick another piece.
+            </p>
+          )}
         </>
+      ) : (
+        <StockChoices part={part} sub={sub} subParts={subParts} onPart={onPart} />
       )}
+      <StockSheet part={changing ? part : null} sub={sub} subParts={subParts} onPart={onPart} onClose={() => setChanging(false)} />
     </section>
   )
 }

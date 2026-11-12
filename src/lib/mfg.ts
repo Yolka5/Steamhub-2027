@@ -151,6 +151,8 @@ export interface UploadSummary {
   bad: number
   /** Files in a folder upload that couldn't be read. */
   skipped?: number
+  /** Reserved stock matched to bar parts after the upload. */
+  stock?: { linked: number; unlinked: number; missing: number }
 }
 
 export interface Who {

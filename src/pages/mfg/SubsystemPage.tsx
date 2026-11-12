@@ -33,6 +33,8 @@ import { uploadStep } from '../../lib/upload'
 import { useParts, usePeople, useSubsystem } from '../../lib/useMfg'
 import { Combo, Select } from '../../components/Select'
 import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
+import { SubsystemStock } from '../../components/StockLinks'
+import { afterMachineChange } from '../../lib/stockLinks'
 
 // Where CAD works: drop the STEP, check machine and material, release parts to the workshop.
 
@@ -235,6 +237,7 @@ export default function SubsystemPage() {
               )
             }
           />
+          <SubsystemStock sub={sub} parts={parts} put={put} />
           <PartList title="Bought" hint="Collected from the shelves, never on the workshop list." parts={bought} picked={picked} toggle={toggle} put={put} />
           {cancelled.length > 0 && (
             <details className="more mfg-archived">
@@ -389,6 +392,15 @@ function Drop({ onFile, last }: { onFile: (f: File[], progress: (t: string) => v
             .join(', ')}
           .{summary.bad ? ` ${summary.bad} couldn't be read; they're marked.` : ''}
           {summary.skipped ? ` ${summary.skipped} ${summary.skipped === 1 ? "file wasn't" : "files weren't"} STEP and got skipped.` : ''}
+          {summary.stock && (summary.stock.linked || summary.stock.unlinked || summary.stock.missing)
+            ? ` Stock: ${[
+                summary.stock.linked && `${summary.stock.linked} linked`,
+                summary.stock.unlinked && `${summary.stock.unlinked} unlinked`,
+                summary.stock.missing && `${summary.stock.missing} still ${summary.stock.missing === 1 ? 'needs' : 'need'} stock`,
+              ]
+                .filter(Boolean)
+                .join(', ')}. Check it under Stock.`
+            : ''}
         </p>
       )}
     </div>
@@ -434,10 +446,20 @@ function PartList({
 function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean; toggle: () => void; put: (p: Part) => void }) {
   const toast = useToast()
   const who = useWho()
+  const { upsertLocal } = useStore()
   const save = async (patch: Partial<Part>) => {
     const res = await updatePart(part.id, patch)
     if (res.error) return toast(res.error)
     put(res.data!)
+    // CNC, 3D print and Bought never use bar stock: the piece goes back to the subsystem.
+    if (patch.machine && who) {
+      const r = await afterMachineChange(res.data!, who)
+      if (r.part && r.part.piece_id !== res.data!.piece_id) {
+        put(r.part)
+        r.pieces?.forEach(upsertLocal)
+        toast(`${res.data!.piece_id} isn't used for ${partNo(part)} now. It stays reserved for the subsystem.`)
+      }
+    }
   }
   const link = `/manufacturing/p/${part.id}`
   return (

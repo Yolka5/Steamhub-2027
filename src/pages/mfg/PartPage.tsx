@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { PartStatusTag, UrgentTag } from '../../components/mfg'
 import { PartStock } from '../../components/PartStock'
-import { cutPiece } from '../../lib/actions'
+import { afterMachineChange, cutForPart } from '../../lib/stockLinks'
 import { useStore } from '../../lib/store'
 import { Copy, LoadError, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
@@ -20,7 +20,6 @@ import {
   releaseParts,
   setStatus,
   sizeText,
-  stockLength,
   updatePart,
   type Machine,
   type Part,
@@ -110,6 +109,18 @@ const WORDS: Record<string, string> = {
   remake: 'Remake after a CAD change',
   keep: 'Kept after a CAD change',
   edited: 'Edited',
+  stock_linked: 'Stock linked',
+  stock_unlinked: 'Stock unlinked',
+  stock_cut: 'Stock cut',
+}
+
+/** The piece and lengths behind a stock history row. */
+function stockDetail(e: Event) {
+  const d = e.details ?? {}
+  if (e.action === 'stock_linked') return `${d.piece}, ${d.cut ?? '?'} mm${d.auto ? ' (on upload)' : ''}`
+  if (e.action === 'stock_unlinked') return `${d.piece}${typeof d.reason === 'string' ? `: ${d.reason}` : ''}`
+  if (e.action === 'stock_cut') return `${d.cut} mm from ${d.piece}, ${d.leftover} mm left`
+  return null
 }
 
 export default function PartPage() {
@@ -125,7 +136,7 @@ export default function PartPage() {
   const [drawErr, setDrawErr] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const busyRef = useRef(false)
-  const [cut, setCut] = useState<{ id: string; leftover: number } | null>(null)
+  const [cut, setCut] = useState<{ id: string; leftover: number; keptFor: number } | null>(null)
   const { byId, upsertLocal } = useStore()
   const { pick: pickMaker, picker } = useClaimAs()
   const shared = !!useAuth().profile?.shared
@@ -237,15 +248,16 @@ export default function PartPage() {
     if (!who) return
     const ok = await act(() => setStatus(part, s, who), msg)
     if (!ok) return
-    // Done with stock reserved for it: cut the piece, leftover goes back to stock under the same ID.
-    // Only after the part really saved as done, so a failed or repeated tap never cuts the stock.
-    const piece = s === 'done' && part.piece_id ? byId(part.piece_id) : undefined
-    if (piece && piece.status === 'reserved') {
-      const res = await cutPiece(piece, stockLength(part), who)
-      if (res.error) return toast(res.error)
-      upsertLocal(res.piece!)
-      setCut({ id: piece.id, leftover: res.leftover! })
-    }
+    // Done with stock linked: cut this part's length off the piece. Only after the part really saved
+    // as done, so a failed or repeated tap never cuts the stock. The piece is checked first: one
+    // that was released, taken or is too short now isn't cut.
+    if (s !== 'done' || !part.piece_id) return
+    const res = await cutForPart(part, byId(part.piece_id), who)
+    if (res.error) return toast(res.error)
+    if (res.piece) upsertLocal(res.piece)
+    if (res.part) setPart(res.part)
+    if (res.skipped) return toast(res.skipped)
+    if (res.piece) setCut({ id: res.piece.id, leftover: res.leftover!, keptFor: res.keptFor ?? 0 })
   }
 
   // On the shared workshop PC this first asks who's making it.
@@ -308,7 +320,7 @@ export default function PartPage() {
       {cut && (
         <div className="written">
           <span className="soft">
-            {cut.leftover > 0 ? `${cut.id} is back in stock. Write on the piece:` : `${cut.id} is used up.`}
+            {cut.leftover <= 0 ? `${cut.id} is used up.` : cut.keptFor ? `${cut.id} stays reserved for ${cut.keptFor} more ${cut.keptFor === 1 ? 'part' : 'parts'}. Write on the piece:` : `${cut.id} is back in stock. Write on the piece:`}
           </span>
           {cut.leftover > 0 && (
             <span className="written__id num">
@@ -380,7 +392,16 @@ export default function PartPage() {
             </dd>
             <dt>Machine</dt>
             <dd>
-              <Select className="field--inline" label="Machine" value={part.machine} onChange={(v) => save({ machine: v as Machine }, 'edited', { machine: v })} options={MACHINES.map((m) => ({ value: m, label: m }))} />
+              <Select className="field--inline" label="Machine" value={part.machine} onChange={async (v) => {
+                  if (!(await save({ machine: v as Machine }, 'edited', { machine: v })) || !who) return
+                  // CNC, 3D print and Bought never use bar stock: the piece goes back to the subsystem.
+                  const r = await afterMachineChange({ ...part, machine: v as Machine }, who)
+                  if (r.part && r.part.piece_id !== part.piece_id) {
+                    setPart(r.part)
+                    r.pieces?.forEach(upsertLocal)
+                    toast(`${part.piece_id} isn't used for this part now. It stays reserved for the subsystem.`)
+                  }
+                }} options={MACHINES.map((m) => ({ value: m, label: m }))} />
             </dd>
             {!bought && (
               <>
@@ -436,7 +457,7 @@ export default function PartPage() {
             {events.map((e) => (
               <li key={e.id} className="row">
                 <span>{WORDS[e.action] ?? e.action}</span>
-                <span className="soft">{typeof e.details?.for === 'string' ? `${e.details.for}, on ${e.by_name}` : e.by_name}</span>
+                <span className="soft">{stockDetail(e) ? `${stockDetail(e)} · ${e.by_name}` : typeof e.details?.for === 'string' ? `${e.details.for}, on ${e.by_name}` : e.by_name}</span>
                 <span className="soft num row__end">{ago(e.at)}</span>
               </li>
             ))}

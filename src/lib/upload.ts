@@ -1,5 +1,6 @@
 import { fileSafe, fromMethod, guessMaterial, gzip, logPart, MACHINES, notify, partName, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
 import type { Analysis, Res, WorkerMsg, WorkerPart } from './step/worker'
+import { matchStock } from './stockLinks'
 import { supabase } from './supabase'
 
 // One STEP upload for a subsystem: parse in a worker, store the file, then match the parts
@@ -294,7 +295,18 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
     }
   }
 
+  // Reserved stock follows the new CAD: links that still fit get the new length, the rest are
+  // rematched, and parts without stock pick up reservations that fit.
+  let stock: UploadSummary['stock']
+  try {
+    onProgress('Matching reserved stock')
+    stock = await matchStock(sub, who)
+  } catch (e) {
+    errors.push(`Parts saved, but matching reserved stock failed: ${e instanceof Error ? e.message : e}`)
+  }
+
   const summary: UploadSummary = {
+    stock,
     added: fresh.length,
     changed: plans.filter((p) => p.kind === 'changed').length,
     same: plans.filter((p) => p.kind === 'same').length,

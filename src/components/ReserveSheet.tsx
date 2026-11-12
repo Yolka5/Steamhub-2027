@@ -3,6 +3,7 @@ import { reservePiece } from '../lib/actions'
 import { useAuth } from '../lib/auth'
 import { sizeLabel, type Piece } from '../lib/stock'
 import { useStore } from '../lib/store'
+import { matchStock } from '../lib/stockLinks'
 import { useRobots } from '../lib/useMfg'
 import { Sheet, useBusy, useToast } from './ui'
 import { Combo, Select } from './Select'
@@ -62,8 +63,13 @@ export function ReserveSheet({
       /* ignore */
     }
     upsertLocal(res.piece!)
-    toast(`${piece.id} reserved`)
     onClose()
+    // Parts already uploaded for the subsystem pick it up now, not at the next upload.
+    if (sub) {
+      const m = await matchStock(sub, { userId, name }).catch(() => null)
+      if (m?.linked) return toast(`${piece.id} reserved and linked to ${m.linked} ${m.linked === 1 ? 'part' : 'parts'} in ${sub.number} ${sub.name}`)
+    }
+    toast(`${piece.id} reserved`)
   }
 
   return (

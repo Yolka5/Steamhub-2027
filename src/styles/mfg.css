@@ -789,7 +789,26 @@
 
 .stock-pick__btns {
   display: flex;
+  align-items: center;
   gap: 0.35rem;
+}
+
+/* Subsystem page: one panel per reserved piece, then parts that still need stock. */
+.stock-links {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  align-items: start;
+}
+
+.stock-links > p {
+  grid-column: 1 / -1;
+}
+
+/* In a sheet the sheet is the surface; rows keep their own step. */
+.stock-pick--sheet {
+  padding: 0;
+  background: none;
 }
 
 /* ===== Wishlist ===== */

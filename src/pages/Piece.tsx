@@ -15,6 +15,11 @@ import { Select } from '../components/Select'
 import { Working } from '../components/Working'
 import { StockRender } from '../components/StockRender'
 import { weightWorking } from '../lib/workings'
+import { partName, partNo, stockLength, type Part } from '../lib/mfg'
+import { relinkAll, unlinkAll } from '../lib/stockLinks'
+
+/** A part cut from this piece, with its subsystem for the link. */
+export type PieceUser = Pick<Part, 'id' | 'part_no' | 'name' | 'size' | 'qty' | 'cls' | 'status' | 'subsystem_id'>
 
 interface Event {
   id: number
@@ -45,6 +50,7 @@ export default function PiecePage() {
   const [events, setEvents] = useState<Event[]>([])
   const [editing, setEditing] = useState(false)
   const [busy, guard] = useBusy()
+  const [users, setUsers] = useState<PieceUser[]>([])
 
   useEffect(() => {
     supabase
@@ -55,6 +61,17 @@ export default function PiecePage() {
       .limit(20)
       .then(({ data }) => setEvents((data as Event[]) ?? []))
   }, [id, piece?.updated_at])
+
+  // Parts linked to it in Manufacturing that still need their cut.
+  useEffect(() => {
+    supabase
+      .from('parts')
+      .select('id, part_no, name, size, qty, cls, status, subsystem_id')
+      .eq('piece_id', id.toUpperCase())
+      .not('status', 'in', '(done,cancelled)')
+      .order('part_no')
+      .then(({ data }) => setUsers((data as PieceUser[]) ?? []))
+  }, [id, piece?.updated_at, piece?.status])
 
   if (!piece) {
     return (
@@ -79,19 +96,34 @@ export default function PiecePage() {
       toast(done, { undo })
     })
 
-  /** Release by mistake: put the same reservation back. */
-  const release = () => {
+  /**
+   * Release or mark used: parts cut from it let go, so Done never cuts a piece that left them.
+   * Undo puts the reservation and the links back.
+   */
+  const letGo = (kind: 'release' | 'used') => {
     if (!who) return
     const before = piece
-    run(
-      () => releasePiece(piece.id, who),
-      'Released',
-      () =>
-        run(
-          () => reservePiece(before.id, who, before.reserved_for ?? '', before.planned_length, before.subsystem_id ?? null),
-          `${before.id} reserved again`,
-        ),
-    )
+    guard(async () => {
+      const res = kind === 'release' ? await releasePiece(piece.id, who) : await markUsed(piece.id, who)
+      if (res.error) return toast(res.error)
+      upsertLocal(res.piece!)
+      const ids = await unlinkAll(piece.id, who, kind === 'release' ? 'the piece was released' : 'the piece was marked used')
+      setUsers([])
+      const msg = kind === 'release' ? 'Released' : 'Marked used'
+      toast(ids.length ? `${msg}. ${ids.length} ${ids.length === 1 ? 'part needs' : 'parts need'} other stock now.` : msg, {
+        undo: () =>
+          guard(async () => {
+            const back =
+              kind === 'release'
+                ? await reservePiece(before.id, who, before.reserved_for ?? '', before.planned_length, before.subsystem_id ?? null)
+                : await updatePiece(before.id, { status: 'reserved' }, who)
+            if (back.error) return toast(back.error)
+            upsertLocal(back.piece!)
+            ;(await relinkAll(before.id, ids, who)).forEach(upsertLocal)
+            toast(`${before.id} reserved again`)
+          }),
+      })
+    })
   }
 
   return (
@@ -123,10 +155,10 @@ export default function PiecePage() {
                 <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={() => setCutting(true)}>
                   Cut
                 </button>
-                <button type="button" className="q-btn" disabled={busy} onClick={release}>
+                <button type="button" className="q-btn" disabled={busy} onClick={() => letGo('release')}>
                   Release
                 </button>
-                <button type="button" className="q-btn" disabled={busy} onClick={() => run(() => markUsed(piece.id, who), 'Marked used')}>
+                <button type="button" className="q-btn" disabled={busy} onClick={() => letGo('used')}>
                   Mark used
                 </button>
               </>
@@ -197,6 +229,22 @@ export default function PiecePage() {
                     <dd>{piece.reserved_for}</dd>
                   </>
                 )}
+                {users.length > 0 && (
+                  <>
+                    <dt>{users.length === 1 ? 'Part' : 'Parts'}</dt>
+                    <dd>
+                      {users.map((u, i) => (
+                        <span key={u.id}>
+                          {i > 0 && ', '}
+                          <Link to={`/manufacturing/p/${u.id}`}>
+                            {partNo(u)} {partName(u)}
+                          </Link>{' '}
+                          <span className="soft">{stockLength(u)} mm</span>
+                        </span>
+                      ))}
+                    </dd>
+                  </>
+                )}
                 {piece.planned_length && (
                   <>
                     <dt>Planned length</dt>
@@ -246,7 +294,7 @@ export default function PiecePage() {
       )}
 
       <ReserveSheet piece={reserving ? piece : null} plannedLength={null} onClose={() => setReserving(false)} />
-      <CutSheet piece={cutting ? piece : null} onClose={() => setCutting(false)} />
+      <CutSheet piece={cutting ? piece : null} users={users} onClose={() => setCutting(false)} />
     </div>
   )
 }

@@ -54,7 +54,7 @@ export const SHOTS = [
     name: 'home',
     path: '/',
     height: 620,
-    marks: [{ sel: '.hero__search input' }, { sel: btn('Find') }, { sel: '.home__mine section >> nth=0' }, { sel: '.home__mine section >> nth=1' }],
+    marks: [{ sel: '.hero__search input' }, { sel: btn('Find') }, { sel: 'section:has(h2:has-text("Your tasks"))' }, { sel: 'section:has(h2:has-text("You\'re making"))' }],
   },
   {
     name: 'home-more',
@@ -252,7 +252,9 @@ export const SHOTS = [
   {
     name: 'make-subsystem',
     path: (ids) => `/manufacturing/s/${ids.sub(3)}`,
-    height: 800,
+    viewport: { width: 390, height: 1240 },
+    css: NO_TABBAR,
+    height: 1200,
     wait: 1200,
     marks: [{ sel: '.ctl:has-text("Lead")' }, { sel: 'h2:has-text("Prototypes")' }, { sel: 'text=Drop the assembly STEP here' }],
   },
@@ -352,6 +354,92 @@ export const SHOTS = [
   { name: 'proto-summary', path: '/prototypes/summary?sub=3', height: 760 },
   { name: 'proto-library', path: '/prototypes/library', height: 640, marks: [{ sel: btn('New') }] },
 
+  // ----- Calendar -----
+  {
+    name: 'cal-board',
+    path: '/calendar',
+    height: 420,
+    marks: [{ sel: '[aria-label="Calendar views"]' }, { sel: ':is(.cal-filters summary, summary:has-text("Filters"), .cal-filters) >> nth=0' }, { sel: '.cal-group >> nth=0' }],
+  },
+  {
+    name: 'cal-rows',
+    path: '/calendar',
+    css: NO_BARS,
+    act: (page) => scrollTo(page, '.cal-group:has-text("3 Intake")', 40),
+    clip: '.cal-group:has-text("3 Intake")',
+    pad: 12,
+    marks: [
+      { sel: '.cal-group:has-text("3 Intake") .cal-row >> nth=0 >> button >> nth=0' },
+      { sel: '.cal-group:has-text("3 Intake") .cal-row__title >> nth=0' },
+      { sel: '.cal-group:has-text("3 Intake") >> text=High' },
+      { sel: '.cal-group:has-text("3 Intake") >> text=/waits for/' },
+      { sel: '.cal-group:has-text("3 Intake") >> role=button[name="Task"]' },
+    ],
+  },
+  {
+    name: 'cal-quick',
+    path: '/calendar',
+    css: NO_BARS,
+    clip: '.cal-group:has-text("3 Intake")',
+    pad: 12,
+    act: async (page) => {
+      await scrollTo(page, '.cal-group:has-text("3 Intake")', 40)
+      await page.locator('.cal-group:has-text("3 Intake") >> role=button[name="Task"]').click()
+      await pause(page, 300)
+      await page.keyboard.type('Roller test thu high @noa')
+      await pause(page, 500)
+    },
+    marks: [{ sel: '.cal-quick' }],
+  },
+  {
+    name: 'cal-task',
+    path: '/calendar',
+    act: click('.cal-group:has-text("3 Intake") .cal-row__title >> nth=1', 800),
+    marks: [
+      { sel: '.sheet [aria-label="Status"]' },
+      { sel: '.sheet :text-is("Dates") >> xpath=following-sibling::*[1]' },
+      { sel: '.sheet :text-is("Owners") >> xpath=following-sibling::*[1]' },
+      { sel: '.sheet :text-is("Waits for") >> xpath=following-sibling::*[1]' },
+    ],
+  },
+  {
+    name: 'cal-group',
+    path: (ids) => `/calendar/g/${ids.group('Intake')}`,
+    height: 780,
+    marks: [{ sel: tap("today") }, { sel: 'h2:has-text("Phases")' }, { sel: btn('Finish') }],
+  },
+  {
+    name: 'cal-update',
+    path: '/calendar/update',
+    height: 620,
+    marks: [{ sel: '[aria-label="Group"]' }, { sel: 'textarea' }, { sel: 'main button[type=submit]' }],
+  },
+  {
+    name: 'cal-summary',
+    path: '/calendar/summary',
+    height: 700,
+    marks: [{ sel: '[aria-label="Day before"]' }, { sel: tap('Copy as text') }],
+  },
+  {
+    name: 'cal-month',
+    path: '/calendar?view=calendar',
+    height: 760,
+    marks: [{ sel: tap('Event') }, { sel: '.cal-agenda >> nth=0' }],
+  },
+  {
+    name: 'cal-event',
+    path: '/calendar?view=calendar',
+    act: click(tap('Event'), 800),
+    marks: [{ sel: '.sheet [aria-label="Kind"]' }, { sel: '.sheet [aria-label="Repeat days"]' }, { sel: '.sheet [aria-label="Reminders"]' }],
+  },
+  {
+    name: 'cal-gantt',
+    path: '/calendar',
+    desk: true,
+    act: click('[aria-label="Calendar views"] >> text=Gantt', 1200),
+    marks: [{ sel: '.gantt__phase >> nth=0' }, { sel: '.gantt__today' }],
+  },
+
   // ----- Search -----
   {
     name: 'search',
@@ -394,7 +482,7 @@ export const SHOTS = [
     name: 'tools',
     path: '/tools',
     height: 760,
-    marks: [{ sel: '.tool >> nth=0' }, { sel: '.tool >> nth=1' }, { sel: '.tool >> nth=2' }],
+    marks: [{ sel: '.tool >> nth=0' }, { sel: '.tool >> nth=1' }, { sel: '.tool >> nth=2' }, { sel: '.tool >> nth=3' }],
   },
   {
     name: 'tools-calc',
@@ -431,8 +519,8 @@ export const SHOTS = [
   {
     name: 'notifications',
     path: '/notifications',
-    height: 340,
-    marks: [{ sel: btn('Mark all read') }, { sel: 'main li >> nth=0' }],
+    height: 420,
+    marks: [{ sel: '[aria-label="Phone notifications"]' }, { sel: btn('Mark all read') }, { sel: 'main li >> nth=0' }],
   },
   {
     name: 'offline',

@@ -15,6 +15,7 @@ interface Tool {
 }
 
 export const OUR_TOOLS: Tool[] = [
+  { name: 'Calendar', what: 'Tasks for every team and subsystem, phases, the Gantt and the daily updates.', icon: 'calendar', to: '/calendar', keywords: 'tasks gantt monday schedule update לוח משימות גאנט עדכון' },
   { name: 'Motor and gearbox', what: 'Gear ratio, current and battery budget for every mechanism on the robot.', icon: 'calc', to: '/calculators', keywords: 'ratio gearbox current amps kraken מנוע תמסורת' },
   { name: 'Tap drills and holes', what: 'Tap drill, clearance hole and thread depth for any screw, with a thin-wall check.', icon: 'screw', to: '/tools/tap-drills', keywords: 'tap tapping drill clearance thread הברזה הברזות קידוח' },
   { name: 'Center distance', what: 'Belt, chain and gear center distances: the belts or gears that fit your spacing, or the spacing for a belt you already have.', icon: 'ruler', to: '/tools/center-distance', keywords: 'belt chain gear pulley sprocket timing מרחק רצועה שרשרת' },

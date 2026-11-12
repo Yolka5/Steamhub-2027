@@ -40,7 +40,12 @@ const PAGES: Item[] = [
   { key: 'p-wish', label: 'Wishlist: parts to buy', to: '/manufacturing/wishlist', keywords: 'buy order missing uri' },
   { key: 'p-proto', label: 'Prototypes', to: '/prototypes', keywords: 'prototype test video parameters אב טיפוס' },
   { key: 'p-record', label: 'Record a prototype test', to: '/prototypes/record', keywords: 'film video test camera' },
-  { key: 'p-notes', label: 'Notifications', to: '/notifications' },
+  { key: 'p-notes', label: 'Notifications', to: '/notifications', keywords: 'push phone notify bell' },
+  { key: 'p-cal', label: 'Calendar: tasks for every team', to: '/calendar', keywords: 'tasks board monday לוח משימות' },
+  { key: 'p-gantt', label: 'Gantt: phases and tasks on a timeline', to: '/calendar?view=gantt', keywords: 'timeline schedule plan גאנט' },
+  { key: 'p-month', label: 'Calendar: month and events', to: '/calendar?view=calendar', keywords: 'event meeting competition deadline אירוע פגישה תחרות' },
+  { key: 'p-update', label: "Send today's update", to: '/calendar/update', keywords: 'daily summary lead עדכון יומי סיכום' },
+  { key: 'p-updates', label: 'Updates: every group, one day', to: '/calendar/summary', keywords: 'daily summary סיכום יומי' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },
   { key: 'p-swerve', label: 'Swerve: compare drive ratios', to: '/calculators?tab=swerve' },
   { key: 'p-curves', label: 'Motor curves', to: '/calculators?tab=curves' },
@@ -68,6 +73,8 @@ export function Palette({ open, animated, initial = '', onClose }: { open: boole
   const { pieces } = useStore()
   const navigate = useNavigate()
   const [parts, setParts] = useState<FoundPart[]>([])
+  const [tasks, setTasks] = useState<{ id: string; title: string; status: string; group: { id: string; name: string; season: number } | null }[]>([])
+  const [calGroups, setCalGroups] = useState<{ id: string; name: string; season: number }[]>([])
   const [protos, setProtos] = useState<{ id: string; name: string; concept: string; season: number; subsystem_number: number | null }[]>([])
   useEffect(() => {
     if (!open) return
@@ -77,6 +84,18 @@ export function Palette({ open, animated, initial = '', onClose }: { open: boole
       .order('updated_at', { ascending: false })
       .limit(200)
       .then(({ data }) => setProtos(data ?? []))
+    // Calendar tasks and groups of the newest season.
+    supabase
+      .from('tasks')
+      .select('id, title, status, group:cal_groups(id, name, season)')
+      .order('updated_at', { ascending: false })
+      .limit(500)
+      .then(({ data }) => setTasks((data as typeof tasks | null) ?? []))
+    supabase
+      .from('cal_groups')
+      .select('id, name, season')
+      .order('season', { ascending: false })
+      .then(({ data }) => setCalGroups(data ?? []))
     // Parts of the robots being built, so "3004" or "side plate" jumps to the part and its drawing.
     selectAll<FoundPart>(() =>
       supabase
@@ -140,6 +159,18 @@ export function Palette({ open, animated, initial = '', onClose }: { open: boole
       .filter((p) => p.name.toLowerCase().includes(t) || p.concept.toLowerCase().includes(t) || (p.subsystem_number != null && String(p.subsystem_number) === t))
       .slice(0, 6)
       .map((p) => ({ key: `pr-${p.id}`, label: p.name, hint: `Prototype${p.subsystem_number != null ? `, subsystem ${p.subsystem_number}` : ''}`, to: `/prototypes/${p.id}` }))
+    const season = Math.max(0, ...calGroups.map((g) => g.season))
+    const calItems: Item[] = t.length < 2 ? [] : [
+      ...calGroups
+        .filter((g) => g.season === season && g.name.toLowerCase().includes(t))
+        .slice(0, 4)
+        .map((g) => ({ key: `cg-${g.id}`, label: g.name, hint: 'Calendar group', to: `/calendar/g/${g.id}` })),
+      ...tasks
+        .filter((x) => x.group?.season === season && x.title.toLowerCase().includes(t))
+        .sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'))
+        .slice(0, 6)
+        .map((x) => ({ key: `tk-${x.id}`, label: x.title, hint: `Task${x.group ? `, ${x.group.name}` : ''}${x.status === 'done' ? ', done' : ''}`, to: `/calendar?task=${x.id}` })),
+    ]
     // A part number matches from its start (30 finds 3001-3099); names match anywhere, from 3 letters.
     const isNo = /^\d{2,5}$/.test(t)
     const robots = new Set(parts.map((p) => p.sub?.robot?.name))
@@ -153,9 +184,9 @@ export function Palette({ open, animated, initial = '', onClose }: { open: boole
         to: `/manufacturing/p/${p.id}`,
       }))
     // A typed number is far more likely a part than a stock length, so parts go first then.
-    if (isNo) return [...found, ...threads, ...stock, ...prototypes, ...pages, ...tools, ...chapters]
-    return [...threads, ...stock, ...found, ...prototypes, ...pages, ...tools, ...chapters]
-  }, [text, pieces, protos, parts])
+    if (isNo) return [...found, ...threads, ...stock, ...prototypes, ...calItems, ...pages, ...tools, ...chapters]
+    return [...threads, ...stock, ...found, ...calItems, ...prototypes, ...pages, ...tools, ...chapters]
+  }, [text, pieces, protos, parts, tasks, calGroups])
 
   const go = (item?: Item) => {
     if (!item) return

@@ -58,7 +58,7 @@ export const CHAPTERS: Chapter[] = [
             <B>Make</B>: Manufacturing, the parts to make and their drawings.
           </>,
           <>
-            <B>Tools</B>: calculators, plus Prototypes and the Handbook.
+            <B>Tools</B>: calculators, plus the Calendar, Prototypes and the Handbook.
           </>,
         ],
         shot: { name: 'tabbar', alt: 'The phone tab bar with Home, Stock, Add, Make and Tools marked 1 to 5.' },
@@ -88,7 +88,7 @@ export const CHAPTERS: Chapter[] = [
           <>
             <B>Search</B>, or press <K>Ctrl K</K> on any page.
           </>,
-          <>The sections: Home, Stock, Manufacturing, Prototypes, Tools and Handbook.</>,
+          <>The sections: Home, Stock, Manufacturing, Prototypes, Calendar, Tools and Handbook.</>,
           <>Notifications.</>,
           <>Dark mode.</>,
           <>Your name: your account and Sign out.</>,
@@ -124,13 +124,13 @@ export const CHAPTERS: Chapter[] = [
             Press <B>Find</B>. A stock size goes straight to the stock that fits; anything else opens the full search.
           </>,
           <>
-            <B>You’re making</B>: the parts you started. Tap one for its drawing.
+            <B>Your tasks</B> from the Calendar: late ones, today’s and this week’s.
           </>,
           <>
-            <B>Your reservations</B>: stock you reserved, and what for.
+            <B>You’re making</B>: the parts you started. Tap one for its drawing. Your reserved stock is listed under it.
           </>,
         ],
-        shot: { name: 'home', alt: 'Home on a phone, with the search box, Find, You’re making and Your reservations marked 1 to 4.' },
+        shot: { name: 'home', alt: 'Home on a phone, with the search box, Find, Your tasks and You’re making marked 1 to 4.' },
       },
       {
         title: 'Further down Home',
@@ -138,7 +138,7 @@ export const CHAPTERS: Chapter[] = [
           <>
             <B>Team activity</B>: who started, finished, added or reserved what. Tap a line to open it.
           </>,
-          <>Shortcuts to Record a test and the Handbook (on a computer, to every section).</>,
+          <>Shortcuts to the Calendar, Record a test and the Handbook (on a computer, to every section).</>,
           <>
             The <B>kickoff countdown</B>, with Add to calendar.
           </>,
@@ -469,6 +469,7 @@ export const CHAPTERS: Chapter[] = [
       },
       {
         title: 'The subsystem page',
+        body: 'It also shows the subsystem’s Calendar phases and open tasks.',
         how: [
           <>The lead, who gets told when parts change.</>,
           <>Its prototypes, and the season summary.</>,
@@ -631,6 +632,113 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
+    id: 'calendar',
+    title: 'Calendar',
+    intro: 'Tasks for every team and subsystem, their phases, and the leads’ daily updates. It replaces the Monday board.',
+    steps: [
+      {
+        title: 'The board',
+        body: (
+          <>
+            Open the <A to="/calendar">Calendar</A>: in the menu on a computer, from Home or Tools on a phone.
+          </>
+        ),
+        how: [
+          <>Four views: Board, Calendar, Gantt and Updates.</>,
+          <>Filters: one team, or only your own tasks.</>,
+          <>One box per group: each team, CNC, the Workshop, and each subsystem with its lead and the phase it’s in.</>,
+        ],
+        shot: { name: 'cal-board', alt: 'The Calendar board: the views, the filters and the first group marked 1 to 3.' },
+      },
+      {
+        title: 'Tasks',
+        how: [
+          <>Tap the circle to move a task along: Not started, In progress, Done.</>,
+          <>Tap the name to open the task.</>,
+          <>High priority tasks are tagged.</>,
+          <>“Waits for” means it starts after another task. A task that slips moves the ones waiting for it.</>,
+          <>
+            <B>+ Task</B> adds one to that group.
+          </>,
+        ],
+        shot: { name: 'cal-rows', alt: 'The 3 Intake group: a task’s status circle, its name, a High tag, a waits-for note and + Task marked 1 to 5.' },
+      },
+      {
+        title: 'Add a task in one line',
+        how: [
+          <>
+            Type the task with the day at the end: <C>Roller test thu high @noa</C>. The day (<C>thu</C>, <C>14/11</C>, <C>mon-thu</C>), High or Low, and <C>@name</C> for who are read from the end.
+          </>,
+        ],
+        shot: { name: 'cal-quick', alt: 'A new task typed in one line under 3 Intake, marked 1.' },
+      },
+      {
+        title: 'Open a task',
+        how: [<>Its status.</>, <>Start and due dates.</>, <>Who owns it. Add more than one person.</>, <>What it waits for.</>],
+        tip: 'A task can also have notes and subtasks, and be linked to a prototype or a part.',
+        shot: { name: 'cal-task', alt: 'A task open: status, dates, owners and waits for marked 1 to 4.' },
+      },
+      {
+        title: 'A group’s page',
+        body: 'Tap a group’s name on the board.',
+        how: [
+          <>Today’s update, for the group’s lead.</>,
+          <>The phases. Each subsystem goes Prototypes, CAD, Manufacturing, and their progress comes from Steamhub itself.</>,
+          <>
+            <B>Finish</B> a phase when it’s done. Steamhub asks the lead when one looks finished.
+          </>,
+        ],
+        shot: { name: 'cal-group', alt: 'The Intake group page: today’s update, the phases and Finish marked 1 to 3.' },
+      },
+      {
+        title: 'For leads: today’s update',
+        body: (
+          <>
+            At the end of the day, open <A to="/calendar/update">Send today’s update</A>.
+          </>
+        ),
+        how: [<>Your group.</>, <>One text box: what got done and what’s next.</>, <>Send update. It’s filed under your group’s current phase. Already sent one today? The button says Save the change and replaces it.</>],
+        shot: { name: 'cal-update', alt: 'Today’s update: the group, the text box and Send marked 1 to 3.' },
+      },
+      {
+        title: 'Everyone’s updates',
+        body: (
+          <>
+            <A to="/calendar/summary">Updates</A> shows every group’s day on one screen.
+          </>
+        ),
+        how: [<>Go back a day, or forward.</>, <>Copy as text, to paste in the team chat.</>],
+        shot: { name: 'cal-summary', alt: 'Updates: the day arrows and Copy as text marked 1 and 2.' },
+      },
+      {
+        title: 'Calendar and events',
+        body: 'The Calendar view lists what’s on each day: tasks due, phases and events.',
+        how: [
+          <>
+            <B>Event</B> adds a meeting, a competition or a deadline.
+          </>,
+          <>Each day with something on it.</>,
+        ],
+        shot: { name: 'cal-month', alt: 'The Calendar view on a phone: Event marked 1 and the first day marked 2.' },
+      },
+      {
+        title: 'Meetings and reminders',
+        how: [<>What kind of event it is.</>, <>Repeat it every week on the days you pick.</>, <>Remind everyone before it starts.</>],
+        tip: 'When a meeting ends, leads who haven’t sent their update get a reminder.',
+        shot: { name: 'cal-event', alt: 'A new event: kind, repeat days and reminders marked 1 to 3.' },
+      },
+      {
+        title: 'The Gantt',
+        body: 'On a computer, the Gantt shows every group’s phases and tasks over time.',
+        how: [
+          <>Drag a bar to move it. Drag a task’s dot onto another task to make it wait for that one.</>,
+          <>The line is today.</>,
+        ],
+        shot: { name: 'cal-gantt', alt: 'The Gantt on a laptop: a phase bar marked 1 and the today line marked 2.' },
+      },
+    ],
+  },
+  {
     id: 'search',
     title: 'Search',
     steps: [
@@ -681,8 +789,8 @@ export const CHAPTERS: Chapter[] = [
             <A to="/tools">Tools</A> has every calculator, plus links to JVN, AMB and ReCalc further down.
           </>
         ),
-        how: [<>Motor and gearbox: gear ratio, current and battery budget.</>, <>Tap drills and holes.</>, <>Center distance for belts, chains and gears.</>],
-        shot: { name: 'tools', alt: 'The Tools page with Motor and gearbox, Tap drills and holes and Center distance marked 1 to 3.' },
+        how: [<>The Calendar (on a phone, this is where it is).</>, <>Motor and gearbox: gear ratio, current and battery budget.</>, <>Tap drills and holes.</>, <>Center distance for belts, chains and gears.</>],
+        shot: { name: 'tools', alt: 'The Tools page with Calendar, Motor and gearbox, Tap drills and holes and Center distance marked 1 to 4.' },
       },
       {
         title: 'Motor and gearbox calculator',
@@ -742,14 +850,17 @@ export const CHAPTERS: Chapter[] = [
     steps: [
       {
         title: 'Notifications',
-        body: 'The bell tells you when a part you’re making changes in CAD, a prototype you follow gets a new test, or one is chosen.',
+        body: 'The bell tells you when a part you’re making changes in CAD, a prototype you follow gets a new test or is chosen, a task needs you, or a meeting is about to start.',
         how: [
           <>
-            <A to="/notifications">Mark all read</A> clears the number.
+            Get them on your phone, even when Steamhub is closed: open <A to="/notifications">Notifications</A> and press <B>Turn on</B>. On an iPhone, first add Steamhub to the home screen (Share, then Add to Home Screen), open it from there, and turn them on.
+          </>,
+          <>
+            <B>Mark all read</B> clears the number.
           </>,
           <>New ones have a dot. Tap one to open what it’s about.</>,
         ],
-        shot: { name: 'notifications', alt: 'Notifications: Mark all read marked 1 and an unread notification marked 2.' },
+        shot: { name: 'notifications', alt: 'Notifications: the phone notifications card marked 1, Mark all read marked 2 and an unread notification marked 3.' },
       },
       {
         title: 'No signal in the workshop',

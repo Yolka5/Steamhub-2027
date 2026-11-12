@@ -44,6 +44,11 @@ import Notifications from './pages/Notifications'
 import People from './pages/People'
 import GuidePage from './pages/Guide'
 import GuidePoster from './pages/GuidePoster'
+import CalendarPage from './pages/cal/Calendar'
+import GroupPage from './pages/cal/GroupPage'
+import UpdatePage from './pages/cal/UpdatePage'
+import CalSummary from './pages/cal/Summary'
+import { refreshPush } from './lib/push'
 import { NoAccess, SignIn } from './components/SignIn'
 import { useNotifications } from './lib/notifications'
 
@@ -60,10 +65,11 @@ const HOME: NavItem = { to: '/', label: 'Home', icon: 'home', end: true }
 const STOCK: NavItem = { to: '/stock', label: 'Stock', icon: 'stock' }
 const MFG: NavItem = { to: '/manufacturing', label: 'Manufacturing', icon: 'gear' }
 const PROTO: NavItem = { to: '/prototypes', label: 'Prototypes', icon: 'flask' }
+const CAL: NavItem = { to: '/calendar', label: 'Calendar', icon: 'calendar' }
 const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] }
 const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
 
-const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, TOOLS, HANDBOOK]
+const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, CAL, TOOLS, HANDBOOK]
 /** Phones: the workshop needs Make in reach, so Handbook moves into Tools there. Add sits in the middle. */
 const TABS_LEFT: NavItem[] = [HOME, STOCK]
 const TABS_RIGHT: { item: NavItem; label: string }[] = [
@@ -128,7 +134,7 @@ export default function App() {
     setPaletteAnim(true)
     setPaletteOpen(true)
   }, [])
-  const { session, ready, banned } = useAuth()
+  const { session, ready, banned, userId } = useAuth()
   const location = useLocation()
 
   // How often each section is opened, so two weeks after kickoff the unused ones can go.
@@ -156,6 +162,11 @@ export default function App() {
   }, [])
 
   useEffect(() => setPaletteOpen(false), [location.pathname, location.search])
+
+  // A phone with notifications on keeps them pointed at whoever is signed in.
+  useEffect(() => {
+    if (userId) refreshPush(userId)
+  }, [userId])
 
   // Steamhub is for the team: nothing shows until you're signed in. While that's being checked,
   // the startup frame from index.html stays, so the screen never goes blank.
@@ -265,6 +276,10 @@ export default function App() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/people" element={<People />} />
             <Route path="/guide" element={<GuidePage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/calendar/g/:id" element={<GroupPage />} />
+            <Route path="/calendar/update" element={<UpdatePage />} />
+            <Route path="/calendar/summary" element={<CalSummary />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

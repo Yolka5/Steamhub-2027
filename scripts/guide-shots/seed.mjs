@@ -44,6 +44,8 @@ export function seed() {
   ]
   db.subsystems = subNames.map(([number, name], i) => ({ id: uuid(), robot_id: robot.id, number, name, lead_id: people[(i % 4) + 1].id, assembled: false, created_at: ago(60 * 24 * 5) }))
   const sub = (num) => db.subsystems.find((s) => s.number === num)
+  // The demo user leads Intake, so the lead's screens (today's update) show.
+  sub(3).lead_id = ME.id
   db.subsystem_members = []
 
   // Stock: a mix of profiles, tubes, angles and hex, a few reserved.
@@ -298,5 +300,62 @@ export function seed() {
   ]
   db.subsystem_layouts = [{ season: 2027, subsystem_number: 3, layout: [{ kind: 'notes', title: 'Notes' }, { kind: 'checklist', title: 'To do' }, { kind: 'chart', title: 'Parameter chart' }] }]
 
-  return { db, files, ids: { part: (no) => P(no).id, sub: (num) => sub(num).id, robot: robot.id, proto: { dbl: dbl.id, sgl: sgl.id } } }
+  // Calendar: the groups cal_ensure_season makes, three phases per subsystem, tasks and updates.
+  const day = (d) => new Date(Date.parse('2026-11-12T00:00:00Z') + d * 86400000).toISOString().slice(0, 10)
+  const grp = (team, kind, name, sort, extra = {}) => ({ id: uuid(), season: 2027, team, kind, subsystem_number: null, name, lead_id: null, sort, created_at: ago(60 * 24 * 3), ...extra })
+  db.cal_groups = [
+    grp('mechanics', 'team', 'Mechanics', 0),
+    grp('electronics', 'team', 'Electronics', 0),
+    grp('programming', 'team', 'Programming', 0),
+    grp('mechanics', 'cnc', 'CNC', 1, { lead_id: people[3].id }),
+    grp('mechanics', 'workshop', 'Workshop', 2, { lead_id: people[4].id }),
+    ...db.subsystems.map((sb) => grp('mechanics', 'subsystem', sb.name, 10 + sb.number, { subsystem_number: sb.number, lead_id: sb.lead_id })),
+  ]
+  const G = (name) => db.cal_groups.find((g) => g.name === name)
+  db.cal_phases = db.cal_groups
+    .filter((g) => g.kind === 'subsystem')
+    .flatMap((g) => [
+      ['Prototypes', 'prototypes', -12, 6],
+      ['CAD', 'cad', 4, 24],
+      ['Manufacturing', 'manufacturing', 22, 55],
+    ].map(([name, kind, a, b], i) => ({
+      id: uuid(), group_id: g.id, name, kind, robot_id: robot.id, sort: i, starts_on: day(a + g.subsystem_number), ends_on: day(b + g.subsystem_number),
+      follows_previous: i > 0, done_at: null, done_by: null, dismissed_for: null, suggested_at: null, created_at: ago(60 * 24 * 3),
+    })))
+  const phase = (g, kind) => db.cal_phases.find((p) => p.group_id === g.id && p.kind === kind)?.id ?? null
+  const task = (g, title, status, a, b, owners, extra = {}) => {
+    const t = { id: uuid(), group_id: g.id, phase_id: phase(g, extra.kind ?? 'prototypes'), parent_id: null, title, status, priority: extra.priority ?? 'normal', starts_on: day(a), due_on: day(b), notes: '', prototype_id: null, part_id: null, sort: db.tasks.length, done_at: status === 'done' ? ago(300) : null, created_by: ME.id, created_at: ago(60 * 24 * 2), updated_at: ago(120) }
+    delete t.kind
+    db.tasks.push(t)
+    for (const o of owners) db.task_owners.push({ task_id: t.id, user_id: o.id })
+    return t
+  }
+  db.tasks = []
+  db.task_owners = []
+  const intake = G('Intake')
+  const t1 = task(intake, 'Double roller test, 18 mm compression', 'done', -3, -1, [people[1]])
+  const t2 = task(intake, 'Pick the intake concept', 'doing', 0, 2, [ME], { priority: 'high' })
+  const t3 = task(intake, 'Intake CAD, first version', 'todo', 3, 9, [ME, people[3]], { kind: 'cad' })
+  task(G('Shooter'), 'Flywheel speed test', 'doing', -1, 1, [people[2]])
+  task(G('Shooter'), 'Hood angle sweep', 'todo', 2, 4, [people[2]], { priority: 'low' })
+  task(G('Drivetrain'), 'Order swerve modules', 'done', -6, -4, [people[1]])
+  task(G('Drivetrain'), 'Bellypan CAD', 'doing', -1, 3, [people[1]], { kind: 'cad' })
+  task(G('Elevator'), 'Elevator stage spacers', 'todo', 1, 3, [people[3]])
+  task(G('CNC'), 'Restock 6.35 mm plate', 'todo', 0, 1, [people[3]], { priority: 'high' })
+  task(G('Workshop'), 'Label the stock racks', 'todo', 2, 5, [people[4]])
+  task(G('Electronics'), 'Wire the test board', 'doing', -2, 2, [people[4]])
+  task(G('Programming'), 'Swerve odometry', 'todo', 1, 7, [people[2]])
+  db.task_waits = [{ task_id: t3.id, waits_for_id: t2.id }, { task_id: t2.id, waits_for_id: t1.id }]
+  db.cal_updates = [
+    { id: uuid(), group_id: intake.id, phase_id: phase(intake, 'prototypes'), day: day(0), author_id: ME.id, text: 'Double roller at 18 mm took 10 of 10. Picking the concept tomorrow, then CAD.', created_at: ago(90), updated_at: ago(90) },
+    { id: uuid(), group_id: G('Shooter').id, phase_id: phase(G('Shooter'), 'prototypes'), day: day(0), author_id: people[2].id, text: 'Flywheel holds 4000 RPM. Hood sweep next.', created_at: ago(70), updated_at: ago(70) },
+  ]
+  db.events = [
+    { id: uuid(), title: 'Team meeting', kind: 'meeting', group_id: null, starts_at: '2026-11-15T15:00:00Z', ends_at: '2026-11-15T16:00:00Z', all_day: false, repeat_days: [0], repeat_until: null, skip_days: [], reminders: [30], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
+    { id: uuid(), title: 'Kickoff', kind: 'competition', group_id: null, starts_at: '2027-01-09T17:00:00Z', ends_at: null, all_day: true, repeat_days: null, repeat_until: null, skip_days: [], reminders: [], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
+  ]
+  db.push_subscriptions = []
+  db.reminders_sent = []
+
+  return { db, files, ids: { group: (name) => db.cal_groups.find((g) => g.name === name).id, part: (no) => P(no).id, sub: (num) => sub(num).id, robot: robot.id, proto: { dbl: dbl.id, sgl: sgl.id } } }
 }

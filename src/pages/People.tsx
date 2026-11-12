@@ -172,6 +172,13 @@ const TABLES = [
   'hardware',
   'materials',
   'locations',
+  'cal_groups',
+  'cal_phases',
+  'tasks',
+  'task_owners',
+  'task_waits',
+  'cal_updates',
+  'events',
 ]
 
 const csvCell = (v: unknown) => {
@@ -210,7 +217,7 @@ function Backup() {
   return (
     <section className="section">
       <h2 className="section__title">Backup</h2>
-      <p className="soft small">Every list in Steamhub as CSV files in one zip: stock, plates, parts, prototypes, the calculator robot. Photos, drawings and videos stay in storage. Once a week in build season is plenty.</p>
+      <p className="soft small">Every list in Steamhub as CSV files in one zip: stock, plates, parts, prototypes, the calculator robot, and the Calendar's tasks, phases, updates and events. Photos, drawings and videos stay in storage. Once a week in build season is plenty.</p>
       <button type="button" className="q-btn" onClick={run} disabled={!!busy}>
         {busy ?? 'Download a backup'}
       </button>

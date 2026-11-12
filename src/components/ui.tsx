@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 
 // ---------- Toast ----------
@@ -10,31 +11,46 @@ const ToastContext = createContext<Toast>(() => {})
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [t, setT] = useState<{ msg: string; undo?: () => void } | null>(null)
+  // An open sheet makes the rest of the page unreachable, Undo included, so the toast shows
+  // inside the topmost open sheet while there is one.
+  const [host, setHost] = useState<HTMLDialogElement | null>(null)
   const timer = useRef<number>(0)
   const show = useCallback<Toast>((msg, opts) => {
+    const open = [...document.querySelectorAll<HTMLDialogElement>('dialog[open]')]
+    setHost(open[open.length - 1] ?? null)
     setT({ msg, undo: opts?.undo })
     window.clearTimeout(timer.current)
     // Long messages (usually errors) and Undo stay up longer than a quick "Saved".
     const ms = opts?.undo ? 6000 : Math.min(6000, Math.max(2600, msg.length * 55))
     timer.current = window.setTimeout(() => setT(null), ms)
   }, [])
+  // The sheet closing (Delete, Save) hands the toast back to the page.
+  useEffect(() => {
+    if (!host) return
+    const back = () => setHost(null)
+    host.addEventListener('close', back)
+    return () => host.removeEventListener('close', back)
+  }, [host])
   const undo = () => {
     window.clearTimeout(timer.current)
     const fn = t?.undo
     setT(null)
     fn?.()
   }
+  const toast = (
+    <div className="toast" role="status" aria-live="polite" data-open={t ? 'true' : 'false'} data-undo={t?.undo ? 'true' : undefined}>
+      <span>{t?.msg}</span>
+      {t?.undo && (
+        <button type="button" className="toast__undo" onClick={undo}>
+          Undo
+        </button>
+      )}
+    </div>
+  )
   return (
     <ToastContext.Provider value={show}>
       {children}
-      <div className="toast" role="status" aria-live="polite" data-open={t ? 'true' : 'false'} data-undo={t?.undo ? 'true' : undefined}>
-        <span>{t?.msg}</span>
-        {t?.undo && (
-          <button type="button" className="toast__undo" onClick={undo}>
-            Undo
-          </button>
-        )}
-      </div>
+      {host?.isConnected && host.open ? createPortal(toast, host) : toast}
     </ToastContext.Provider>
   )
 }

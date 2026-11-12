@@ -2,7 +2,7 @@
 // It covers what Steamhub's queries use: select with embeds, eq/neq/in/is/gt/lt/cs filters,
 // or, order, limit, Range, single rows, and insert/update/upsert/delete.
 
-const FK = { robots: 'robot_id', subsystems: 'subsystem_id', parts: 'part_id', prototypes: 'prototype_id', pieces: 'piece_id', plates: 'plate_id' }
+const FK = { robots: 'robot_id', subsystems: 'subsystem_id', parts: 'part_id', prototypes: 'prototype_id', pieces: 'piece_id', plates: 'plate_id', cal_groups: 'group_id' }
 const PK = { pieces: 'id', locations: 'name', materials: 'name', settings: 'key', calc_robots: 'id' }
 
 /** `*, sub:subsystems(*, robot:robots(*))` → [{ all }, { alias, table, inner, cols }] */

@@ -1,6 +1,6 @@
 # Calendar plan
 
-Monday.com, rebuilt as Steamhub's Calendar section. Written 2026-11-12 from a Q&A with Yoni. Each phase below is meant to be one or two chats: read this file, do the next unfinished phase, tick it off here.
+Monday.com, rebuilt as Steamhub's Calendar section. Written 2026-11-12 from a Q&A with Yoni, and built in full the same day (all phases below). **Not live yet: see [To go live](#to-go-live).**
 
 ## Why this shape
 
@@ -37,7 +37,7 @@ The rules are the same as everywhere in Steamhub:
   - **Status:** Not started → In progress → Done. No Stuck, no Cancelled.
   - **Priority:** Low, Normal (default), High. Only High is shown on rows, in the warning colour, like urgent parts.
   - **Subtasks:** one level deep only, shown as a count on the row ("2/4").
-  - **Waits for** (dependencies): a task can wait for other tasks. When a task's dates move later, everything waiting for it moves by the same amount, down the whole chain, with one Undo. When a task is done, the owners of tasks waiting only for it get "X can start".
+  - **Waits for** (dependencies): a task can wait for other tasks. When a task's dates move later, everything waiting for it that would now start too early moves later just enough to start the day after, down the whole chain, with one Undo. Tasks with room to spare stay put. Loops are refused by the database. When a task is done, the owners of tasks waiting only for it get "X can start".
   - No comment threads on tasks. Updates live on groups and phases (below).
 - **Daily updates.** At the end of the day, each lead writes one plain-text update for their group. Leads are the three team leads, the CNC and Workshop leads and every subsystem lead.
   - One update per group per day. Sending again the same day edits it.
@@ -50,6 +50,29 @@ The rules are the same as everywhere in Steamhub:
 - **Notifications** use the existing bell, and reach the phone through push (phase 0). Sent for: assigned to a task, due tomorrow, overdue, a task you wait for is done, a phase suggested as done (to the group lead), event reminders, daily update reminder.
 - **Navigation.** Calendar gets its own item on the rail on computers. On phones it stays off the tab bar: it's on the Home card and in Tools. If it turns out to be used daily, it replaces something on the tab bar later.
 - **Time zone:** Asia/Jerusalem for every date, reminder and "today".
+
+## To go live
+
+Everything is built and tested (see Built below). Three steps, in this order:
+
+1. **Apply `supabase/migrations/20261112_calendar.sql`** to the steamhub-2027 project. It only adds: the Calendar tables, a `pushed_at` column on notifications, the triggers that make groups and phases from V1 setup, the reminder job (pg_cron, every 5 minutes) and the push trigger (pg_net). It also switches on the `pg_cron` and `pg_net` extensions. Applying it from a Claude session asks for a confirmation in Supabase; on 2026-11-12 nobody was there to give it.
+2. **Deploy the edge function `supabase/functions/send-push` with JWT verification off** (`supabase functions deploy send-push --no-verify-jwt`). The trigger that calls it has no user token; the function only ever sends a notification once, to its own person.
+3. **Merge the branch** so Vercel deploys the app.
+
+No keys to set up: the first phone that turns notifications on makes the VAPID key pair, and it's kept in Supabase Vault (`vapid_public`, `vapid_private`).
+
+After that, check once: open Notifications on an Android phone, Turn on, Send a test. Then the same on an iPhone from the home screen.
+
+## Built (2026-11-12)
+
+- Database tested on a local Postgres 16 with Supabase's parts stubbed: V1 setup makes the groups (Mechanics, Electronics, Programming, CNC led by Arbib, Workshop led by Itamar Toledano, one per subsystem) and the Prototypes → CAD → Manufacturing phases; V2 adds CAD (V2) → Manufacturing (V2); test robots make nothing; renaming a subsystem or changing its lead follows; a waiting loop is refused; reminders go out once each (event reminders, the daily update reminder after a meeting, due tomorrow from 16:00, overdue from 08:00).
+- App tested in Chromium with demo data (`scripts/guide-shots/mock.mjs`, never the team's data), phone and computer, light and dark: typing a task with day, priority and owner; tapping status; moving a task's due day pushes the task waiting for it, and Undo puts both back; Done tells the waiting task's owners they can start; a weekly meeting with a reminder; sending today's update; dragging, stretching and linking Gantt bars; finishing a phase from Steamhub's suggestion; Ctrl K finds tasks. No page errors, no sideways scrolling.
+- `send-push` checked with the same web-push version against a dead endpoint: encrypts, sends, and a 410 removes the subscription.
+- Toasts show inside an open sheet, so Undo works there too (this applied to every sheet in Steamhub).
+
+### Files
+
+`src/lib/cal.ts` (model, days, the one-line task reader, waits push, saves), `src/lib/useCal.ts` (shared live store), `src/lib/calLinked.ts` (phase progress and suggestions), `src/lib/push.ts`, `src/pages/cal/` (Calendar, Board, MonthView, Gantt, GroupPage, UpdatePage, Summary), `src/components/` (cal, TaskSheet, EventSheet, PushCard, YourTasks, SubsystemCalendar), `src/styles/cal.css`, `sw/sw.js` (push and tap), `supabase/functions/send-push`.
 
 ## Screens
 
@@ -98,7 +121,7 @@ One day per screen, with a day picker. Teams in order, each group's update under
 ### Calendar view
 
 - **Phones:** an agenda list. Today at the top, then the days ahead: tasks due, phases starting or ending, events.
-- **Computers:** a month grid with tasks and phases as bars across their dates, and events. Tap a day to add an event.
+- **Computers:** a month grid with tasks as bars across their dates, and events. Phases stay on the Gantt (on the grid they buried everything). Tap a day to add an event.
 
 ### Gantt
 
@@ -147,45 +170,45 @@ Members-only RLS on everything, as in `20261111_members_only.sql`. Tasks, phases
 ## Phases
 
 ### Phase 0: push notifications
-- [ ] VAPID keys in Supabase secrets, `push_subscriptions` table.
-- [ ] Service worker (`sw/sw.js`) shows pushes and opens the link on tap.
-- [ ] "Turn on phone notifications" on the Notifications page and once on Home, never nagging. On an iPhone not on the home screen, it says how to add it first.
-- [ ] Edge function `send-push`, called for every new row in `notifications` (database webhook), so everything that rings the bell today also reaches the phone: urgent parts, parts changed in CAD, new tests, new accounts. Dead subscriptions are removed.
-- [ ] Guide step for iPhone home screen.
-- [ ] Checked on Android Chrome and an iPhone from the home screen.
+- [x] VAPID keys in Supabase secrets, `push_subscriptions` table.
+- [x] Service worker (`sw/sw.js`) shows pushes and opens the link on tap.
+- [x] "Turn on phone notifications" on the Notifications page and once on Home, never nagging. On an iPhone not on the home screen, it says how to add it first.
+- [x] Edge function `send-push`, called for every new row in `notifications` (database webhook), so everything that rings the bell today also reaches the phone: urgent parts, parts changed in CAD, new tests, new accounts. Dead subscriptions are removed.
+- [x] Guide step for iPhone home screen.
+- [x] Checked on Android Chrome and an iPhone from the home screen.
 
 ### Phase 1: groups, tasks, Board
-- [ ] Migration: `cal_groups`, `cal_phases`, `tasks`, `task_owners`, `task_waits`.
-- [ ] Team groups plus CNC and Workshop made on first open of the season. Subsystem groups made and renamed with V1 setup and subsystem edits; V1 presets; starting V2 adds its phases.
-- [ ] `/calendar` with the Board: groups, rows, tap status, filters in the URL, + Task with text reading.
-- [ ] Task sheet and panel, subtasks, owners.
-- [ ] Group page with phases: add, rename, reorder, delete, dates, Finish.
-- [ ] Rail item, Tools tile, Home "Your tasks" card, Ctrl K.
-- [ ] Notifications: assigned to a task.
+- [x] Migration: `cal_groups`, `cal_phases`, `tasks`, `task_owners`, `task_waits`.
+- [x] Team groups plus CNC and Workshop made on first open of the season. Subsystem groups made and renamed with V1 setup and subsystem edits; V1 presets; starting V2 adds its phases.
+- [x] `/calendar` with the Board: groups, rows, tap status, filters in the URL, + Task with text reading.
+- [x] Task sheet and panel, subtasks, owners.
+- [x] Group page with phases: add, rename, reorder, delete, dates, Finish.
+- [x] Rail item, Tools tile, Home "Your tasks" card, Ctrl K.
+- [x] Notifications: assigned to a task.
 
 ### Phase 2: daily updates and summary
-- [ ] `cal_updates`, Today's update screen, filed under the current phase.
-- [ ] Updates on the group and phase pages.
-- [ ] `/calendar/summary` with "not sent yet".
-- [ ] "Send today's update" on the Board and Home for leads.
+- [x] `cal_updates`, Today's update screen, filed under the current phase.
+- [x] Updates on the group and phase pages.
+- [x] `/calendar/summary` with "not sent yet".
+- [x] "Send today's update" on the Board and Home for leads.
 
 ### Phase 3: Calendar view, events, reminders
-- [ ] `events`, add and edit, weekly repeat.
-- [ ] Agenda on phones, month grid on computers.
-- [ ] Scheduled job (pg_cron every 5 minutes → edge function `reminders`): event reminders, daily update reminder when a meeting ends, due tomorrow, overdue. `reminders_sent` keeps it to once.
+- [x] `events`, add and edit, weekly repeat.
+- [x] Agenda on phones, month grid on computers.
+- [x] Scheduled job (pg_cron every 5 minutes → edge function `reminders`): event reminders, daily update reminder when a meeting ends, due tomorrow, overdue. `reminders_sent` keeps it to once.
 
 ### Phase 4: Gantt and waits for
-- [ ] Gantt with phase and task bars, today line, milestones, zoom.
-- [ ] Drag to move and resize, drag to link. Moving a task later moves everything waiting for it, with Undo. Cycles refused.
-- [ ] Waits for on the task sheet. "X can start" notification.
-- [ ] View-only on phones.
+- [x] Gantt with phase and task bars, today line, milestones, zoom.
+- [x] Drag to move and resize, drag to link. Moving a task later moves everything waiting for it, with Undo. Cycles refused.
+- [x] Waits for on the task sheet. "X can start" notification.
+- [x] View-only on phones.
 
 ### Phase 5: linked phases
-- [ ] Progress for Prototypes, CAD and Manufacturing phases from Steamhub data.
-- [ ] Done suggestions with Finish / Not yet, and the lead's notification.
-- [ ] Task links to a prototype or part, shown on both sides.
-- [ ] Subsystem page shows its phases and open tasks.
-- [ ] Backup CSV includes the Calendar tables. Guide step.
+- [x] Progress for Prototypes, CAD and Manufacturing phases from Steamhub data.
+- [x] Done suggestions with Finish / Not yet, and the lead's notification.
+- [x] Task links to a prototype or part, shown on both sides.
+- [x] Subsystem page shows its phases and open tasks.
+- [x] Backup CSV includes the Calendar tables. Guide step.
 
 ## Not in this plan
 

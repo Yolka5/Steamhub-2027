@@ -31,8 +31,8 @@
 }
 
 .tcol {
-  flex: 0 0 19rem;
-  min-width: 17.5rem;
+  flex: 0 0 23rem;
+  min-width: 20rem;
   padding: 0.5rem;
   background: var(--surface-1);
   border-radius: var(--radius-panel);
@@ -42,7 +42,7 @@
   background: var(--surface-2);
 }
 .tcol--none {
-  flex-basis: 20rem;
+  flex-basis: 25rem;
 }
 
 .tcol__head {
@@ -164,16 +164,15 @@ a.tcol__name:hover {
   min-width: 0;
   color: inherit;
   text-decoration: none;
-  flex-wrap: wrap;
 }
 .task__no {
   flex: none;
-  min-width: 2.75rem;
+  min-width: 2.5rem;
   font-weight: 600;
 }
 .task__main {
   display: grid;
-  flex: 1 1 8rem;
+  flex: 1 1 0;
   min-width: 0;
 }
 .task__name {
@@ -191,6 +190,7 @@ a.tcol__name:hover {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+  margin-top: 0.2rem;
 }
 .task__tags:empty {
   display: none;
@@ -342,4 +342,21 @@ a.tcol__name:hover {
 }
 .task--big .task__act {
   min-width: 5.5rem;
+}
+
+/* Part pictures on cards: a step darker than the card on the board, lighter in the big list. */
+.task .thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--surface-1);
+}
+.tlist .task .thumb {
+  background: var(--surface-0);
+}
+.task--done .thumb {
+  opacity: 0.55;
+}
+.task--big .thumb {
+  width: 3.25rem;
+  height: 3.25rem;
 }

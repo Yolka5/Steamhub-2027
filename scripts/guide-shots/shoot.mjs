@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createMock } from './mock.mjs'
-import { ME, seed } from './seed.mjs'
+import { ME, PC, seed } from './seed.mjs'
 import { SHOTS as DEFAULT_SHOTS } from './shots.mjs'
 
 // Playwright is not a project dependency; a global install is found through require.
@@ -47,17 +47,20 @@ const ref = new URL(SUPA).hostname.split('.')[0]
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
 const exp = Math.floor(Date.now() / 1000) + 3600 * 24
-const user = {
-  id: ME.id,
-  aud: 'authenticated',
-  role: 'authenticated',
-  email: ME.email,
-  app_metadata: { provider: 'google' },
-  user_metadata: { full_name: ME.name, name: ME.name },
-  created_at: '2026-11-01T00:00:00Z',
+/** A signed-in session for one demo person (the mock never checks the token). */
+function sessionFor(who) {
+  const user = {
+    id: who.id,
+    aud: 'authenticated',
+    role: 'authenticated',
+    email: who.email ?? 'workshop@example.com',
+    app_metadata: { provider: 'google' },
+    user_metadata: { full_name: who.name, name: who.name },
+    created_at: '2026-11-01T00:00:00Z',
+  }
+  const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: who.id, role: 'authenticated', aud: 'authenticated', exp, email: user.email })}.demo`
+  return { access_token: jwt, token_type: 'bearer', expires_in: 86400, expires_at: exp, refresh_token: 'demo', user }
 }
-const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: ME.id, role: 'authenticated', aud: 'authenticated', exp, email: ME.email })}.demo`
-const session = { access_token: jwt, token_type: 'bearer', expires_in: 86400, expires_at: exp, refresh_token: 'demo', user }
 
 const SCALE = Number(process.env.SCALE ?? 0) || null
 const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: SCALE ?? 2, isMobile: true, hasTouch: true }
@@ -65,7 +68,10 @@ const DESK = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: SCALE 
 
 async function context(browser, s) {
   const { db, files, ids } = seed()
-  const mock = createMock({ db, files, me: ME })
+  const who = s.user === 'pc' ? PC : ME
+  const session = sessionFor(who)
+  const user = session.user
+  const mock = createMock({ db, files, me: who })
   const ctx = await browser.newContext({
     ...(s.desk ? DESK : PHONE),
     ...(s.viewport ? { viewport: s.viewport } : {}),
@@ -143,7 +149,7 @@ const browser = await chromium.launch()
 const failed = []
 for (const s of SHOTS) {
   if (only.size && !only.has(s.name)) continue
-  for (const dark of s.themes ?? [false, true]) {
+  for (const dark of s.themes ?? (process.env.LIGHT ? [false] : [false, true])) {
     const name = dark ? `${s.name}-dark` : s.name
     const { ctx, ids } = await context(browser, { ...s, dark })
     const page = await ctx.newPage()
@@ -154,6 +160,7 @@ for (const s of SHOTS) {
       await page.goto(BASE + path, { waitUntil: 'networkidle' })
       await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important;caret-color:transparent!important}' })
       if (s.css) await page.addStyleTag({ content: s.css })
+      if (s.offline) await ctx.setOffline(true)
       if (s.act) await s.act(page, ids)
       await page.waitForTimeout(s.wait ?? 500)
       const wide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
@@ -170,7 +177,25 @@ for (const s of SHOTS) {
       if (!dark) {
         const w = Math.round(clip?.width ?? vp.width)
         const h = Math.round(clip?.height ?? vp.height)
-        sizes[s.name] = [w, h]
+        // Where each numbered mark goes, in the picture's own pixels. Measured from the real
+        // buttons, so a re-shot screen keeps its rings and arrows in the right place.
+        const marks = []
+        for (const [i, m] of (s.marks ?? []).entries()) {
+          const box = await page.locator(m.sel).first().boundingBox({ timeout: 1500 }).catch(() => null)
+          if (!box) {
+            errors.push(`mark ${i + 1} not found: ${m.sel}`)
+            continue
+          }
+          const x = box.x - (clip?.x ?? 0)
+          const y = box.y - (clip?.y ?? 0)
+          if (x + box.width < 0 || y + box.height < 0 || x > w || y > h) {
+            errors.push(`mark ${i + 1} is outside the picture: ${m.sel}`)
+            continue
+          }
+          const r = (v) => Math.round(v)
+          marks.push({ n: m.n ?? i + 1, x: r(x), y: r(y), w: r(box.width), h: r(box.height), ...(m.arrow ? { arrow: m.arrow } : {}) })
+        }
+        sizes[s.name] = { size: [w, h], marks }
       }
       const file = OUT ? png : toWebp(png, join(out, `${name}.webp`))
       console.log(`ok   ${name} ${file.endsWith('.png') ? '(png)' : ''}${errors.length ? `  (page errors: ${errors.join(' | ')})` : ''}`)
@@ -182,5 +207,7 @@ for (const s of SHOTS) {
   }
 }
 await browser.close()
+// A full run also forgets shots that were removed from the list.
+if (!OUT && !only.size) for (const k of Object.keys(sizes)) if (!SHOTS.some((s) => s.name === k)) delete sizes[k]
 if (!OUT) writeFileSync(manifest, `${JSON.stringify(sizes, null, 2)}\n`)
 if (failed.length) process.exitCode = 1

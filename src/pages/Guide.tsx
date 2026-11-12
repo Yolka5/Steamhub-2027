@@ -1,365 +1,108 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import { Icon } from '../components/Icon'
-import SHOT_SIZES from '../content/guide-shots.json'
+import { CHAPTERS, type ShotName } from '../content/guide'
+import SHOTS from '../content/guide-shots.json'
 
 // How to use Steamhub, for new students. Opened from the QR code on the workshop wall, so it's
-// phone first and works signed out. Pictures come from scripts/guide-shots (real app, demo data);
-// run it again when a screen changes. The wall poster is /guide/print (GuidePoster.tsx).
+// phone first and works signed out. The words are in content/guide.tsx; the pictures and their
+// marks come from scripts/guide-shots (real app, demo data). The poster is /guide/print.
 
-type ShotName = keyof typeof SHOT_SIZES
-
-interface Step {
-  title: string
-  body: ReactNode
-  shot?: { name: ShotName; alt: string }
+interface Mark {
+  n: number
+  x: number
+  y: number
+  w: number
+  h: number
+  arrow?: 'left' | 'right' | 'up' | 'down'
 }
 
-interface Chapter {
-  id: string
-  title: string
-  intro?: ReactNode
-  steps: Step[]
+interface ShotInfo {
+  size: [number, number]
+  marks: Mark[]
 }
 
-const A = ({ to, children }: { to: string; children: ReactNode }) => <Link to={to}>{children}</Link>
-const K = ({ children }: { children: ReactNode }) => <kbd>{children}</kbd>
+/**
+ * Numbered rings and arrows over a screenshot, drawn here rather than baked into the picture,
+ * so they stay sharp, match the theme and follow the real buttons when the shots are retaken.
+ */
+function Marks({ info }: { info: ShotInfo }) {
+  const [w, h] = info.size
+  // Laptop shots are shown smaller, so their marks are drawn bigger to look the same size.
+  const k = w > 600 ? 1.7 : 1
+  const r = 12 * k
+  const pad = 5 * k
+  const len = 46 * k
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
-const CHAPTERS: Chapter[] = [
-  {
-    id: 'start',
-    title: 'Getting in',
-    steps: [
-      {
-        title: 'Sign in',
-        body: (
-          <>
-            Open <A to="/">steamhub2027.vercel.app</A> and press <b>Sign in with Google</b>. Any Google account works, and you stay signed in after that.
-          </>
-        ),
-        shot: { name: 'signin', alt: 'The sign-in screen: the Steamhub logo and a Sign in with Google button.' },
-      },
-      {
-        title: 'Find your way on a phone',
-        body: 'The tabs at the bottom are Home, Stock, Add, Make and Calendar. Add is the orange button in the middle. Tools, with the Handbook and Prototypes inside, is a tile on Home, and the search button finds every tool.',
-        shot: { name: 'tabbar', alt: 'The phone tab bar: Home, Stock, Add, Make and Calendar.' },
-      },
-      {
-        title: 'Find your way on a computer',
-        body: (
-          <>
-            The menu on the left has every section, Search with <K>Ctrl K</K>, Notifications, Dark mode and your account at the bottom.
-          </>
-        ),
-        shot: { name: 'home-desk', alt: 'Steamhub on a laptop: the menu on the left and the Home page with the search box.' },
-      },
-    ],
-  },
-  {
-    id: 'home',
-    title: 'Home',
-    steps: [
-      {
-        title: 'Search from Home',
-        body: (
-          <>
-            Type a stock size like <code>20x40x1 700</code>, a part number like <code>3004</code> or a thread like <code>M5</code>, then press <b>Find</b>.
-          </>
-        ),
-        shot: { name: 'home', alt: 'Home on a phone: the search box, the part you are making and your reservations.' },
-      },
-      {
-        title: "What you're doing",
-        body: "Under the search: the parts you're making, the stock you reserved, and what the team did lately. Tap any of them to open it.",
-      },
-    ],
-  },
-  {
-    id: 'stock',
-    title: 'Stock',
-    intro: 'Every tube, profile, rod, angle and hex in the workshop, with its ID written on it in marker.',
-    steps: [
-      {
-        title: 'Find stock by size',
-        body: (
-          <>
-            In <A to="/stock">Stock</A>, type <code>20x40x1 700</code>: a 20 × 40 profile with a 1 mm wall, at least 700 mm long. The piece that wastes least comes first. <code>round 20/16 500</code> and an ID like <code>TB-014</code> work too.
-          </>
-        ),
-        shot: { name: 'stock-find', alt: 'Stock search for 20x40x1 700, with the best piece, PR-003, on top and a Reserve button.' },
-      },
-      {
-        title: 'Reserve a piece',
-        body: "Press Reserve, pick the subsystem it's for, and add the length you plan to cut if you know it. It's yours until you cut or release it.",
-        shot: { name: 'stock-reserve', alt: 'The Reserve sheet: subsystem, what for, and planned length.' },
-      },
-      {
-        title: 'Cut, release or mark used',
-        body: "Open the piece. Cut asks the final length, then shows the new length to write on what's left. Release gives it back; Mark used is for nothing left.",
-        shot: { name: 'stock-piece', alt: 'A piece page, PR-002, with Cut, Release, Mark used, Add photo and Edit details.' },
-      },
-      {
-        title: 'Add stock from your phone',
-        body: (
-          <>
-            Tap <A to="/stock/add">Add</A>, pick the shape (or a recent size), type the sizes and length, and press <b>Save</b>. The button shows the next free ID: write it and the length on the piece.
-          </>
-        ),
-        shot: { name: 'stock-add', alt: 'Add stock: Profile picked, 20 by 40 by 1 and 600 mm typed, with a drawing of the piece.' },
-      },
-      {
-        title: 'Cut list for a whole mechanism',
-        body: (
-          <>
-            In <A to="/stock/cut">Cut list</A>, type one size and all the lengths, like <code>700 x2, 350</code>. Steamhub picks the fewest, shortest pieces and shows where to cut.
-          </>
-        ),
-        shot: { name: 'stock-cut', alt: 'Cut list for 20x40x1 with lengths 700 x2 and 350, matched to pieces of stock.' },
-      },
-      {
-        title: 'Plates, end mills and weight',
-        body: (
-          <>
-            <A to="/stock/plates">Plates</A> is the CNC plate stock, synced from the plate sheet, with <A to="/stock/end-mills">End mills</A> beside it. <A to="/stock/mechanisms">Mechanisms</A> shows what each mechanism reserved and what it weighs.
-          </>
-        ),
-        shot: { name: 'stock-plates', alt: 'Plates: area per thickness, with a low stock warning on 6.35 mm.' },
-      },
-    ],
-  },
-  {
-    id: 'make',
-    title: 'Manufacturing',
-    intro: 'What the workshop makes. On phones the tab is called Make.',
-    steps: [
-      {
-        title: 'Pick a part',
-        body: (
-          <>
-            <A to="/manufacturing">Manufacturing</A> lists every part released to the workshop, by subsystem, urgent first. Filter by machine: CNC, Mill, Lathe or 3D print.
-          </>
-        ),
-        shot: { name: 'make-list', alt: 'The workshop list: machine filters, then 3 Intake with its parts.' },
-      },
-      {
-        title: 'Start and Done',
-        body: 'Press Start when you begin a part and Done when it\'s finished, right on the row. Done by mistake? Press Undo in the message that pops up. On the workshop PC, pick your name first.',
-        shot: { name: 'make-rows', alt: 'Part rows with Start and Done buttons: 3001 and 3005 in progress, 3002 to start.' },
-      },
-      {
-        title: 'The drawing',
-        body: "Tap a part to see its drawing, with Drawing PDF and DXF for the CNC. I'll make it starts it. If stock is reserved for it, Done also cuts the piece and shows the length to write on the leftover.",
-        shot: { name: 'make-part', alt: "Part 3002 Roller bearing block: I'll make it and Done buttons above its drawing." },
-      },
-      {
-        title: 'Print a whole subsystem',
-        body: 'The Drawings button next to a subsystem makes one PDF with a page per part, ready for the USB stick. CNC parts also come as DXF.',
-        shot: { name: 'make-drawings', alt: 'The Drawings sheet: open parts picked, Download PDF and DXF for CNC.' },
-      },
-      {
-        title: 'The workshop map',
-        body: 'The Map button (the tab on the right edge on a computer) shows which machines are running, who is on them, and the hours this week.',
-        shot: { name: 'make-map', alt: 'The workshop map: lathe and mill running, and CNC making 3001.' },
-      },
-      {
-        title: 'For subsystem leads: upload and release',
-        body: (
-          <>
-            In <A to="/manufacturing/robots">Robots</A>, open your subsystem and drop the assembly STEP from Onshape (Assembly tab, Export, STEP, millimeters). Parts get numbers and drawings. Pick them and press <b>Release</b> to send them to the workshop.
-          </>
-        ),
-        shot: { name: 'make-subsystem', alt: 'A subsystem page: lead, prototypes, the STEP drop zone and the released parts.' },
-      },
-      {
-        title: 'Bolts, assembly guide and wishlist',
-        body: (
-          <>
-            The subsystem page also has Bolts (every bolt the joints need) and an Assembly guide, step by step. Things to buy go on the <A to="/manufacturing/wishlist">Wishlist</A>.
-          </>
-        ),
-        shot: { name: 'make-wishlist', alt: 'The wishlist with two open items and Bought and Remove buttons.' },
-      },
-    ],
-  },
-  {
-    id: 'prototypes',
-    title: 'Prototypes',
-    intro: 'One prototype per idea you build. Each test is a video with the parameters it ran with.',
-    steps: [
-      {
-        title: 'Record a test',
-        body: (
-          <>
-            Tap <A to="/prototypes/record">Record a test</A> on Home or in Prototypes, then pick the prototype. New idea? Press <b>It's a new prototype</b>.
-          </>
-        ),
-        shot: { name: 'proto-record', alt: 'Record a test: pick a prototype, most recently tested first.' },
-      },
-      {
-        title: 'Film, set the values, save',
-        body: "Film or choose a video, set the parameters you changed, mark how it went (Worked, Partly, Failed), and Save test. The video uploads in the background.",
-        shot: { name: 'proto-test', alt: 'A new test: Film and Choose file, parameter values, and how it went.' },
-      },
-      {
-        title: 'See what worked',
-        body: (
-          <>
-            The <A to="/prototypes">prototype page</A> lists every test with what changed since the last one, plus notes and a to-do list. Compare puts two prototypes side by side, videos and all.
-          </>
-        ),
-        shot: { name: 'proto-page', alt: 'The Double roller prototype: its tests, newest first, with the values that changed.' },
-      },
-    ],
-  },
-  {
-    id: 'calendar',
-    title: 'Calendar',
-    intro: 'Tasks for every team and subsystem, their phases, and the leads’ daily updates. It replaces the Monday board.',
-    steps: [
-      {
-        title: 'Add a task in one line',
-        body: (
-          <>
-            In the <A to="/calendar">Calendar</A>, press <b>Task</b> under a group and type it with the day at the end: <code>Roller test thu high @noa</code>. The day (thu, 14/11, mon-thu), High or Low, and @name for who are read from the end.
-          </>
-        ),
-      },
-      {
-        title: 'Move it along',
-        body: 'Tap the circle on a row: Not started, In progress, Done. Tap the name to open the task: dates, owners, subtasks, and what it waits for. A task that slips moves the ones waiting for it.',
-      },
-      {
-        title: 'For leads: today’s update',
-        body: (
-          <>
-            At the end of the day, <A to="/calendar/update">Send today's update</A>: one text box, one Send. It's filed under your group's current phase. <A to="/calendar/summary">Updates</A> shows every group's day on one screen, and Copy puts it in the team chat.
-          </>
-        ),
-      },
-      {
-        title: 'Phases and the Gantt',
-        body: 'Each subsystem goes Prototypes, CAD, Manufacturing. Their progress comes from Steamhub itself, and Steamhub asks the lead when one looks finished. On a computer, the Gantt lets you drag bars to move them and drag a task’s dot onto another to make it wait.',
-      },
-      {
-        title: 'Meetings and reminders',
-        body: 'Add meetings as a weekly event in Calendar. When a meeting ends, leads who haven’t sent their update get a reminder. Any event can remind everyone before it starts.',
-      },
-      {
-        title: 'Notifications on your phone',
-        body: (
-          <>
-            Open <A to="/notifications">Notifications</A> and press <b>Turn on</b>. On an iPhone, first add Steamhub to the home screen (Share, then Add to Home Screen), open it from there, and turn them on.
-          </>
-        ),
-      },
-    ],
-  },
-  {
-    id: 'search',
-    title: 'Search',
-    steps: [
-      {
-        title: 'Ctrl K finds anything',
-        body: (
-          <>
-            Press <K>Ctrl K</K> on a computer, or the magnifier at the top on a phone. Type a stock size, a part number, a thread like <code>M5</code>, a prototype, a page or a handbook topic. Arrows to move, Enter to open.
-          </>
-        ),
-        shot: { name: 'search', alt: 'The search box with 20x40x1 700 typed, showing Find stock and two matching pieces.' },
-      },
-      {
-        title: 'Part numbers',
-        body: (
-          <>
-            A part number jumps straight to its drawing. Part numbers start with the subsystem number, so <code>300</code> lists 3001 and up.
-          </>
-        ),
-        shot: { name: 'search-part', alt: 'The search box with 300 typed, listing parts from 3001 up.' },
-      },
-    ],
-  },
-  {
-    id: 'tools',
-    title: 'Tools',
-    steps: [
-      {
-        title: 'Calculators and cheat sheets',
-        body: (
-          <>
-            <A to="/tools">Tools</A> has the motor and gearbox calculator, tap drills and holes, center distance, swerve ratios, motor curves, cut list and weight per mechanism, plus links to JVN, AMB and ReCalc.
-          </>
-        ),
-        shot: { name: 'tools', alt: 'The Tools page: Motor and gearbox, Tap drills and holes, Center distance, Swerve ratios.' },
-      },
-      {
-        title: 'Tap drills',
-        body: (
-          <>
-            Pick a thread in <A to="/tools/tap-drills">Tap drills</A> for its tap drill and clearance hole. Searching <code>M5</code> gets there too.
-          </>
-        ),
-        shot: { name: 'tools-tap', alt: 'Tap drills for M5: 4.20 mm tap drill and 5.50 mm clearance hole.' },
-      },
-      {
-        title: 'Motor and gearbox calculator',
-        body: (
-          <>
-            The <A to="/calculators">calculator</A> works out gear ratio, current and battery budget for every mechanism. Your changes stay a draft until you press <b>Save to team robot</b>.
-          </>
-        ),
-        shot: { name: 'tools-calc', alt: 'The motor and gearbox calculator on a laptop.' },
-      },
-    ],
-  },
-  {
-    id: 'handbook',
-    title: 'Handbook',
-    steps: [
-      {
-        title: 'The mechanical design handbook',
-        body: (
-          <>
-            The <A to="/handbook">Handbook</A> is in Hebrew: the mechanical design handbook and the FRC information sources. On a phone, find it in Tools.
-          </>
-        ),
-        shot: { name: 'handbook', alt: 'The Handbook page with its two parts, in Hebrew.' },
-      },
-    ],
-  },
-  {
-    id: 'more',
-    title: 'Good to know',
-    steps: [
-      {
-        title: 'Notifications',
-        body: (
-          <>
-            The bell tells you when a part you're making changes in CAD, or a prototype you follow gets a new test. <A to="/notifications">Mark all read</A> clears the dot.
-          </>
-        ),
-        shot: { name: 'notifications', alt: 'Notifications: a part changed in CAD and a new prototype test.' },
-      },
-      {
-        title: 'No signal in the workshop',
-        body: "Steamhub still opens and shows what was saved last time. Changes need a connection, and Steamhub tells you when there isn't one.",
-      },
-      {
-        title: 'Dark mode and signing out',
-        body: 'The moon button switches to dark mode. Your initial (on a phone) or name (on a computer) opens Sign out.',
-      },
-    ],
-  },
-]
+  return (
+    <svg className="guide-marks" viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      {info.marks.map((m) => {
+        const x0 = clamp(m.x - pad, 2, w - 2)
+        const y0 = clamp(m.y - pad, 2, h - 2)
+        const x1 = clamp(m.x + m.w + pad, 2, w - 2)
+        const y1 = clamp(m.y + m.h + pad, 2, h - 2)
+        const cx = (x0 + x1) / 2
+        const cy = (y0 + y1) / 2
+        // Where the arrow starts and where its tip touches the ring.
+        let arrow: { x1: number; y1: number; x2: number; y2: number } | null = null
+        if (m.arrow === 'left') arrow = { x1: x0 - len, y1: cy, x2: x0 - 3, y2: cy }
+        if (m.arrow === 'right') arrow = { x1: x1 + len, y1: cy, x2: x1 + 3, y2: cy }
+        if (m.arrow === 'up') arrow = { x1: cx, y1: y0 - len, x2: cx, y2: y0 - 3 }
+        if (m.arrow === 'down') arrow = { x1: cx, y1: y1 + len, x2: cx, y2: y1 + 3 }
+        if (arrow) {
+          arrow.x1 = clamp(arrow.x1, r + 2, w - r - 2)
+          arrow.y1 = clamp(arrow.y1, r + 2, h - r - 2)
+        }
+        // The number sits at the arrow's tail, or on the ring's top-left corner.
+        const bx = arrow ? arrow.x1 : clamp(x0, r + 2, w - r - 2)
+        const by = arrow ? arrow.y1 : clamp(y0, r + 2, h - r - 2)
+        let head = ''
+        if (arrow) {
+          const a = Math.atan2(arrow.y2 - arrow.y1, arrow.x2 - arrow.x1)
+          const s = 9 * k
+          const p = (t: number) => `${arrow!.x2 - s * Math.cos(a + t)},${arrow!.y2 - s * Math.sin(a + t)}`
+          head = `${arrow.x2},${arrow.y2} ${p(0.5)} ${p(-0.5)}`
+        }
+        return (
+          <g key={m.n}>
+            <rect className="guide-marks__halo" x={x0} y={y0} width={x1 - x0} height={y1 - y0} rx={10 * k} />
+            <rect className="guide-marks__ring" x={x0} y={y0} width={x1 - x0} height={y1 - y0} rx={10 * k} />
+            {arrow && (
+              <>
+                <line className="guide-marks__halo" x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2} />
+                <line className="guide-marks__ring" x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2} />
+                <polygon className="guide-marks__head" points={head} />
+              </>
+            )}
+            <circle className="guide-marks__badge" cx={bx} cy={by} r={r} />
+            <text className="guide-marks__n" x={bx} y={by} fontSize={r * 1.15} dy="0.36em">
+              {m.n}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
 
-/** One picture, light or dark to match the app. Only the visible one loads. */
+/** One picture with its marks, light or dark to match the app. Only the visible one loads. */
 function Shot({ name, alt }: { name: ShotName; alt: string }) {
-  const [w, h] = SHOT_SIZES[name] as [number, number]
+  const info = SHOTS[name] as unknown as ShotInfo
+  const [w, h] = info.size
   const wide = w > 600
   return (
-    <figure className={`guide-shot${wide ? ' guide-shot--wide' : ''}`} style={{ maxWidth: wide ? undefined : `min(100%, ${Math.min(w, 390) * 0.8}px)` }}>
+    <figure className={`guide-shot${wide ? ' guide-shot--wide' : ''}`} style={wide ? undefined : { maxWidth: `min(100%, ${Math.round(Math.min(w, 390) * 0.85)}px)` }}>
       <img className="guide-shot__light" src={`/guide/${name}.webp`} width={w} height={h} alt={alt} loading="lazy" decoding="async" />
       <img className="guide-shot__dark" src={`/guide/${name}-dark.webp`} width={w} height={h} alt={alt} loading="lazy" decoding="async" />
+      {info.marks.length > 0 && <Marks info={info} />}
+      {/* Laptop screens are small on a phone: open the picture full size to zoom in. */}
+      {wide && (
+        <a className="guide-shot__zoom" href={`/guide/${name}.webp`} target="_blank" rel="noopener">
+          <Icon name="expand" size={16} /> Full size
+        </a>
+      )}
     </figure>
   )
 }
@@ -414,7 +157,9 @@ export default function Guide({ signedIn = true }: { signedIn?: boolean }) {
     <div className="page guide" lang="en">
       <header className="guide-head">
         <h1 className="page__title">How to use Steamhub</h1>
-        <p className="guide-head__sub soft">The everyday things, a step at a time. Every link opens the real page.</p>
+        <p className="guide-head__sub soft">
+          Everything a step at a time. The numbers in each step match the numbers on its picture, and every link opens the real page.
+        </p>
         <div className="page__actions">
           {!signedIn && (
             <Link to="/" className="q-btn q-btn--main">
@@ -446,21 +191,34 @@ export default function Guide({ signedIn = true }: { signedIn?: boolean }) {
                 {c.title}
               </h2>
               {c.intro && <p className="guide-ch__intro soft">{c.intro}</p>}
-              <ol className="guide-steps">
+              <div className="guide-steps">
                 {c.steps.map((s) => (
-                  <li key={s.title} className={`guide-step${s.shot ? '' : ' guide-step--text'}`}>
+                  <article key={s.title} className={`guide-step${s.shot ? '' : ' guide-step--text'}`}>
                     <div className="guide-step__text">
                       <h3 className="guide-step__title">{s.title}</h3>
-                      <p>{s.body}</p>
+                      {s.body && <p>{s.body}</p>}
+                      {s.how && (
+                        <ol className="guide-how">
+                          {s.how.map((h, i) => (
+                            <li key={i}>
+                              <span className="guide-how__n" aria-hidden="true">
+                                {i + 1}
+                              </span>
+                              <span>{h}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                      {s.tip && <p className="guide-tip">{s.tip}</p>}
                     </div>
                     {s.shot && <Shot name={s.shot.name} alt={s.shot.alt} />}
-                  </li>
+                  </article>
                 ))}
-              </ol>
+              </div>
             </section>
           ))}
           <p className="guide-end soft small">
-            Pictures show demo data. Something here doesn't match what you see? Tell the person who looks after Steamhub.
+            Pictures show demo data. Something here doesn’t match what you see? Tell the person who looks after Steamhub.
           </p>
         </div>
       </div>

@@ -211,6 +211,7 @@
 
 /* ----- Pictures ----- */
 .guide-shot {
+  position: relative;
   margin: 0;
   overflow: hidden;
   background: var(--surface-1);
@@ -228,6 +229,29 @@
   max-width: 100%;
 }
 
+.guide-shot__zoom {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
+
+.guide-shot__zoom:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* The picture matches the app's theme. The hidden one never loads (lazy and not displayed). */
 .guide-shot__dark {
   display: none !important;
@@ -243,6 +267,109 @@
 
 .guide-end {
   margin-top: 3rem;
+}
+
+/* ----- Numbered actions and the marks on the pictures -----
+   Blue is used nowhere else in Steamhub, so a ring or number can't be mistaken for the app. */
+.guide {
+  --mark: #1d5fd6;
+  --on-mark: #ffffff;
+}
+
+:root[data-theme='dark'] .guide {
+  --mark: #6aa5ff;
+  --on-mark: #0c0c0c;
+}
+
+.guide-step__text > p + .guide-how,
+.guide-step__text > .guide-step__title + .guide-how {
+  margin-top: 0.75rem;
+}
+
+.guide-how {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-how li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  max-width: 38rem;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+}
+
+.guide-how__n {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-top: 0.05rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--on-mark);
+  background: var(--mark);
+  border-radius: 50%;
+}
+
+.guide-tip {
+  margin-top: 0.9rem !important;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.9375rem !important;
+  color: var(--ink-soft);
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+
+.guide-step__text > p + p {
+  margin-top: 0.5rem;
+}
+
+.guide-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.guide-marks__ring,
+.guide-marks__halo {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.guide-marks__ring {
+  stroke: var(--mark);
+  stroke-width: 3px;
+}
+
+/* A thin light edge keeps the ring readable on any part of the screenshot. */
+.guide-marks__halo {
+  stroke: var(--surface-0);
+  stroke-width: 7px;
+}
+
+.guide-marks__head,
+.guide-marks__badge {
+  fill: var(--mark);
+  stroke: var(--surface-0);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
+.guide-marks__n {
+  font-family: var(--font-work);
+  font-weight: 700;
+  text-anchor: middle;
+  fill: var(--on-mark);
 }
 
 /* ===== Poster ===== */

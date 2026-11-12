@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
-import { JobLine, ResultTag, TestVideo } from '../../components/proto'
+import { JobLine, ResultTag, Swatch, TestVideo } from '../../components/proto'
 import { Select } from '../../components/Select'
 import { LoadError, Sheet, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
@@ -380,7 +380,10 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
           {filled.map((d) => (
             <div key={d.id} data-changed={changedIds.has(d.id) || undefined}>
               <dt>{d.name}</dt>
-              <dd>{fmtValue(d, test.values[d.id])}</dd>
+              <dd>
+                {d.kind === 'choice' && <Swatch option={String(test.values[d.id])} />}
+                {fmtValue(d, test.values[d.id])}
+              </dd>
             </div>
           ))}
         </dl>

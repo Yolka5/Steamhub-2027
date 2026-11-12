@@ -130,7 +130,7 @@ export function WorkshopPanel({ open, onClose, parts, onDone, onShow }: Props) {
           {open && tab === 'now' && (
             <section className="wpanel__now">
               <div className="wpanel__scroll">
-                <WorkshopMap parts={parts} lastUsed={lastUsed} now={now} onDone={onDone} onShow={onShow} onStock={() => navigate('/stock')} />
+                <WorkshopMap parts={parts} lastUsed={lastUsed} now={now} onDone={onDone} onShow={onShow} onStock={() => navigate('/stock')} onSaw={() => navigate('/stock/cut')} />
               </div>
               <div className="wpanel__rooms">
                 <h3 className="wpanel__label">Other room</h3>

@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from './Icon'
-import { Poster } from './proto'
+import { Unit } from './Odometer'
 import { Select } from './Select'
 import { Sheet, useBusy, useToast } from './ui'
 import { useWho } from '../lib/auth'
-import { countParts, type Counts } from '../lib/counts'
+import { countParts } from '../lib/counts'
 import { createRobot, type Part, type Robot, type Subsystem } from '../lib/mfg'
 import { usePrototypes } from '../lib/proto'
 import { selectAll, supabase } from '../lib/supabase'
 import { usePeople, useRobots } from '../lib/useMfg'
 
-// The season card on Home, in the countdown's place once kickoff is past. It shows the one thing
-// to do next, then a live view of it:
+// The season card on Home, in the countdown's place once kickoff is past: one compact band with
+// the season's numbers, what it is, and the one thing to do next.
 //   no V1 yet                  → Set up V1 (robot and subsystems in one sheet)
 //   V1 with no parts yet       → prototype week: prototypes and tests per subsystem
 //   V1 in production           → parts done per subsystem
@@ -39,7 +39,6 @@ export function SeasonCard({ since, season }: { since: number; season: number })
   const [setup, setSetup] = useState(false)
   const week = Math.floor(since / 7) + 1
   const day = (since % 7) + 1
-  const when = `Build week ${week} · day ${day}`
 
   // The season's newest version, archived or not.
   const robot = useMemo(
@@ -74,142 +73,124 @@ export function SeasonCard({ since, season }: { since: number; season: number })
 
   if (!robot)
     return (
-      <section className="countdown season-card" data-mode="setup">
-        <RobotArt />
-        <div className="season-card__body">
-          <p className="season-card__eyebrow">{when}</p>
-          <h2 className="season-card__title">Set up {season} V1</h2>
-          <p className="soft">
-            The robot and its subsystems, with a lead for each. Prototypes, parts, stock and the calculator all hang off them, so this comes first.
-          </p>
-          <div className="season-card__actions">
-            <button type="button" className="q-btn q-btn--main" onClick={() => setSetup(true)}>
-              <Icon name="plus" size={18} /> Set up V1
-            </button>
-          </div>
-        </div>
+      <Card
+        label={`Build week ${week}, day ${day}. Set up ${season} V1`}
+        units={
+          <>
+            <Unit value={week} label="Build week" />
+            <Unit value={day} label="Day" />
+          </>
+        }
+        title={`Set up ${season} V1`}
+        line="The robot and its subsystems come first."
+        go={{ onClick: () => setSetup(true), label: `Set up ${season} V1` }}
+        actions={
+          <button type="button" className="q-btn q-btn--main" onClick={() => setSetup(true)}>
+            <Icon name="plus" size={18} /> Set up V1
+          </button>
+        }
+      >
         {sheet}
-      </section>
+      </Card>
     )
 
   // V1 on paper, nothing uploaded yet: it's prototype week.
-  if (total.made + total.bought === 0)
-    return (
-      <>
-        <PrototypeWeek robot={robot} subs={robotSubs} season={season} when={when} />
-        {sheet}
-      </>
-    )
+  if (total.made + total.bought === 0) return <PrototypeWeek robot={robot} subs={robotSubs} season={season} />
 
-  const bySub = new Map<string, Slim[]>()
-  for (const p of parts) bySub.set(p.subsystem_id, [...(bySub.get(p.subsystem_id) ?? []), p])
   const today = new Date().toDateString()
   const madeToday = parts.filter((p) => p.status === 'done' && p.machine !== 'Bought' && new Date(p.updated_at).toDateString() === today).length
   const doing = parts.filter((p) => p.status === 'doing').length
-  const share = total.made ? total.done / total.made : 0
-  const hasNext = robots.some((r) => r.season === season && r.version === next)
+  const pct = total.made ? Math.round((total.done / total.made) * 100) : 0
+  const offerNext = total.made > 0 && total.done / total.made >= NEXT_AT && !robots.some((r) => r.season === season && r.version === next)
 
   return (
-    <section className="countdown season-card" data-mode="build">
-      <RobotArt />
-      <div className="season-card__body">
-        <p className="season-card__eyebrow">{when}</p>
-        <h2 className="season-card__title">
-          <Link to={`/manufacturing/r/${robot.id}`}>{robot.name}</Link>
-        </h2>
-        <p className="soft num">
-          {total.done} of {total.made} parts made ({Math.round(share * 100)}%)
-          {madeToday ? ` · ${madeToday} today` : ''}
-          {doing ? ` · ${doing} in progress` : ''}
-          {total.bought ? ` · ${total.got} of ${total.bought} bought parts in` : ''}
-        </p>
-        <ul className="season-card__subs">
-          {robotSubs.map((s) => (
-            <SubBar key={s.id} sub={s} c={countParts(bySub.get(s.id) ?? [])} />
-          ))}
-        </ul>
-        {share >= NEXT_AT && !hasNext && (
-          <div className="season-card__next">
-            <span>
-              <strong>V{robot.version} is {Math.round(share * 100)}% made.</strong> Start V{next} with the same subsystems and leads?
-            </span>
-            <button type="button" className="q-btn q-btn--small" onClick={() => setSetup(true)}>
+    <Card
+      label={`${robot.name}: ${pct}% of parts made`}
+      units={
+        <>
+          <Unit value={pct} label="% made" />
+          <Unit value={madeToday} label="Made today" />
+          <Unit value={doing} label="In progress" />
+        </>
+      }
+      title={robot.name}
+      go={offerNext ? { onClick: () => setSetup(true), label: `Start V${next}` } : { to: `/manufacturing/r/${robot.id}`, label: `${robot.name} parts by subsystem` }}
+      line={
+        offerNext
+          ? `${pct}% made. Start V${next} with the same subsystems?`
+          : `${total.done} of ${total.made} parts made${total.bought ? ` · ${total.got} of ${total.bought} bought in` : ''} · week ${week}, day ${day}`
+      }
+      actions={
+        <>
+          {offerNext && (
+            <button type="button" className="q-btn q-btn--main" onClick={() => setSetup(true)}>
               Start V{next}
             </button>
-          </div>
-        )}
-      </div>
+          )}
+          <Link to={`/manufacturing/r/${robot.id}`} className="q-btn">
+            {offerNext ? `V${robot.version} parts` : 'Parts by subsystem'}
+          </Link>
+        </>
+      }
+    >
       {sheet}
+    </Card>
+  )
+}
+
+type Go = { to: string; label: string } | { onClick: () => void; label: string }
+
+/** One band in the countdown's place: numbers, then what it is, then what to do. */
+function Card({ label, units, title, line, actions, go, children }: { label: string; units: ReactNode; title: string; line: string; actions: ReactNode; go: Go; children?: ReactNode }) {
+  return (
+    <section className="countdown season-card" aria-label={label}>
+      <div className="countdown__units">{units}</div>
+      <div className="season-card__text">
+        <h2 className="countdown__title">{title}</h2>
+        <p className="soft num">{line}</p>
+      </div>
+      <div className="season-card__actions">{actions}</div>
+      {/* Phones show only the numbers and the title, as the countdown does, so the whole card is the button. */}
+      {'to' in go ? (
+        <Link to={go.to} className="season-card__go" aria-label={go.label} />
+      ) : (
+        <button type="button" className="season-card__go" aria-label={go.label} onClick={go.onClick} />
+      )}
+      {children}
     </section>
   )
 }
 
-function SubBar({ sub, c }: { sub: Subsystem; c: Counts }) {
-  const pct = c.made ? Math.round((c.done / c.made) * 100) : 0
-  return (
-    <li>
-      <Link to={`/manufacturing/s/${sub.id}`} className="season-card__sub">
-        <span className="season-card__subname">
-          {sub.number} {sub.name}
-        </span>
-        <span className="mfg-bar" aria-hidden="true">
-          <span style={{ width: `${pct}%` }} />
-        </span>
-        <span className="soft small num">{c.made ? `${c.done}/${c.made}` : 'No STEP yet'}</span>
-      </Link>
-    </li>
-  )
-}
-
-function PrototypeWeek({ robot, subs, season, when }: { robot: Robot; subs: Subsystem[]; season: number; when: string }) {
+function PrototypeWeek({ robot, subs, season }: { robot: Robot; subs: Subsystem[]; season: number }) {
   const { prototypes, tests } = usePrototypes(season)
   const today = new Date().toDateString()
   const testsToday = tests.filter((t) => new Date(t.at).toDateString() === today).length
-  // The newest filmed test of the season is the picture on the side.
-  const poster = tests
-    .filter((t) => t.poster_path)
-    .sort((a, b) => b.at.localeCompare(a.at))[0]?.poster_path
+  const covered = subs.filter((s) => prototypes.some((p) => p.subsystem_number === s.number)).length
 
   return (
-    <section className="countdown season-card" data-mode="protos">
-      {poster ? <Poster path={poster} className="season-card__art season-card__art--photo" /> : <RobotArt />}
-      <div className="season-card__body">
-        <p className="season-card__eyebrow">
-          {when} · {robot.name}
-        </p>
-        <h2 className="season-card__title">Prototype week</h2>
-        <p className="soft num">
-          {prototypes.length} prototypes · {tests.length} tests{testsToday ? `, ${testsToday} today` : ''}
-        </p>
-        <ul className="season-card__tiles">
-          {subs.map((s) => {
-            const mine = prototypes.filter((p) => p.subsystem_number === s.number)
-            const n = tests.filter((t) => mine.some((p) => p.id === t.prototype_id)).length
-            const chosen = mine.find((p) => p.status === 'chosen')
-            return (
-              <li key={s.id}>
-                <Link to={mine.length ? `/prototypes?sub=${s.number}` : `/prototypes?sub=${s.number}&new=1`} className="season-card__tile" data-empty={!mine.length || undefined}>
-                  <span className="season-card__subname">
-                    {s.number} {s.name}
-                  </span>
-                  <span className="soft small num">
-                    {chosen ? `Chosen: ${chosen.name}` : mine.length ? `${mine.length} prototype${mine.length > 1 ? 's' : ''} · ${n} test${n === 1 ? '' : 's'}` : '+ Start a prototype'}
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-        <div className="season-card__actions">
+    <Card
+      label={`Prototype week: ${prototypes.length} prototypes, ${tests.length} tests`}
+      units={
+        <>
+          <Unit value={prototypes.length} label="Prototypes" />
+          <Unit value={tests.length} label="Tests" />
+          <Unit value={testsToday} label="Today" />
+        </>
+      }
+      title="Prototype week"
+      go={{ to: '/prototypes', label: 'Prototypes' }}
+      line={`${robot.name} · ${subs.length ? `${covered} of ${subs.length} subsystems have a prototype` : 'no subsystems yet'}`}
+      actions={
+        <>
           <Link to="/prototypes/record" className="q-btn q-btn--main">
             <Icon name="video" size={18} /> Record a test
           </Link>
-          <Link to={`/manufacturing/r/${robot.id}`} className="q-btn">
-            Subsystems
+          <Link to="/prototypes" className="q-btn">
+            Prototypes
           </Link>
-        </div>
-      </div>
-    </section>
+        </>
+      }
+    />
   )
 }
 
@@ -285,29 +266,5 @@ function SetupForm({ season, version, from, onDone }: { season: number; version:
         {busy ? 'Setting up' : `Set up V${version}`}
       </button>
     </form>
-  )
-}
-
-/** A robot drawn in lines, blurred into the card's right side. Decoration only. */
-function RobotArt() {
-  return (
-    <svg className="season-card__art" viewBox="0 0 320 260" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-      {/* elevator towers and carriage */}
-      <path d="M118 40v150M202 40v150M118 40h84" />
-      <rect x="132" y="70" width="56" height="34" rx="6" />
-      <path d="M160 104v30" />
-      {/* arm and intake rollers */}
-      <path d="M188 86l64-30" />
-      <circle cx="262" cy="52" r="14" />
-      <circle cx="262" cy="52" r="4" />
-      {/* frame */}
-      <rect x="60" y="150" width="200" height="54" rx="8" />
-      <path d="M100 150v54M220 150v54" />
-      {/* bumpers */}
-      <rect x="44" y="196" width="232" height="26" rx="13" />
-      {/* wheels */}
-      <circle cx="88" cy="234" r="16" />
-      <circle cx="232" cy="234" r="16" />
-    </svg>
   )
 }

@@ -5,7 +5,7 @@
 
 export type Face = 't' | 's' | 'w' // top, south (toward the entry), west (left side)
 export type Tone = 'n' | 'wall' | 'w2' | 'm' | 'win' // clay, wall, darker inset, machine (takes its state colour), window
-export type Spot = 'lathe' | 'mill' | 'stock'
+export type Spot = 'lathe' | 'mill' | 'stock' | 'saw'
 
 export interface Poly {
   points: string
@@ -183,7 +183,8 @@ function build(): Room {
   box(6.97, 0.45, 0.2, 0.04, 0.9, 0.08)
   box(6.85, 0.46, 0.42, 0.18, 0.98, 0.03)
 
-  // Mitre saw on its stand
+  // Mitre saw on its stand: opens the cut list
+  begin('saw', [5.87, 0.45, 1.36])
   table(5.45, 0.12, 0.85, 0.58, 0.8)
   box(5.55, 0.2, 0.65, 0.46, 0.8, 0.06)
   cylZ(5.87, 0.45, 0.2, 0.86, 0.02)
@@ -194,6 +195,7 @@ function build(): Room {
   cylX(0.42, 1.08, 0.2, 5.83, 5.91)
   cylX(0.34, 1.14, 0.08, 5.91, 6.08)
   box(5.8, 0.5, 0.14, 0.05, 1.18, 0.14)
+  end()
 
   // Milling machine
   begin('mill', [3.2, 1.13, 2.02])
@@ -227,34 +229,34 @@ function build(): Room {
   box(3.62, 0.48, 0.26, 0.05, 1.45, 0.2, M)
   end()
 
-  // Lathe, along the left wall with the chuck at the back
-  begin('lathe', [0.42, 0.56, 1.42])
+  // Lathe, along the left wall, facing away from the entrance: headstock and chuck at the front
+  // (toward the entrance), tailstock at the back. Drawn back to front.
+  begin('lathe', [0.42, 1.79, 1.42])
   const L: Tone = 'm'
   shadow(0.08, 0.3, 0.7, 1.75)
   box(0.08, 0.3, 0.66, 1.75, 0, 0.8, L) // cabinet
   strip(0.12, 0.7, 2.05, 0.42, 0.012, L)
   box(0.04, 0.26, 0.74, 1.83, 0.8, 0.04, L) // chip tray
-  box(0.24, 0.82, 0.28, 1.18, 0.84, 0.12, L) // bed
-  tstrip(0.27, 0.31, 0.82, 2.0, 0.961, L) // ways
-  tstrip(0.45, 0.49, 0.82, 2.0, 0.961, L)
-  box(0.1, 0.32, 0.6, 0.5, 0.84, 0.46, L) // headstock
-  box(0.14, 0.36, 0.52, 0.4, 1.3, 0.12, L) // belt cover
-  for (const kx of [0.2, 0.3, 0.56]) cylY(kx, 1.0, 0.025, 0.82, 0.85, L) // speed knobs
-  cylY(0.38, 1.08, 0.15, 0.82, 0.94, L) // chuck
-  cylY(0.38, 1.08, 0.11, 0.94, 0.945, L)
-  cylY(0.38, 1.08, 0.03, 0.94, 1.1, L) // the part
-  box(0.12, 1.18, 0.6, 0.3, 0.96, 0.08, L) // saddle
-  box(0.62, 1.15, 0.14, 0.36, 0.7, 0.34, L) // apron
-  cylX(1.33, 0.88, 0.08, 0.76, 0.8, L) // apron wheel
-  box(0.22, 1.24, 0.36, 0.18, 1.04, 0.06, L) // cross slide
-  box(0.3, 1.26, 0.14, 0.14, 1.1, 0.1, L) // tool post
-  box(0.36, 1.2, 0.03, 0.12, 1.14, 0.015, L) // tool
-  box(0.22, 1.7, 0.3, 0.28, 0.96, 0.1, L) // tailstock
-  box(0.26, 1.72, 0.22, 0.24, 1.06, 0.14, L)
-  cylY(0.37, 1.14, 0.035, 1.55, 1.72, L) // quill
-  cylY(0.37, 1.14, 0.08, 1.96, 1.99, L) // tailstock wheel
-  box(0.7, 0.42, 0.03, 0.03, 1.3, 0.25, L) // DRO post and screen
-  box(0.6, 0.4, 0.24, 0.05, 1.5, 0.2, L)
+  box(0.24, 0.35, 0.28, 1.18, 0.84, 0.12, L) // bed
+  tstrip(0.27, 0.31, 0.35, 1.53, 0.961, L) // ways
+  tstrip(0.45, 0.49, 0.35, 1.53, 0.961, L)
+  cylY(0.37, 1.14, 0.08, 0.36, 0.39, L) // tailstock wheel
+  box(0.22, 0.37, 0.3, 0.28, 0.96, 0.1, L) // tailstock
+  box(0.26, 0.39, 0.22, 0.24, 1.06, 0.14, L)
+  cylY(0.37, 1.14, 0.035, 0.63, 0.8, L) // quill
+  box(0.12, 0.87, 0.6, 0.3, 0.96, 0.08, L) // saddle
+  box(0.22, 0.93, 0.36, 0.18, 1.04, 0.06, L) // cross slide
+  box(0.3, 0.95, 0.14, 0.14, 1.1, 0.1, L) // tool post
+  box(0.36, 1.03, 0.03, 0.12, 1.14, 0.015, L) // tool
+  box(0.62, 0.84, 0.14, 0.36, 0.7, 0.34, L) // apron
+  cylX(1.02, 0.88, 0.08, 0.76, 0.8, L) // apron wheel
+  cylY(0.38, 1.08, 0.03, 1.25, 1.41, L) // the part
+  cylY(0.38, 1.08, 0.15, 1.41, 1.53, L) // chuck
+  box(0.1, 1.53, 0.6, 0.5, 0.84, 0.46, L) // headstock
+  box(0.14, 1.59, 0.52, 0.4, 1.3, 0.12, L) // belt cover
+  for (const kx of [0.2, 0.3, 0.56]) cylY(kx, 1.0, 0.025, 2.03, 2.06, L) // speed knobs
+  box(0.7, 1.9, 0.03, 0.03, 1.3, 0.25, L) // DRO post and screen
+  box(0.6, 1.9, 0.24, 0.05, 1.5, 0.2, L)
   end()
 
   // ---------- middle row ----------
@@ -296,13 +298,9 @@ function build(): Room {
   box(1.24, 2.29, 0.42, 0.27, 0.991, 0.01, 'w2')
 
   // ---------- front row ----------
-  table(0.02, 4.05, 0.62, 0.8, 0.75) // workshop PC
-  box(0.08, 4.12, 0.2, 0.42, 0, 0.44)
-  box(0.12, 4.38, 0.12, 0.12, 0.75, 0.03)
-  box(0.16, 4.42, 0.04, 0.04, 0.78, 0.12)
-  box(0.1, 4.2, 0.08, 0.52, 0.88, 0.32)
-  box(0.34, 4.28, 0.16, 0.42, 0.75, 0.02)
-  box(0.36, 4.74, 0.06, 0.08, 0.75, 0.02)
+  // Workshop PC: a touchscreen on the left wall, nothing on the floor under it
+  box(0.0, 4.38, 0.05, 0.16, 1.18, 0.22) // wall bracket
+  box(0.05, 4.1, 0.1, 0.72, 1.05, 0.46) // screen, facing into the room
 
   table(2.4, 4.78, 2.9, 0.58, 0.9) // drill bits and the charging station
   for (let i = 0; i < 5; i++) {

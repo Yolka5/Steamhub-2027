@@ -126,9 +126,10 @@
 .wmap__spot.urg .s.m { fill: var(--urg-s); stroke: var(--urg-s); }
 .wmap__spot.urg .w.m { fill: var(--urg-w); stroke: var(--urg-w); }
 .wmap__spot.idle.is-hot .t.m { fill: var(--surface-1); stroke: var(--surface-1); }
-.wmap__stock.is-hot .t.n { fill: var(--stock-t); stroke: var(--stock-t); }
-.wmap__stock.is-hot .s.n { fill: var(--stock-s); stroke: var(--stock-s); }
-.wmap__stock.is-hot .w.n { fill: var(--stock-w); stroke: var(--stock-w); }
+/* The two links, stock shelf and saw, warm to orange under the pointer. */
+:is(.wmap__stock, .wmap__saw).is-hot .t.n { fill: var(--stock-t); stroke: var(--stock-t); }
+:is(.wmap__stock, .wmap__saw).is-hot .s.n { fill: var(--stock-s); stroke: var(--stock-s); }
+:is(.wmap__stock, .wmap__saw).is-hot .w.n { fill: var(--stock-w); stroke: var(--stock-w); }
 
 .wmap__entry {
   font-size: 13px;
@@ -145,7 +146,7 @@
 .wmap:not(.wmap--mini) .wmap__spot.is-hot {
   transform: translateY(-9px);
 }
-.wmap:not(.wmap--mini) .wmap__stock.is-hot {
+.wmap:not(.wmap--mini) :is(.wmap__stock, .wmap__saw).is-hot {
   transform: translateY(-5px);
 }
 .wmap:not(.wmap--mini) .wmap__spot:active {
@@ -154,7 +155,8 @@
 }
 .wmap__svg.hot-lathe .sh-lathe,
 .wmap__svg.hot-mill .sh-mill,
-.wmap__svg.hot-stock .sh-stock {
+.wmap__svg.hot-stock .sh-stock,
+.wmap__svg.hot-saw .sh-saw {
   opacity: 0.45;
 }
 
@@ -511,6 +513,7 @@
 }
 .wpanel.is-entering .wmap__lathe { animation-delay: 380ms; }
 .wpanel.is-entering .wmap__mill { animation-delay: 470ms; }
+.wpanel.is-entering .wmap__saw { animation-delay: 520ms; }
 .wpanel.is-entering .wmap__stock { animation-delay: 560ms; }
 .wpanel.is-entering .wmap-tag,
 .wpanel.is-entering .wmap-lead,

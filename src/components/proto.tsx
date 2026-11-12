@@ -129,6 +129,30 @@ export function TestVideo({ test, params }: { test: Test; params: ParamDef[] }) 
   return null
 }
 
+/** Wheel colors as the vendors make them, so "Green 35A" shows a green dot next to it. */
+const SWATCHES: Record<string, string> = {
+  green: '#3cbf3a',
+  orange: '#f26b2a',
+  blue: '#1d3fe0',
+  black: '#111111',
+  red: '#d6312b',
+  maroon: '#7a1f2b',
+  yellow: '#f2c230',
+  purple: '#7b3fc4',
+  white: '#f4f4f4',
+  gray: '#8a8a8a',
+  grey: '#8a8a8a',
+}
+
+/** A dot in the color an option names ("Green 35A", "Light gray 30A"), or nothing. */
+export function Swatch({ option }: { option: string }) {
+  const words = option.toLowerCase().split(/\s+/)
+  const hit = words.slice(0, 2).find((w) => SWATCHES[w])
+  if (!hit) return null
+  const shade = words[0] === 'light' ? 'color-mix(in srgb, #8a8a8a 45%, white)' : words[0] === 'dark' ? '#4a4a4a' : SWATCHES[hit]
+  return <span className="pt-swatch" style={{ background: shade }} aria-hidden="true" />
+}
+
 /**
  * One parameter's value, by its kind. Choices are buttons (a dropdown past 8) with Other to type
  * a new one, which joins the list when the test is saved. A number with sizes in the library
@@ -186,6 +210,7 @@ export function ValueInput({ def, value, onChange, changed }: { def: ParamDef; v
                   onChange(value === o ? null : o)
                 }}
               >
+                <Swatch option={o} />
                 {o}
               </button>
             ))}

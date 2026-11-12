@@ -1111,145 +1111,53 @@ dialog {
   background: var(--brand);
 }
 
-/* Season card: the countdown's place after kickoff. Content on the left, a robot (or the newest
-   prototype video's frame) blurred into the right side. */
+/* Season card: the countdown's place after kickoff. One band: numbers, words, buttons. */
 .season-card {
-  position: relative;
-  grid-template-columns: minmax(0, 1fr);
-  min-height: 14rem;
-  overflow: hidden;
-  isolation: isolate;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem clamp(1.25rem, 3vw, 2.5rem);
+  padding-block: 1.25rem;
 }
 
-.season-card__art {
-  position: absolute;
-  inset: 0 0 0 auto;
-  z-index: -1;
-  width: min(48%, 26rem);
-  height: 100%;
-  color: var(--brand);
-  opacity: 0.5;
-  filter: blur(5px);
-  mask-image: linear-gradient(to right, transparent, #000 55%);
-  pointer-events: none;
+.season-card .countdown__units {
+  flex-wrap: nowrap;
+  gap: 0.5rem clamp(1rem, 2.5vw, 2rem);
 }
 
-.season-card__art--photo {
-  display: block;
-  opacity: 0.6;
-  filter: blur(8px) saturate(1.1);
+.season-card .roll {
+  font-size: clamp(2.25rem, 4.5vw, 3.5rem);
 }
 
-.season-card__art--photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.season-card__art--photo svg {
-  display: none;
-}
-
-.season-card__body {
+.season-card__text {
   display: grid;
-  justify-items: start;
-  gap: 0.6rem;
-  max-width: 40rem;
+  gap: 0.2rem;
+  min-width: 0;
 }
 
-.season-card__body p {
+.season-card__text p {
   margin: 0;
-}
-
-.season-card__eyebrow {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--brand);
-}
-
-.season-card__title {
-  font-size: clamp(1.6rem, 3.5vw, 2.25rem);
-}
-
-.season-card__title a {
-  color: inherit;
-  text-decoration: none;
 }
 
 .season-card__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.4rem;
+  justify-content: flex-end;
 }
 
-.season-card__subs,
-.season-card__tiles {
-  display: grid;
-  gap: 0.35rem;
-  width: 100%;
-  margin: 0.25rem 0 0;
-  padding: 0;
-  list-style: none;
+/* Narrower desktops: the buttons drop under the words. */
+@media (max-width: 1279px) {
+  .season-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .season-card__actions {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
 }
 
-.season-card__tiles {
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 0.5rem;
-}
-
-.season-card__sub {
-  display: grid;
-  grid-template-columns: minmax(7rem, 12rem) minmax(4rem, 1fr) auto;
-  align-items: center;
-  gap: 0.75rem;
-  min-height: 2.25rem;
-  color: inherit;
-  text-decoration: none;
-}
-
-.season-card__sub .mfg-bar {
-  width: 100%;
-}
-
-.season-card__subname {
-  overflow: hidden;
-  font-weight: 500;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.season-card__tile {
-  display: grid;
-  gap: 0.15rem;
-  min-height: 3.5rem;
-  padding: 0.6rem 0.8rem;
-  color: inherit;
-  text-decoration: none;
-  background: var(--surface-0);
-  border-radius: var(--radius-control);
-}
-
-.season-card__tile[data-empty] {
-  background: transparent;
-  border: 1px dashed var(--line-strong, var(--line));
-}
-
-.season-card__tile[data-empty] .soft {
-  color: var(--brand);
-}
-
-.season-card__next {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  width: 100%;
-  margin-top: 0.4rem;
-  padding: 0.7rem 0.9rem;
-  background: var(--surface-0);
-  border-left: 3px solid var(--brand);
-  border-radius: var(--radius-control);
+.season-card__go {
+  display: none;
 }
 
 .season-setup {
@@ -1279,15 +1187,6 @@ dialog {
 
   .season-setup__row .select,
   .season-setup__row > :nth-child(3) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .season-card__sub {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .season-card__sub .mfg-bar {
     grid-column: 1 / -1;
     grid-row: 2;
   }
@@ -1410,8 +1309,25 @@ dialog {
   }
 
   .home .countdown__info p,
-  .home .countdown__info .q-btn {
+  .home .countdown__info .q-btn,
+  .home .season-card__text p,
+  .home .season-card__actions {
     display: none;
+  }
+
+  .home .season-card {
+    position: relative;
+  }
+
+  .home .season-card__go {
+    position: absolute;
+    inset: 0;
+    display: block;
+    padding: 0;
+    cursor: pointer;
+    background: none;
+    border: 0;
+    border-radius: inherit;
   }
 
   .home .countdown__title {

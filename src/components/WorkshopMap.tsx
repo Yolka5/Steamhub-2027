@@ -18,11 +18,18 @@ interface Props {
   onDone?: (p: Part) => void
   onShow?: (p: Part) => void
   onStock?: () => void
+  /** The saw opens the cut list. */
+  onSaw?: () => void
   /** Home's mini map: the back half of the room, live colours, no tags, not interactive. */
   compact?: boolean
 }
 
-export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, compact }: Props) {
+export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, onSaw, compact }: Props) {
+  // Spots that are links rather than machines.
+  const links: { spot: 'stock' | 'saw'; label: string; go?: () => void }[] = [
+    { spot: 'stock', label: 'Stock →', go: onStock },
+    { spot: 'saw', label: 'Cut list →', go: onSaw },
+  ]
   const views = Object.fromEntries(MACHINE_SPOTS.map(({ spot, machine }) => [spot, machineView(machine, parts, now, lastUsed[machine] ?? null)])) as Record<
     'lathe' | 'mill',
     MachineView
@@ -101,7 +108,7 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, com
   }, [])
 
   const spotClass = (spot: Spot) => {
-    const st = spot === 'stock' ? '' : views[spot].state
+    const st = spot === 'lathe' || spot === 'mill' ? views[spot].state : ''
     return `wmap__spot wmap__${spot} ${st}${hot === spot ? ' is-hot' : ''}`
   }
 
@@ -132,7 +139,7 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, com
             className={spotClass(spot)}
             onPointerEnter={() => enter(spot)}
             onPointerLeave={leave}
-            onClick={() => (spot === 'stock' ? onStock?.() : setPinned((p) => (p === spot ? null : spot)))}
+            onClick={() => (spot === 'lathe' || spot === 'mill' ? setPinned((p) => (p === spot ? null : spot)) : links.find((l) => l.spot === spot)?.go?.())}
           >
             {polys}
           </g>
@@ -161,9 +168,11 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, com
       {MACHINE_SPOTS.map(({ spot }) => (
         <i key={spot} className="wmap-lead" data-anchor={spot} aria-hidden="true" />
       ))}
-      <button type="button" className={`wmap-stock${hot === 'stock' ? ' is-hot' : ''}`} data-anchor="stock" onClick={onStock} onPointerEnter={() => enter('stock')} onPointerLeave={leave}>
-        Stock →
-      </button>
+      {links.map((l) => (
+        <button key={l.spot} type="button" className={`wmap-stock${hot === l.spot ? ' is-hot' : ''}`} data-anchor={l.spot} onClick={l.go} onPointerEnter={() => enter(l.spot)} onPointerLeave={leave}>
+          {l.label}
+        </button>
+      ))}
     </div>
   )
 }

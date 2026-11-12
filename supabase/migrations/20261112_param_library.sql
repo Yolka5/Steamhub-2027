@@ -23,7 +23,7 @@ drop policy if exists "members all param library" on public.param_library;
 create policy "members all param library" on public.param_library for all to authenticated using (public.is_member()) with check (public.is_member());
 alter publication supabase_realtime add table public.param_library;
 
--- Starting library. Compliant colors are AndyMark's (green 35A softest to black 60A); flex
+-- Starting library. Compliant colors as on AndyMark's product page (green 35A, orange 40A, blue 50A, black 60A); flex
 -- wheels are sold by hardness, not color (VEX relabeled 45A as 40A, WCP still sells 45A).
 insert into public.param_library (name, fields, starter_for, position) values
   ('Compression', '[{"name":"Compression","unit":"mm","kind":"number","options":[]}]', '{intake,shooter,indexer,feeder,hopper}', 1),
@@ -31,7 +31,7 @@ insert into public.param_library (name, fields, starter_for, position) values
   ('Wheel', '[
     {"name":"Wheel type","unit":"","kind":"choice","options":["Compliant","Flex","Stealth","Colson","Mecanum","Omni"]},
     {"name":"Wheel diameter","unit":"in","kind":"number","options":["1.625","2","2.25","2.5","3","4","5","6"]},
-    {"name":"Compliant color","unit":"","kind":"choice","options":["Green 35A","Orange 40A","Maroon 45A","Blue 50A","Black 60A"],"only_if":{"field":"Wheel type","is":["Compliant"]}},
+    {"name":"Compliant color","unit":"","kind":"choice","options":["Green 35A","Orange 40A","Blue 50A","Black 60A"],"only_if":{"field":"Wheel type","is":["Compliant"]}},
     {"name":"Flex hardness","unit":"","kind":"choice","options":["30A","40A","45A","60A"],"only_if":{"field":"Wheel type","is":["Flex"]}}
   ]', '{intake,shooter,drivetrain,drive,indexer,feeder}', 3),
   ('Motor', '[

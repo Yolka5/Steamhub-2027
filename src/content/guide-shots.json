@@ -1,0 +1,126 @@
+{
+  "signin": [
+    390,
+    399
+  ],
+  "home": [
+    390,
+    620
+  ],
+  "home-desk": [
+    1280,
+    800
+  ],
+  "tabbar": [
+    390,
+    68
+  ],
+  "stock-find": [
+    390,
+    760
+  ],
+  "stock-reserve": [
+    390,
+    844
+  ],
+  "stock-piece": [
+    390,
+    560
+  ],
+  "stock-add": [
+    390,
+    844
+  ],
+  "stock-cut": [
+    390,
+    760
+  ],
+  "stock-plates": [
+    390,
+    700
+  ],
+  "make-list": [
+    390,
+    760
+  ],
+  "make-rows": [
+    382,
+    480
+  ],
+  "make-part": [
+    390,
+    720
+  ],
+  "make-drawings": [
+    390,
+    844
+  ],
+  "make-map": [
+    1280,
+    800
+  ],
+  "make-subsystem": [
+    390,
+    800
+  ],
+  "make-robots": [
+    390,
+    420
+  ],
+  "make-wishlist": [
+    390,
+    640
+  ],
+  "proto-list": [
+    390,
+    720
+  ],
+  "proto-record": [
+    390,
+    520
+  ],
+  "proto-test": [
+    390,
+    844
+  ],
+  "proto-page": [
+    390,
+    800
+  ],
+  "proto-compare": [
+    1280,
+    800
+  ],
+  "search": [
+    640,
+    216
+  ],
+  "search-part": [
+    640,
+    503
+  ],
+  "tools": [
+    390,
+    760
+  ],
+  "tools-calc": [
+    1280,
+    800
+  ],
+  "tools-tap": [
+    390,
+    700
+  ],
+  "handbook": [
+    390,
+    520
+  ],
+  "handbook-design": [
+    390,
+    760
+  ],
+  "notifications": [
+    390,
+    380
+  ]
+}

@@ -122,12 +122,17 @@ Asked for by Yoni on 2026-11-11, built on 2026-11-12.
 - **Which robot counts:** robots have a `version` (`20261112_robot_versions.sql`), read from "V1" or "V2" in the name when a robot is made or renamed. Only one V1 is allowed per season. Test robots have no version and never count.
 - To see the card before kickoff, open `localhost:5173/?kickoff=past` on the dev server.
 
+## How-to guide and wall poster (2026-11-12)
+
+- `/guide`: how to use Steamhub, phone first, with a contents row that follows you (a rail on computers) and real screenshots in light and dark. It opens without signing in, so the wall QR works on a new student's phone; its links lead to sign-in and then to the page. Linked from Tools and Ctrl K.
+- `/guide/print`: the A4 wall poster, the same steps cut to a line each, with a QR code to steamhub2027.vercel.app/guide made in the browser (`qrcode-generator`). Checked: prints as one A4 page and the code scans.
+- The pictures come from `scripts/guide-shots` (real app, demo data, Supabase never called). Run it again when a screen changes: start `npx vite --port 5199`, then `node scripts/guide-shots/shoot.mjs`.
+
 ## Still open
 
 - **Run `supabase/migrations/20261111_members_only.sql`** (members-only stock, page counts) and **deploy `supabase/functions/sync-sheet`** (end mill and 0-plate fixes). Both were held for Yoni's go-ahead on 2026-11-11.
 - **After the 11 Nov code is deployed, run `20261111_emails_admin_only.sql`.** Before that, it would break the live site (older code reads profiles with select *).
 - **Upgrade the Supabase plan before kickoff** (calendar reminder on 3 Jan 2027). The free plan has 1 GB of file storage; one assembly upload is about 25–40 MB.
-- A one-page "how to" presentation for the workshop wall, with a QR code to it.
 - Press "Sync from sheet" on Plates once, so the merging sync runs and sync-on-open turns on. Deploy the sync fix above first.
 - Press "Copy from Drive" on Stock photos once. 80 pieces still point at Drive (the function is deployed).
 - Test the bolt table and assembly guide with a real assembly STEP (so far only folders of part files were uploaded).

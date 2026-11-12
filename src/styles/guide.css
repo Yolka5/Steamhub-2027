@@ -1,0 +1,439 @@
+/* How to use Steamhub (/guide) and its wall poster (/guide/print).
+   Read mode: one calm column, a contents rail that follows you (as in the Handbook),
+   and the app's own screens as the pictures. */
+
+/* ----- Signed out: the guide on its own, under a plain bar ----- */
+.guide-public__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--line);
+}
+
+.guide-public .main {
+  padding-bottom: 3rem;
+}
+
+/* ----- Head ----- */
+.guide-head {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 44rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 1000px) {
+  .guide-head {
+    margin-bottom: 2rem;
+  }
+}
+
+.guide-head .page__title {
+  margin: 0;
+}
+
+.guide-head__sub {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+/* ----- Layout ----- */
+.guide-body {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1000px) {
+  .guide-body {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 3rem;
+  }
+
+  .guide-toc {
+    position: sticky;
+    top: 1.5rem;
+  }
+}
+
+/* ----- Contents ----- */
+.guide-toc .picks {
+  position: relative;
+  gap: 0;
+}
+
+.guide-toc .pick {
+  position: relative;
+  z-index: 1;
+  min-height: 2.5rem;
+}
+
+/* The Indicator draws the fill and slides it; the link itself stays clear. */
+.guide-toc .pick[aria-current='true'] {
+  color: var(--ink);
+  background: transparent;
+}
+
+@media (max-width: 999px) {
+  /* Phones: one sideways row that stays under the top bar. */
+  .guide-toc {
+    position: sticky;
+    top: 3.6rem;
+    z-index: 5;
+    margin: 0 -1rem;
+    padding: 0.4rem 1rem;
+    overflow-x: auto;
+    background: var(--surface-0);
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+
+  .guide-public .guide-toc {
+    top: 0;
+  }
+
+  .guide-toc::-webkit-scrollbar {
+    display: none;
+  }
+
+  .guide-toc .picks--stack {
+    flex-direction: row;
+    width: max-content;
+  }
+
+  .guide-toc .pick {
+    white-space: nowrap;
+  }
+}
+
+/* ----- Chapters and steps ----- */
+.guide-text {
+  max-width: 50rem;
+}
+
+.guide-ch {
+  /* Clears the top bar and the sticky contents row on phones. */
+  scroll-margin-top: 7.5rem;
+}
+
+.guide-public .guide-ch {
+  scroll-margin-top: 4rem;
+}
+
+@media (min-width: 1000px) {
+  .guide-ch {
+    scroll-margin-top: 1.5rem;
+  }
+}
+
+.guide-ch + .guide-ch {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.guide-ch .section__title {
+  margin: 0 0 0.5rem;
+}
+
+.guide-ch__intro {
+  margin: 0 0 1.25rem;
+  font-size: 1.0625rem;
+}
+
+.guide-steps {
+  display: grid;
+  gap: 2.25rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-step {
+  display: grid;
+  gap: 0.9rem;
+  align-items: start;
+}
+
+/* Wide screens: the words beside a phone picture, read first. */
+@media (min-width: 760px) {
+  .guide-step:not(.guide-step--text):not(:has(.guide-shot--wide)) {
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    gap: 2rem;
+  }
+}
+
+.guide-step__title {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-work);
+  font-size: 1.1875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.guide-step__text p {
+  margin: 0;
+  max-width: 38rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+.guide-step__text a {
+  color: var(--ink);
+  text-decoration-color: var(--brand);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.guide-step__text code,
+.poster code {
+  padding: 0.05em 0.35em;
+  font-family: var(--font-work);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+.guide-step__text kbd {
+  padding: 0.05em 0.4em;
+  font: inherit;
+  font-size: 0.9em;
+  background: var(--surface-1);
+  border: 1px solid var(--surface-3);
+  border-radius: 6px;
+}
+
+/* ----- Pictures ----- */
+.guide-shot {
+  margin: 0;
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+
+.guide-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.guide-shot--wide {
+  max-width: 100%;
+}
+
+/* The picture matches the app's theme. The hidden one never loads (lazy and not displayed). */
+.guide-shot__dark {
+  display: none !important;
+}
+
+:root[data-theme='dark'] .guide-shot__light {
+  display: none !important;
+}
+
+:root[data-theme='dark'] .guide-shot__dark {
+  display: block !important;
+}
+
+.guide-end {
+  margin-top: 3rem;
+}
+
+/* ===== Poster ===== */
+.poster-view {
+  min-height: 100dvh;
+  padding: 1rem;
+  background: var(--surface-1);
+}
+
+.poster-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: 210mm;
+  margin: 0 auto 1rem;
+}
+
+.poster-bar p {
+  margin: 0;
+}
+
+/* The sheet itself: exactly A4. Paper stays light in dark mode. */
+.poster {
+  --p-ink: #141413;
+  --p-soft: #4a4a46;
+  --p-orange: #e86000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 210mm;
+  height: 297mm;
+  margin: 0 auto;
+  padding: 14mm 14mm 11mm;
+  overflow: hidden;
+  color: var(--p-ink);
+  font-family: var(--font-work);
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* Narrow screens see the whole sheet, scaled down. */
+@media screen and (max-width: 840px) {
+  .poster-view {
+    --s: calc((100vw - 2rem) / 210mm);
+    overflow-x: hidden;
+  }
+
+  .poster {
+    zoom: var(--s);
+  }
+}
+
+.poster__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  padding-bottom: 7mm;
+  border-bottom: 0.6mm solid var(--p-ink);
+}
+
+.poster__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4mm;
+}
+
+.poster__logo {
+  width: 30mm;
+  height: 30mm;
+  background: url('/logo-256.png') center / contain no-repeat;
+}
+
+.poster__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 46pt;
+  line-height: 1;
+  color: var(--p-orange);
+}
+
+.poster__sub {
+  margin: 2.5mm 0 0;
+  font-family: var(--font-voice);
+  font-size: 28pt;
+  line-height: 1.1;
+}
+
+.poster__qr {
+  display: grid;
+  justify-items: center;
+  gap: 2mm;
+  width: 72mm;
+  margin: 0;
+}
+
+.poster__qr svg {
+  display: block;
+  width: 72mm;
+  height: 72mm;
+}
+
+.poster__qr figcaption {
+  font-size: 13pt;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.poster__steps {
+  display: grid;
+  flex: 1;
+  align-content: space-evenly;
+  margin: 0;
+  padding: 3mm 0 0;
+  list-style: none;
+}
+
+.poster__step {
+  display: grid;
+  grid-template-columns: 13mm minmax(0, 1fr);
+  gap: 4mm;
+  align-items: baseline;
+}
+
+.poster__n {
+  font-family: var(--font-voice);
+  font-size: 26pt;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--p-orange);
+}
+
+.poster__step-title {
+  margin: 0;
+  font-family: var(--font-work);
+  font-size: 21pt;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.poster__how {
+  margin: 1mm 0 0;
+  font-size: 15.5pt;
+  line-height: 1.3;
+  color: var(--p-soft);
+}
+
+.poster code {
+  color: var(--p-ink);
+  background: #eeeeea;
+}
+
+.poster__foot {
+  padding-top: 4mm;
+  font-size: 12pt;
+  color: var(--p-soft);
+  border-top: 0.3mm solid #ccc;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  .poster-view {
+    min-height: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .poster-bar,
+  .app-status {
+    display: none !important;
+  }
+
+  .poster {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

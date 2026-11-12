@@ -8,6 +8,7 @@ import { createTask, currentPhase, dayLabel, firstName, groupOrder, parseQuick, 
 import type { Progress } from '../../lib/calLinked'
 import { putRows, type Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
+import { usePhone } from '../../lib/usePhone'
 
 // Every group's tasks, grouped by team. Groups fold (remembered on this device). A group with
 // phases shows the one it's in and its progress. Each group adds tasks with one typed line.
@@ -29,6 +30,8 @@ export interface BoardFilter {
 
 export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<string, Progress>; filter: BoardFilter; people: Profile[] }) {
   const who = useWho()
+  // Phones add tasks from one + button (NewTask), not a button in every group.
+  const phone = usePhone()
   const [folded, setFolded] = useState<Set<string>>(() => new Set(readFolded()))
   const nameOf = (id: string | null) => people.find((p) => p.id === id)?.name ?? null
   const fold = (id: string) =>
@@ -110,7 +113,7 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                       ))}
                     </ul>
                   )}
-                  <QuickAdd group={g} cal={cal} people={people} />
+                  {!phone && <QuickAdd group={g} cal={cal} people={people} />}
                 </>
               )}
             </section>
@@ -125,7 +128,23 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
  * One line makes a task: "Roller test thu high @noa". The day, priority and owners come out of
  * the words at the end, and show as chips while typing so it's clear what will be saved.
  */
-export function QuickAdd({ group, cal, people, phaseId, compact = true }: { group: CalGroup; cal: Cal; people: Profile[]; phaseId?: string | null; compact?: boolean }) {
+export function QuickAdd({
+  group,
+  cal,
+  people,
+  phaseId,
+  compact = true,
+  autoFocus,
+  onAdded,
+}: {
+  group: CalGroup
+  cal: Cal
+  people: Profile[]
+  phaseId?: string | null
+  compact?: boolean
+  autoFocus?: boolean
+  onAdded?: (title: string) => void
+}) {
   const who = useWho()
   const toast = useToast()
   const [open, setOpen] = useState(!compact)
@@ -144,6 +163,7 @@ export function QuickAdd({ group, cal, people, phaseId, compact = true }: { grou
       putRows('tasks', [res.data!])
       for (const user_id of q.owners) putRows('task_owners', [{ task_id: res.data!.id, user_id }])
       setText('')
+      onAdded?.(res.data!.title)
     })
 
   if (!open)
@@ -170,7 +190,9 @@ export function QuickAdd({ group, cal, people, phaseId, compact = true }: { grou
       <div className="cal-quick__row">
         <input
           className="field"
-          autoFocus={compact}
+          autoFocus={autoFocus ?? compact}
+          // Inside a sheet, the sheet hands focus to this field (not its close button).
+          data-autofocus={autoFocus || undefined}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {

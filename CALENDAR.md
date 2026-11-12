@@ -70,6 +70,15 @@ After that, check once: open Notifications on an Android phone, Turn on, Send a 
 - `send-push` checked with the same web-push version against a dead endpoint: encrypts, sends, and a 410 removes the subscription.
 - Toasts show inside an open sheet, so Undo works there too (this applied to every sheet in Steamhub).
 
+### Phone pass (2026-11-12)
+
+- Calendar is on the phone tab bar (Home, Stock, Add, Make, Calendar). Tools, with the Handbook and Prototypes inside, is a tile on Home on phones, and search finds every tool.
+- The view switch (Board, Calendar, Plan, Updates) is one full-width bar that stays under the top bar while scrolling. Today's update is a slim row, not a big button.
+- One + Task button on phones instead of one in every group. It remembers the last group (or picks the one you lead) and takes the same typed line.
+- Plan replaces the Gantt on phones: what's coming up, then each group's phases as steps (done, now, next) with dates and progress, and its dated tasks in order. Dragging stays on computers.
+- Group page on phones: Tasks, Phases and Updates as tabs. Phase cards everywhere show their dates as text and open dates, order and delete only after Edit.
+- Every control is at least 44 px on touch screens. Opening the New task sheet puts the cursor in the text field, so the phone keyboard opens at once.
+
 ### Files
 
 `src/lib/cal.ts` (model, days, the one-line task reader, waits push, saves), `src/lib/useCal.ts` (shared live store), `src/lib/calLinked.ts` (phase progress and suggestions), `src/lib/push.ts`, `src/pages/cal/` (Calendar, Board, MonthView, Gantt, GroupPage, UpdatePage, Summary), `src/components/` (cal, TaskSheet, EventSheet, PushCard, YourTasks, SubsystemCalendar), `src/styles/cal.css`, `sw/sw.js` (push and tap), `supabase/functions/send-push`.

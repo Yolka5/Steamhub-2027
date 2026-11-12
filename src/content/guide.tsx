@@ -346,7 +346,7 @@ export const CHAPTERS: Chapter[] = [
             <B>Drawings</B>: print every drawing of a subsystem.
           </>,
         ],
-        shot: { name: 'make-list', alt: 'The workshop list: Map, the Workshop, Robots and Wishlist tabs, Filters and Drawings marked 1 to 4.' },
+        shot: { name: 'make-list', alt: 'The workshop list: Map, the List, Robots and Wishlist tabs, Filters and Drawings marked 1 to 4.' },
       },
       {
         title: 'Filter by machine',
@@ -368,8 +368,52 @@ export const CHAPTERS: Chapter[] = [
         shot: { name: 'make-rows', alt: 'Part rows: Start marked 1, Done marked 2 and an Urgent tag marked 3.' },
       },
       {
+        title: 'Your parts',
+        body: 'The workshop lead hands out parts. The ones he gives you are your list, in the order he wants them made.',
+        how: [
+          <>
+            On your phone, <B>Make</B> opens your list. On a computer, press <B>parts for you</B> at the top of Manufacturing.
+          </>,
+          <>Start the top one first. Urgent parts are always on top.</>,
+          <>
+            Can’t make one? Press <B>⋯</B> on it and <B>Give back</B>. It goes back to the lead.
+          </>,
+          <>Nothing in your list? Start any part from Unassigned on the board and it becomes yours.</>,
+        ],
+        tip: 'You can only start and finish your own parts and unassigned ones.',
+      },
+      {
+        title: 'The board',
+        body: 'Board shows Unassigned first, then a column for everyone who has parts. Done parts stay faded for 12 hours.',
+        how: [
+          <>
+            On the workshop PC, tap your name on top of your column to see your list big.
+          </>,
+          <>It goes back to the board by itself after 3 minutes.</>,
+        ],
+      },
+      {
+        title: 'Handing out parts (workshop lead)',
+        how: [
+          <>
+            On the board, press <B>Hand out</B>.
+          </>,
+          <>
+            Tick parts, or press <B>All</B> on a column. Filter by machine or subsystem first to pick “all CNC parts of Intake”.
+          </>,
+          <>
+            Press <B>Give to…</B> and pick the person. The people you pick most are at the top.
+          </>,
+          <>Drag a card by its handle to another person, to Unassigned, or up and down to change the order.</>,
+          <>
+            On a phone, use <B>⋯</B> on a card: Move to the top, Up one, Down one, Give to someone else, Unassign.
+          </>,
+        ],
+        tip: 'You get a notification when parts are released, when someone gives one back, and when someone has nothing left.',
+      },
+      {
         title: 'On the workshop PC',
-        body: 'The workshop PC is shared, so Start asks who’s making the part.',
+        body: 'The workshop PC is shared. Start on someone’s part starts it for them. Start on an unassigned part asks who’s making it, with the people picked lately first.',
         how: [<>Type a few letters of your name,</>, <>then tap it.</>, <>Not on the list? Type your name at the bottom and press Start.</>],
         shot: { name: 'make-who', alt: 'Who’s making 3002: the name search, a name and the type-your-name box marked 1 to 3.' },
       },
@@ -890,7 +934,12 @@ export const CHAPTERS: Chapter[] = [
       {
         title: 'For the admin',
         body: 'People (from the account menu) lists every account.',
-        how: [<>Shared PC: mark the workshop PC’s account, so Start asks who’s making the part.</>, <>Ban an account that shouldn’t be in.</>],
+        how: [
+          <>Shared PC: mark the workshop PC’s account, so Start asks who’s making the part.</>,
+          <>Lead: lets someone hand out parts on the board.</>,
+          <>Ban an account that shouldn’t be in.</>,
+          <>Who can join: only emails on this list can make a new account. Existing accounts keep working.</>,
+        ],
         shot: { name: 'people', alt: 'People: Shared PC marked 1 and Ban marked 2.' },
       },
     ],

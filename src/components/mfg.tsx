@@ -8,11 +8,14 @@ import { partName, partNo, statusWord, type Part } from '../lib/mfg'
 /** Workshop | Robots | Wishlist, at the top of the Manufacturing pages. */
 export function MfgTabs() {
   const { pathname } = useLocation()
-  const tab = pathname.startsWith('/manufacturing/r') ? 'robots' : pathname === '/manufacturing/wishlist' ? 'wish' : 'workshop'
+  const tab = pathname.startsWith('/manufacturing/r') ? 'robots' : pathname === '/manufacturing/wishlist' ? 'wish' : pathname.startsWith('/manufacturing/board') ? 'board' : 'workshop'
   return (
     <nav className="picks picks--seg mfg-tabs" aria-label="Manufacturing">
       <Link to="/manufacturing" className="pick" aria-current={tab === 'workshop' ? 'page' : undefined}>
-        Workshop
+        List
+      </Link>
+      <Link to="/manufacturing/board" className="pick" aria-current={tab === 'board' ? 'page' : undefined}>
+        Board
       </Link>
       <Link to="/manufacturing/robots" className="pick" aria-current={tab === 'robots' ? 'page' : undefined}>
         Robots
@@ -45,8 +48,8 @@ export function UrgentTag() {
  * One part in a list: number, name, what and who. The row opens the part. With an action (the
  * workshop's Start / Done), the button sits at the end of the row, outside the link.
  */
-export function PartRow({ part, showMaker = true, showStatus = true, action }: { part: Part; showMaker?: boolean; showStatus?: boolean; action?: ReactNode }) {
-  const body = <PartRowBody part={part} showMaker={showMaker} showStatus={showStatus} />
+export function PartRow({ part, showMaker = true, showStatus = true, action, assignee }: { part: Part; showMaker?: boolean; showStatus?: boolean; action?: ReactNode; assignee?: string | null }) {
+  const body = <PartRowBody part={part} showMaker={showMaker} showStatus={showStatus} assignee={assignee} />
   if (!action) {
     return (
       <Link to={`/manufacturing/p/${part.id}`} className="row mfg-row">
@@ -64,7 +67,7 @@ export function PartRow({ part, showMaker = true, showStatus = true, action }: {
   )
 }
 
-function PartRowBody({ part, showMaker, showStatus }: { part: Part; showMaker: boolean; showStatus: boolean }) {
+function PartRowBody({ part, showMaker, showStatus, assignee }: { part: Part; showMaker: boolean; showStatus: boolean; assignee?: string | null }) {
   return (
     <>
       <PartThumb part={part} />
@@ -79,6 +82,7 @@ function PartRowBody({ part, showMaker, showStatus }: { part: Part; showMaker: b
       <span className="mfg-row__tags">
         {part.changed && <span className="tag tag--reserved">Changed</span>}
         {part.urgent && part.status !== 'done' && <UrgentTag />}
+        {assignee && <span className="tag tag--who">→ {assignee.split(' ')[0]}</span>}
         {showStatus && <PartStatusTag part={part} />}
       </span>
     </>

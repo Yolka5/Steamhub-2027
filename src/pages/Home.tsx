@@ -13,7 +13,7 @@ import { useOpenPalette } from '../lib/palette'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { PartRow } from '../components/mfg'
-import type { Part } from '../lib/mfg'
+import { queueSort, type Part } from '../lib/mfg'
 
 /** `tabbar`: the phone tab bar already has it, so phones hide the tile. */
 const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?: boolean }[] = [
@@ -26,7 +26,10 @@ const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?:
   { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
 ]
 
-/** Parts you're making right now, fresh each time Home opens. */
+/**
+ * Your parts, fresh each time Home opens: the ones handed to you, in the lead's order, plus any
+ * you're making that nobody handed out.
+ */
 function useMyParts(userId: string | null) {
   const [parts, setParts] = useState<Part[]>([])
   useEffect(() => {
@@ -34,10 +37,11 @@ function useMyParts(userId: string | null) {
     supabase
       .from('parts')
       .select('*')
-      .eq('maker_id', userId)
-      .eq('status', 'doing')
-      .order('part_no')
-      .then(({ data }) => setParts((data as Part[]) ?? []))
+      .or(`assignee_id.eq.${userId},and(maker_id.eq.${userId},status.eq.doing)`)
+      .in('status', ['todo', 'doing'])
+      .neq('machine', 'Bought')
+      .not('released_at', 'is', null)
+      .then(({ data }) => setParts(((data as Part[]) ?? []).sort(queueSort)))
   }, [userId])
   return parts
 }
@@ -134,11 +138,11 @@ export default function Home() {
 
       <div className="quick">
         {QUICK.map((q) => (
-          <Link key={q.to} to={q.to} className="quick__item" data-tabbar={q.tabbar || undefined}>
+          <Link key={q.to} to={q.to === '/manufacturing' ? '/manufacturing/start' : q.to} className="quick__item" data-tabbar={q.tabbar || undefined}>
             <Icon name={q.icon} size={22} />
             <span className="quick__label">{q.label}</span>
             <span className="soft small" dir="auto">
-              {q.hint}
+              {q.to === '/manufacturing' && myParts.length ? `${myParts.length} ${myParts.length === 1 ? 'part' : 'parts'} for you` : q.hint}
             </span>
           </Link>
         ))}
@@ -148,11 +152,18 @@ export default function Home() {
         <div className="home__mine">
           {myParts.length > 0 && (
             <section className="section">
-              <h2 className="section__title">You're making</h2>
+              <div className="mfg-group__head">
+                <h2 className="section__title">Your parts</h2>
+                {myParts.length > 5 && (
+                  <Link to="/manufacturing/mine" className="soft small">
+                    All {myParts.length}
+                  </Link>
+                )}
+              </div>
               <ul className="rows">
-                {myParts.map((p) => (
+                {myParts.slice(0, 5).map((p) => (
                   <li key={p.id}>
-                    <PartRow part={p} showMaker={false} showStatus={false} />
+                    <PartRow part={p} showMaker={false} showStatus={p.status === 'doing'} />
                   </li>
                 ))}
               </ul>

@@ -48,6 +48,14 @@ function Admin({ userId }: { userId: string | null }) {
     toast(shared ? `${p.name} is the shared workshop PC. Start on it asks who's making the part.` : `${p.name} is a personal account again`)
   }
 
+  // Workshop leads hand out parts on the board (WORKSHOP_TASKS.md).
+  const setLead = async (p: Profile, lead: boolean) => {
+    const { error } = await supabase.from('profiles').update({ workshop_lead: lead }).eq('id', p.id)
+    if (error) return toast(error.message)
+    await load()
+    toast(lead ? `${p.name} can hand out parts on the board` : `${p.name} is no longer a workshop lead`)
+  }
+
   return (
     <div className="page page--narrow">
       <div className="page__head">
@@ -69,8 +77,14 @@ function Admin({ userId }: { userId: string | null }) {
             </span>
             {p.banned && <span className="tag tag--bad">Banned</span>}
             {p.shared && <span className="tag">Shared workshop PC</span>}
+            {p.workshop_lead && <span className="tag">Workshop lead</span>}
             {p.id !== userId && (
               <span className="row__end people__acts">
+                {!p.shared && (
+                  <button type="button" className="q-btn q-btn--small" onClick={() => setLead(p, !p.workshop_lead)}>
+                    {p.workshop_lead ? 'Not lead' : 'Lead'}
+                  </button>
+                )}
                 <button type="button" className="q-btn q-btn--small" onClick={() => setShared(p, !p.shared)}>
                   {p.shared ? 'Not shared' : 'Shared PC'}
                 </button>

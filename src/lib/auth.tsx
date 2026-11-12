@@ -13,6 +13,10 @@ interface Auth {
   /** The signed-in person's row in profiles: admin and banned flags. */
   profile: Profile | null
   isAdmin: boolean
+  /** Workshop leads and admins hand out parts (WORKSHOP_TASKS.md). */
+  canAssign: boolean
+  /** The shared workshop PC account. */
+  shared: boolean
   banned: boolean
   signIn: () => Promise<string | null>
   signOut: () => Promise<void>
@@ -63,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userId: uid,
     profile,
     isAdmin: !!profile?.is_admin,
+    canAssign: !!profile?.is_admin || !!profile?.workshop_lead,
+    shared: !!profile?.shared,
     banned: !!profile?.banned,
     async signIn() {
       const { error } = await supabase.auth.signInWithOAuth({

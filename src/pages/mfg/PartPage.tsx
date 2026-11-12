@@ -7,11 +7,15 @@ import { cutPiece } from '../../lib/actions'
 import { useStore } from '../../lib/store'
 import { Copy, LoadError, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
-import { useClaimAs } from '../../components/WhoPicker'
+import { useClaimAs, usePickPerson } from '../../components/WhoPicker'
+import { useNames, useTaskRules } from '../../lib/useTasks'
 import { canDraw, partDrawing, saveDxf, savePdf, saveStep, type Ctx } from '../../lib/drawing'
 import {
   ago,
+  assignParts,
   claimPart,
+  giveBack,
+  unassignParts,
   logPart,
   MACHINES,
   MATERIALS,
@@ -110,6 +114,10 @@ const WORDS: Record<string, string> = {
   remake: 'Remake after a CAD change',
   keep: 'Kept after a CAD change',
   edited: 'Edited',
+  assigned: 'Handed out',
+  unassigned: 'Unassigned',
+  gave_back: 'Given back',
+  moved_top: 'Moved to the top of the list',
 }
 
 export default function PartPage() {
@@ -128,6 +136,9 @@ export default function PartPage() {
   const [cut, setCut] = useState<{ id: string; leftover: number } | null>(null)
   const { byId, upsertLocal } = useStore()
   const { pick: pickMaker, picker } = useClaimAs()
+  const { ask, sheet: personSheet } = usePickPerson()
+  const rules = useTaskRules()
+  const nameOf = useNames()
   const shared = !!useAuth().profile?.shared
 
   useEffect(() => {
@@ -251,7 +262,8 @@ export default function PartPage() {
   // On the shared workshop PC this first asks who's making it.
   const claim = async () => {
     if (!who) return
-    const maker = await pickMaker(part)
+    // A lead starting someone else's part starts it for them.
+    const maker = part.assignee_id && part.assignee_id !== who.userId && !shared ? { id: part.assignee_id, name: nameOf(part.assignee_id) } : await pickMaker(part)
     if (maker === null) return
     act(() => claimPart(part, who, maker), maker ? `Started by ${maker.name.split(' ')[0]}` : 'It’s yours')
   }
@@ -265,15 +277,33 @@ export default function PartPage() {
     if (part.status !== 'todo') others.push({ label: 'Still needed', run: () => status('todo', 'Back to needed') })
   } else if (!part.released_at) {
     main = { label: 'Release to the workshop', run: () => who && act(() => releaseParts([part], who), 'Released') }
+  } else if (!rules.canWork(part)) {
+    // Someone else's part: it's theirs to start and finish (WORKSHOP_TASKS.md).
+    main = null
   } else if (part.status === 'todo') {
-    main = { label: "I'll make it", run: claim }
+    main = { label: part.assignee_id && part.assignee_id !== who?.userId && !shared ? `Start for ${nameOf(part.assignee_id).split(' ')[0]}` : "I'll make it", run: claim }
     others.push({ label: 'Done', run: () => status('done', 'Done') })
   } else if (part.status === 'doing') {
     main = { label: 'Done', run: () => status('done', 'Done') }
-    if (who && (part.maker_id !== who.userId || shared)) others.push({ label: "I'll make it instead", run: claim })
+    if (who && !part.assignee_id && (part.maker_id !== who.userId || shared)) others.push({ label: "I'll make it instead", run: claim })
     others.push({ label: 'Back to to do', run: () => save({ status: 'todo', maker_id: null, maker_name: null }, 'status_todo') })
   } else if (part.status === 'done') {
     others.push({ label: 'Not done yet', run: () => status('doing', 'Back in progress') })
+  }
+  // Handing out: the lead gives, takes away; the person it's assigned to can give it back.
+  const handable = !bought && !!part.released_at && (part.status === 'todo' || part.status === 'doing')
+  if (handable && rules.canAssign) {
+    others.push({
+      label: part.assignee_id ? 'Give to someone else' : 'Give to someone',
+      run: async () => {
+        if (!who) return
+        const person = await ask(`Who makes ${part.part_no}?`)
+        if (person) act(() => assignParts([part], person, who), `${part.part_no} is ${person.name.split(' ')[0]}'s`)
+      },
+    })
+    if (part.assignee_id) others.push({ label: 'Unassign', run: () => who && act(() => unassignParts([part], who), 'Unassigned') })
+  } else if (handable && rules.canGiveBack(part)) {
+    others.push({ label: 'Give back', run: () => who && act(() => giveBack(part, who), 'Given back to the workshop lead') })
   }
 
   return (
@@ -394,6 +424,12 @@ export default function PartPage() {
             <dd>{sizeText(part.size)} mm</dd>
             <dt>Quantity</dt>
             <dd>{part.qty}</dd>
+            {!bought && part.released_at && part.status !== 'cancelled' && (
+              <>
+                <dt>Assigned to</dt>
+                <dd>{part.assignee_id ? nameOf(part.assignee_id) : <span className="soft">Nobody yet</span>}</dd>
+              </>
+            )}
             {part.maker_name && (
               <>
                 <dt>{bought ? 'Collected by' : 'Made by'}</dt>
@@ -435,7 +471,10 @@ export default function PartPage() {
           <ul className="rows">
             {events.map((e) => (
               <li key={e.id} className="row">
-                <span>{WORDS[e.action] ?? e.action}</span>
+                <span>
+                  {WORDS[e.action] ?? e.action}
+                  {typeof e.details?.to === 'string' ? ` to ${e.details.to}` : ''}
+                </span>
                 <span className="soft">{typeof e.details?.for === 'string' ? `${e.details.for}, on ${e.by_name}` : e.by_name}</span>
                 <span className="soft num row__end">{ago(e.at)}</span>
               </li>
@@ -444,6 +483,7 @@ export default function PartPage() {
         </section>
       )}
       {picker}
+      {personSheet}
     </div>
   )
 }

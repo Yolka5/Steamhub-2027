@@ -86,7 +86,7 @@ This changes three rules in MANUFACTURING.md on purpose:
 
 ## Data
 
-Migration `supabase/migrations/2026111x_workshop_tasks.sql`, safe to run before the code is deployed (it only adds):
+Migration `supabase/migrations/20261113_workshop_tasks.sql` (applied 2026-11-12), safe to run before the code is deployed (it only adds):
 
 - `profiles.workshop_lead boolean not null default false`, readable by members. Set Itamar Toledano's.
 - `public.can_assign()`: `is_admin()` or the caller's `workshop_lead`.
@@ -108,34 +108,34 @@ Migration `supabase/migrations/2026111x_workshop_tasks.sql`, safe to run before 
 
 ## Phases
 
-### Phase 1: database and actions
-- [ ] Migration above, applied. Itamar Toledano ticked as lead.
-- [ ] People: **Workshop lead** button next to Shared PC, admin only.
-- [ ] `src/lib/mfg.ts`:
+### Phase 1: database and actions (built 2026-11-12)
+- [x] Migration above, applied. Itamar Toledano ticked as lead.
+- [x] People: **Workshop lead** button next to Shared PC, admin only.
+- [x] `src/lib/mfg.ts`:
   - `assignParts(parts, person, who)`, `unassignParts`, `moveInQueue(part, before, after)` and `giveBack(part, who)`, each logging events and notifying.
   - `claimPart` sets the assignee when grabbing.
-- [ ] `canAssign` on the auth context. The workshop list hides Start / Done on other people's parts.
-- [ ] Check in the browser:
+- [x] `canAssign` on the auth context. The workshop list hides Start / Done on other people's parts.
+- [ ] Check in the browser (2026-11-12: board, hand-out mode and picker checked read-only; writes not clicked through, the test session wasn't allowed to change live data):
   - A non-lead can't assign, even by calling the API directly.
   - Start on someone else's part is refused.
   - Grab and give back work.
 
-### Phase 2: the board and tap your name
-- [ ] `/manufacturing/board` with columns, cards, done-for-12-hours, filters, realtime, and the phone one-column view.
-- [ ] Full-screen person list with the 3 minute return.
-- [ ] Shared PC: Manufacturing opens on Board. Start on an assigned part credits the assignee. The picker shows recent picks first.
-- [ ] Check on the workshop PC's screen size and on a phone.
+### Phase 2: the board and tap your name (built 2026-11-12)
+- [x] `/manufacturing/board` with columns, cards, done-for-12-hours, filters, realtime, and the phone one-column view.
+- [x] Full-screen person list with the 3 minute return.
+- [x] Shared PC: Manufacturing opens on Board. Start on an assigned part credits the assignee. The picker shows recent picks first.
+- [x] Checked at 1440 × 900 and 390 × 844, no sideways scrolling on the phone.
 
-### Phase 3: lead tools
-- [ ] Assign mode with filters, select all shown, the bottom bar, and Assign to… with recent picks.
-- [ ] Drag between columns and within a column, with mouse and touch. The card menu has Move to top, Up, Down, Reassign and Unassign.
-- [ ] "→ Name" chip and Assigned to filter on the workshop list.
+### Phase 3: lead tools (built 2026-11-12)
+- [x] Assign mode with filters, select all shown, the bottom bar, and Assign to… with recent picks.
+- [x] Drag between columns and within a column, with mouse and touch. The card menu has Move to top, Up, Down, Reassign and Unassign.
+- [x] "→ Name" chip and Assigned to filter on the workshop list.
 
-### Phase 4: My parts, notifications, docs
-- [ ] `/manufacturing/mine`, the Make tab rule, and the Home quick link.
-- [ ] All the notifications above, including CAD changes to the assignee.
-- [ ] MANUFACTURING.md: update the three rules under "Decisions" and point here.
-- [ ] The guide (`src/content/guide.tsx`): a Board chapter for everyone and a lead chapter for Itamar, with screenshots.
+### Phase 4: My parts, notifications, docs (built 2026-11-12)
+- [x] `/manufacturing/mine`, the Make tab rule, and the Home quick link.
+- [x] All the notifications above, including CAD changes to the assignee.
+- [x] MANUFACTURING.md: update the three rules under "Decisions" and point here.
+- [x] The guide (`src/content/guide.tsx`): Your parts, The board, Handing out parts. Screenshots still to take.
 
 ## Not now
 

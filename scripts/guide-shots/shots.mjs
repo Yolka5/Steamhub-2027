@@ -358,7 +358,7 @@ export const SHOTS = [
   {
     name: 'cal-board',
     path: '/calendar',
-    marks: [{ sel: '[aria-label="Calendar views"]' }, { sel: ':is(.cal-filters summary, summary:has-text("Filters"), .cal-filters) >> nth=0' }, { sel: '.cal-group >> nth=0' }, { sel: '.cal-fab' }],
+    marks: [{ sel: '[aria-label="Calendar views"]' }, { sel: ':is(.cal-filters summary, summary:has-text("Filters"), .cal-filters) >> nth=0' }, { sel: '.cal-group >> nth=0' }, { sel: '.cal-group >> nth=0 >> role=button[name="Task"]' }],
     height: 844,
   },
   {
@@ -378,12 +378,17 @@ export const SHOTS = [
   {
     name: 'cal-new',
     path: '/calendar',
+    css: NO_BARS,
+    clip: '.cal-group:has-text("3 Intake")',
+    pad: 12,
     act: async (page) => {
-      await click('.cal-fab', 700)(page)
+      await scrollTo(page, '.cal-group:has-text("3 Intake")', 260)
+      await page.locator('.cal-group:has-text("3 Intake") >> role=button[name="Task"]').click()
+      await pause(page, 300)
       await page.keyboard.type('Roller test thu high @noa')
-      await pause(page, 400)
+      await pause(page, 500)
     },
-    marks: [{ sel: '.sheet .ctl:has-text("Group")' }, { sel: '.sheet input >> nth=0' }, { sel: '.sheet >> role=button[name="Add"]' }],
+    marks: [{ sel: '.cal-group:has-text("3 Intake") .cal-quick input' }, { sel: '.cal-group:has-text("3 Intake") .cal-quick >> role=button[name="Add"]' }],
   },
   {
     name: 'cal-task',

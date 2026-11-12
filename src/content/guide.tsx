@@ -649,11 +649,11 @@ export const CHAPTERS: Chapter[] = [
           <>Filters: one team, or only your own tasks.</>,
           <>One box per group: each team, CNC, the Workshop, and each subsystem with its lead and the phase it’s in.</>,
           <>
-            <B>+ Task</B> adds a task. On a computer there’s one under each group.
+            <B>+ Task</B> under a group adds a task to it.
           </>,
         ],
         tip: 'A lead who hasn’t sent today’s update sees a Send today’s update row at the top.',
-        shot: { name: 'cal-board', alt: 'The Calendar board on a phone: the views, the filters, the first group and the + Task button marked 1 to 4.' },
+        shot: { name: 'cal-board', alt: 'The Calendar board on a phone: the views, the filters, the first group and its + Task button marked 1 to 4.' },
       },
       {
         title: 'Tasks',
@@ -667,9 +667,8 @@ export const CHAPTERS: Chapter[] = [
       },
       {
         title: 'Add a task in one line',
-        body: 'Press + Task.',
+        body: 'Press + Task under the group.',
         how: [
-          <>The group. It starts on the last one you used, or the one you lead.</>,
           <>
             Type the task with the day at the end: <C>Roller test thu high @noa</C>. The day (<C>thu</C>, <C>14/11</C>, <C>mon-thu</C>), High or Low, and <C>@name</C> for who are read from the end.
           </>,
@@ -677,7 +676,7 @@ export const CHAPTERS: Chapter[] = [
             <B>Add</B>.
           </>,
         ],
-        shot: { name: 'cal-new', alt: 'The New task sheet: the group, the typed line and Add marked 1 to 3.' },
+        shot: { name: 'cal-new', alt: 'A task typed in one line under 3 Intake, with the line marked 1 and Add marked 2.' },
       },
       {
         title: 'Open a task',
@@ -691,7 +690,7 @@ export const CHAPTERS: Chapter[] = [
         how: [
           <>Today’s update, for the group’s lead. It gets a tick once it’s sent.</>,
           <>Three tabs: the group’s Tasks, its Phases and its Updates. Today’s update is written right there in Updates.</>,
-          <>Add a task to this group in one line, the same way as + Task.</>,
+          <>Add a task to this group in one line, the same way as on the board.</>,
         ],
         shot: { name: 'cal-group', alt: 'The Intake group page: today’s update, the Tasks, Phases and Updates tabs, and the task line marked 1 to 3.' },
       },

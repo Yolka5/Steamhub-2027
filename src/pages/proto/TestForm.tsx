@@ -11,7 +11,7 @@ import { addLibItems, growChoices, leadOf, libSuggestions, MAX_SECONDS, queueVid
 
 export default function TestForm() {
   const { id = '', testId } = useParams()
-  const { proto, loading, testsLoading, tests, params } = usePrototype(id)
+  const { proto, loading, testsLoading, tests, params, paramsLoading } = usePrototype(id)
   const { subsystemsOf } = useSeasons()
   const library = useLibrary().items
   const who = useWho()
@@ -164,12 +164,12 @@ export default function TestForm() {
 
         <section className="pt-form__group">
           <h2 className="pt-form__title">Parameters</h2>
-          {params.length === 0 && <p className="soft small">No parameters yet. Add the ones you change between tests:</p>}
+          {!paramsLoading && params.length === 0 && <p className="soft small">No parameters yet. Add the ones you change between tests:</p>}
           {visible.map((d) => (
             <ValueInput key={d.id} def={d} value={values[d.id]} onChange={(v) => setValues((s) => ({ ...s, [d.id]: v }))} changed={!existing && changed(d.id)} />
           ))}
           <div className="chips">
-            {libSuggestions(library, params)
+            {!paramsLoading && libSuggestions(library, params)
               .slice(0, params.length ? 4 : 8)
               .map((item) => (
                 <button

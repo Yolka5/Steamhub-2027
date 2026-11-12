@@ -219,9 +219,13 @@ function useLive<T>(table: string, key: string, load: () => PromiseLike<{ data: 
   const [error, setError] = useState<string | null>(null)
   const loader = useRef(load)
   loader.current = load
+  const latest = useRef(0)
   const reload = useCallback(async () => {
     if (skip) return
+    const ticket = ++latest.current
     const { data, error } = await loader.current()
+    // An older query that answers late (the key changed meanwhile) mustn't overwrite the newer one.
+    if (ticket !== latest.current) return
     // A failed reload keeps what's on screen.
     if (!error) setRows((data as T[]) ?? [])
     setError(error?.message ?? null)
@@ -266,6 +270,8 @@ export function usePrototype(id: string) {
   const blocks = useLive<Block>('prototype_blocks', `one-${id}`, () => supabase.from('prototype_blocks').select('*').eq('prototype_id', id).order('position'))
   const season = p?.season ?? 0
   const sub = p?.subsystem_number ?? -1
+  // Waits for the prototype: before it loads there's no season or subsystem, and a query without
+  // them finds no shared parameters, so the forms offered "+ Compression" for one already there.
   const params = useLive<ParamDef>(
     'param_defs',
     `one-${id}-${season}-${sub}`,
@@ -275,6 +281,7 @@ export function usePrototype(id: string) {
         .select('*')
         .or(`prototype_id.eq.${id},and(prototype_id.is.null,season.eq.${season},subsystem_number.eq.${sub})`)
         .order('position'),
+    !p,
   )
   return {
     proto: p,
@@ -286,6 +293,7 @@ export function usePrototype(id: string) {
     blocks: blocks.rows,
     setBlocks: blocks.setRows,
     params: params.rows,
+    paramsLoading: params.loading,
     reload: () => Promise.all([proto.reload(), tests.reload(), blocks.reload(), params.reload()]),
     reloadParams: params.reload,
   }
@@ -332,11 +340,26 @@ export function startersFor(items: LibItem[], name: string) {
  * when it has no subsystem. Fields already there (same name) are skipped; "only when" links are
  * turned from field names into the new parameter ids.
  */
-export async function addLibItems(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, items: LibItem[], existing: ParamDef[]): Promise<{ error?: string }> {
+export function addLibItems(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, items: LibItem[], existing: ParamDef[]): Promise<{ error?: string }> {
+  // One at a time, so a double tap waits for the first add and then skips what it added.
+  const run = addQueue.then(() => addLibItemsNow(p, items, existing))
+  addQueue = run.catch(() => undefined)
+  return run
+}
+let addQueue: Promise<unknown> = Promise.resolve()
+
+async function addLibItemsNow(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, items: LibItem[], given: ParamDef[]): Promise<{ error?: string }> {
+  // What's on screen can be behind the database (still loading, or someone else just added it),
+  // so read the current set before adding.
+  const shared = p.subsystem_number != null
+  const { data: now, error: readError } = shared
+    ? await supabase.from('param_defs').select('*').or(`prototype_id.eq.${p.id},and(prototype_id.is.null,season.eq.${p.season},subsystem_number.eq.${p.subsystem_number})`)
+    : await supabase.from('param_defs').select('*').eq('prototype_id', p.id)
+  if (readError) return { error: readError.message }
+  const existing = [...given, ...((now ?? []) as ParamDef[]).filter((d) => !given.some((g) => g.id === d.id))]
   const have = new Map(existing.map((d) => [d.name.toLowerCase(), d.id]))
   let keys = existing.filter((d) => d.key).length
   let position = Math.max(0, ...existing.map((d) => d.position))
-  const shared = p.subsystem_number != null
   for (const item of items) {
     // Plain fields first, so the ones that depend on them can point at their ids.
     const order = [...item.fields].sort((a, b) => Number(!!a.only_if) - Number(!!b.only_if))

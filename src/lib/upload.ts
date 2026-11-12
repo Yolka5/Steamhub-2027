@@ -260,7 +260,7 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
         if (part.released_at) {
           patch.changed = true
           toLead.push(`${part.part_no} ${partName(part)}`)
-          await notify([part.maker_id, sub.lead_id], 'part_changed', `${part.part_no} ${partName(part)} changed in CAD after it was released`, link(part.id), who.userId)
+          await notify([part.maker_id, part.assignee_id, sub.lead_id], 'part_changed', `${part.part_no} ${partName(part)} changed in CAD after it was released`, link(part.id), who.userId)
         }
         await logPart(part.id, 'changed', who, { file: file.name, qty: p.item.qty !== part.qty ? [part.qty, p.item.qty] : undefined })
       }
@@ -290,7 +290,7 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
     )
     for (const p of gone) {
       if (p.status === 'doing' || p.status === 'done')
-        await notify([sub.lead_id, p.maker_id], 'part_gone', `${p.part_no} ${p.name} is gone from the CAD but was ${p.status === 'done' ? 'already made' : 'in progress'}`, link(p.id), who.userId)
+        await notify([sub.lead_id, p.maker_id, p.assignee_id], 'part_gone', `${p.part_no} ${p.name} is gone from the CAD but was ${p.status === 'done' ? 'already made' : 'in progress'}`, link(p.id), who.userId)
     }
   }
 

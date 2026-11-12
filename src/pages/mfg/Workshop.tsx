@@ -13,6 +13,8 @@ import { Select } from '../../components/Select'
 import { useClaimAs } from '../../components/WhoPicker'
 import { WorkshopPanel } from '../../components/WorkshopPanel'
 import { machineView } from '../../lib/workshopMap'
+import { useNames, useTaskRules } from '../../lib/useTasks'
+import { YourPartsLink } from './Board'
 
 // What the workshop makes: every released part of every active robot, one list for everyone.
 // Grouped by subsystem, urgent first. Filters live in the URL so a link shows the same view.
@@ -32,6 +34,10 @@ export default function Workshop() {
   const machine = (params.get('m') as Machine | null) ?? null
   const subId = params.get('s')
   const showDone = params.get('done') === '1'
+  // Assigned to: a person's id, "none" for unassigned, or nothing for everyone.
+  const assignedTo = params.get('a')
+  const rules = useTaskRules()
+  const nameOf = useNames()
   const { parts, loading, error, reload, put } = useParts({ released: true })
   const who = useWho()
   const toast = useToast()
@@ -50,7 +56,8 @@ export default function Workshop() {
 
   /** Start and Done right on the row, like the Monday board: one tap, no page to open. */
   const quick = (p: Part) => {
-    if (!who || p.status === 'done') return undefined
+    // Someone else's part: no Start or Done here, the row shows its status instead.
+    if (!who || p.status === 'done' || !rules.canWork(p)) return undefined
     // Done on a part with reserved stock also cuts the piece, which the part page shows.
     if (p.status === 'doing' && p.piece_id) {
       return (
@@ -64,7 +71,9 @@ export default function Workshop() {
       if (running.current.has(p.id)) return
       running.current.add(p.id)
       // On the shared workshop PC, Start first asks who's making it.
-      const maker = start ? await pickMaker(p) : undefined
+      // A lead starting someone else's part starts it for them.
+      const forOwner = start && p.assignee_id && p.assignee_id !== who.userId && !rules.shared ? { id: p.assignee_id, name: nameOf(p.assignee_id) } : undefined
+      const maker = start ? (forOwner ?? (await pickMaker(p))) : undefined
       if (maker === null) {
         running.current.delete(p.id)
         return
@@ -119,6 +128,8 @@ export default function Workshop() {
       if (machine && p.machine !== machine) continue
       if (subId && p.subsystem_id !== subId) continue
       if (!showDone && p.status === 'done') continue
+      if (assignedTo === 'none' && p.assignee_id) continue
+      if (assignedTo && assignedTo !== 'none' && p.assignee_id !== assignedTo) continue
       by.set(p.subsystem_id, [...(by.get(p.subsystem_id) ?? []), p])
     }
     return [...by.entries()]
@@ -133,7 +144,7 @@ export default function Workshop() {
         }
       })
       .sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || a.robot.name.localeCompare(b.robot.name) || a.sub.number - b.sub.number)
-  }, [parts, robots, subs, machine, subId, showDone])
+  }, [parts, robots, subs, machine, subId, showDone, assignedTo])
 
   // What the map shows: every released, made-in-house part of the active robots, whatever the
   // list's filters are.
@@ -219,6 +230,21 @@ export default function Workshop() {
           options={[{ value: '', label: 'All subsystems' }, ...activeSubs.map((s) => ({ value: s.id, label: `${s.number} ${s.name}${multiRobot ? ` (${robotName(s)})` : ''}` }))]}
         />
       </div>
+      <div className="mfg-filters__sub">
+        <Select
+          className="field--inline"
+          label="Assigned to"
+          value={assignedTo ?? ''}
+          onChange={(v) => set('a', v || null)}
+          options={[
+            { value: '', label: 'Anyone' },
+            { value: 'none', label: 'Unassigned' },
+            ...[...new Set(parts.filter((p) => p.assignee_id).map((p) => p.assignee_id!))]
+              .map((id) => ({ value: id, label: nameOf(id) }))
+              .sort((a, b) => a.label.localeCompare(b.label)),
+          ]}
+        />
+      </div>
       <label className="check">
         <input type="checkbox" checked={showDone} onChange={(e) => set('done', e.target.checked ? '1' : null)} />
         Show done
@@ -240,13 +266,22 @@ export default function Workshop() {
         </div>
       </div>
 
+      <YourPartsLink tasks={parts} />
+
       {phone ? (
         // Phones fold the filters into one line, so the first parts show on the first screen.
         <details className="finder__more mfg-filters-fold">
           <summary>
             Filters{' '}
             <span className="soft">
-              {[machine ?? 'All machines', subId ? (activeSubs.find((s) => s.id === subId)?.name ?? 'One subsystem') : 'All subsystems', showDone ? 'with done' : ''].filter(Boolean).join(' · ')}
+              {[
+                machine ?? 'All machines',
+                subId ? (activeSubs.find((s) => s.id === subId)?.name ?? 'One subsystem') : 'All subsystems',
+                assignedTo ? (assignedTo === 'none' ? 'unassigned' : nameOf(assignedTo).split(' ')[0]) : '',
+                showDone ? 'with done' : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </span>
           </summary>
           {filters}
@@ -295,7 +330,7 @@ export default function Workshop() {
                   const action = quick(p)
                   return (
                     <li key={p.id} id={`part-${p.id}`} className="mfg-row-wrap">
-                      <PartRow part={p} action={action} showStatus={!action} />
+                      <PartRow part={p} action={action} showStatus={!action} assignee={p.assignee_id ? nameOf(p.assignee_id) : null} />
                     </li>
                   )
                 })}

@@ -31,6 +31,8 @@ import PartPage from './pages/mfg/PartPage'
 import Wishlist from './pages/mfg/Wishlist'
 import Bolts from './pages/mfg/Bolts'
 import Guide from './pages/mfg/Guide'
+import Board, { MfgStart } from './pages/mfg/Board'
+import PersonList from './pages/mfg/PersonList'
 import Prototypes from './pages/proto/Prototypes'
 import PrototypePage from './pages/proto/PrototypePage'
 import TestForm from './pages/proto/TestForm'
@@ -70,6 +72,8 @@ const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/
 const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
 
 const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, CAL, TOOLS, HANDBOOK]
+/** Manufacturing opens where you'd want it: the board, your list or the workshop list (MfgStart). */
+const linkTo = (n: NavItem) => (n === MFG ? '/manufacturing/start' : n.to)
 /**
  * Phones: the workshop needs Make in reach and leads use the Calendar daily, so those two sit on the
  * right. Tools (with the Handbook inside) is a tile on Home there, and search finds every tool.
@@ -205,7 +209,7 @@ export default function App() {
           <nav className="picks picks--stack">
             <Indicator selector='[aria-current="page"]' />
             {NAV.map((n) => (
-              <Link key={n.to} to={n.to} className="pick" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
+              <Link key={n.to} to={linkTo(n)} className="pick" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
                 <Icon name={n.icon} />
                 {n.label}
               </Link>
@@ -260,6 +264,10 @@ export default function App() {
             <Route path="/handbook/design" element={<Handbook key="design" part="design" />} />
             <Route path="/handbook/sources" element={<Handbook key="sources" part="sources" />} />
             <Route path="/manufacturing" element={<Workshop />} />
+            <Route path="/manufacturing/start" element={<MfgStart />} />
+            <Route path="/manufacturing/board" element={<Board />} />
+            <Route path="/manufacturing/board/:id" element={<PersonList />} />
+            <Route path="/manufacturing/mine" element={<PersonList mine />} />
             <Route path="/manufacturing/robots" element={<Robots />} />
             <Route path="/manufacturing/r/:id" element={<RobotPage />} />
             <Route path="/manufacturing/s/:id" element={<SubsystemPage />} />
@@ -303,7 +311,7 @@ export default function App() {
             Add
           </NavLink>
           {TABS_RIGHT.map(({ item: n, label }) => (
-            <Link key={n.to} to={n.to} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
+            <Link key={n.to} to={linkTo(n)} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
               <Icon name={n.icon} size={22} />
               {label}
             </Link>

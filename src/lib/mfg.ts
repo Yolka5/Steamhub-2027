@@ -57,7 +57,7 @@ export const MATERIALS = [
 ]
 
 /** What everyone may read about an account. Emails are for the admin only (admin_people). */
-export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, created_at'
+export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, workshop_lead, created_at'
 
 export interface Profile {
   id: string
@@ -69,6 +69,8 @@ export interface Profile {
   banned: boolean
   /** The shared workshop PC account: Start asks who's making the part. */
   shared?: boolean
+  /** Hands out parts on the board (WORKSHOP_TASKS.md). Admins can too. */
+  workshop_lead?: boolean
   created_at: string
 }
 
@@ -124,6 +126,14 @@ export interface Part {
   last_upload_id: string | null
   /** When it went In progress. Kept by a database trigger; the workshop map reads it. */
   started_at: string | null
+  /** Who the workshop lead gave it to (WORKSHOP_TASKS.md). */
+  assignee_id: string | null
+  assigned_at: string | null
+  assigned_by: string | null
+  /** The lead's order inside the person's list; smaller is sooner. */
+  queue_pos: number | null
+  /** When it was finished, kept by the database. The board keeps done parts for 12 hours. */
+  done_at: string | null
   created_at: string
   updated_at: string
 }
@@ -302,10 +312,20 @@ export async function updateParts(ids: string[], patch: Partial<Part>): Promise<
 }
 
 export async function releaseParts(parts: Part[], who: Who) {
-  const ids = parts.filter((p) => !p.released_at).map((p) => p.id)
+  const fresh = parts.filter((p) => !p.released_at)
+  const ids = fresh.map((p) => p.id)
   if (!ids.length) return { data: [] as Part[] }
   const res = await updateParts(ids, { released_at: new Date().toISOString(), released_by: who.userId })
-  if (!res.error) await logPart(ids, 'released', who)
+  if (!res.error) {
+    await logPart(ids, 'released', who)
+    // The workshop lead hears there's something to hand out (bought parts aren't handed out).
+    const made = fresh.filter((p) => p.machine !== 'Bought')
+    if (made.length) {
+      const { data: sub } = await supabase.from('subsystems').select('number, name').eq('id', made[0].subsystem_id).maybeSingle()
+      const where = sub ? ` in ${sub.number} ${sub.name}` : ''
+      await notify(await workshopLeads(), 'released', `${made.length} ${made.length === 1 ? 'part' : 'parts'} released${where}, waiting to be handed out`, '/manufacturing/board', who.userId)
+    }
+  }
   return res
 }
 
@@ -318,7 +338,10 @@ export interface Maker {
 
 export async function claimPart(p: Part, who: Who, maker?: Maker) {
   const m = maker ?? { id: who.userId, name: who.name }
-  const res = await updatePart(p.id, { maker_id: m.id, maker_name: m.name, status: 'doing' }, { status: p.status })
+  const patch: Partial<Part> = { maker_id: m.id, maker_name: m.name, status: 'doing' }
+  // Starting an unassigned part grabs it: it joins the maker's list (a typed-in name has no list).
+  if (!p.assignee_id && m.id && p.status === 'todo') Object.assign(patch, { assignee_id: m.id, assigned_at: new Date().toISOString() })
+  const res = await updatePart(p.id, patch, { status: p.status })
   // The event keeps the account that tapped Start; `for` says who is really making it.
   if (!res.error) await logPart(p.id, 'claimed', who, maker ? { for: maker.name } : undefined)
   return res
@@ -327,10 +350,15 @@ export async function claimPart(p: Part, who: Who, maker?: Maker) {
 export async function setStatus(p: Part, status: PartStatus, who: Who) {
   const patch: Partial<Part> = { status }
   // Finishing a part nobody claimed still records who made it.
-  if (status === 'done' && !p.maker_id && p.machine !== 'Bought') Object.assign(patch, { maker_id: who.userId, maker_name: who.name })
+  if (status === 'done' && !p.maker_id && p.machine !== 'Bought') {
+    // An assigned part is made by the person it's assigned to, whoever taps Done.
+    const name = p.assignee_id ? await personName(p.assignee_id) : null
+    Object.assign(patch, p.assignee_id && name ? { maker_id: p.assignee_id, maker_name: name } : { maker_id: who.userId, maker_name: who.name })
+  }
   const res = await updatePart(p.id, patch, { status: p.status })
   if (res.error) return res
   await logPart(p.id, `status_${status}`, who)
+  if (status === 'done' && p.assignee_id) await tellIfEmpty(p.assignee_id, who)
   // Bought parts: missing goes on Uri's wishlist once; got it takes it off.
   if (p.machine === 'Bought' && status === 'missing') {
     const { data: open } = await supabase.from('wishlist').select('id').eq('part_id', p.id).eq('status', 'open').limit(1)
@@ -417,4 +445,148 @@ export function ago(iso: string) {
   if (s < 3600) return `${Math.round(s / 60)} min ago`
   if (s < 86400) return `${Math.round(s / 3600)} h ago`
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+// ---------- Workshop tasks (WORKSHOP_TASKS.md) ----------
+
+/** The board keeps a done part for this long after Done. */
+export const DONE_KEEP_MS = 12 * 3600_000
+
+/** Parts the workshop hands out: released, made in house, still around. */
+export const isTask = (p: Part) => !!p.released_at && p.machine !== 'Bought' && p.status !== 'cancelled' && p.status !== 'missing'
+export const isOpen = (p: Part) => p.status === 'todo' || p.status === 'doing'
+export const doneRecently = (p: Part, now = Date.now()) => p.status === 'done' && !!p.done_at && now - Date.parse(p.done_at) < DONE_KEEP_MS
+
+/** A person's list: in progress first, then urgent, then the lead's order, then part number. */
+export function queueSort(a: Part, b: Part) {
+  const rank = (p: Part) => (p.status === 'doing' ? 0 : p.urgent ? 1 : 2)
+  return rank(a) - rank(b) || (a.queue_pos ?? Infinity) - (b.queue_pos ?? Infinity) || a.part_no - b.part_no
+}
+
+const firstName = (name: string) => name.split(' ')[0]
+
+async function personName(id: string) {
+  const { data } = await supabase.from('profiles').select('name').eq('id', id).maybeSingle()
+  return (data?.name as string | undefined) ?? null
+}
+
+/** Workshop leads, who hear about releases and give-backs. With none set, the admins. */
+export async function workshopLeads(): Promise<string[]> {
+  const { data } = await supabase.from('profiles').select('id, workshop_lead, is_admin, banned')
+  const rows = (data ?? []) as { id: string; workshop_lead: boolean; is_admin: boolean; banned: boolean }[]
+  const leads = rows.filter((r) => r.workshop_lead && !r.banned)
+  return (leads.length ? leads : rows.filter((r) => r.is_admin && !r.banned)).map((r) => r.id)
+}
+
+/** "Noam has nothing left": the moment the lead needs to hand out more. */
+async function tellIfEmpty(personId: string, who: Who) {
+  const { count } = await supabase
+    .from('parts')
+    .select('id', { count: 'exact', head: true })
+    .eq('assignee_id', personId)
+    .in('status', ['todo', 'doing'])
+    .neq('machine', 'Bought')
+  if (count !== 0) return
+  const name = (await personName(personId)) ?? 'Someone'
+  await notify(await workshopLeads(), 'list_empty', `${firstName(name)} has nothing left to make`, '/manufacturing/board', who.userId)
+}
+
+/** The end of a person's list, for parts handed to them now. */
+async function lastPos(personId: string) {
+  const { data } = await supabase.from('parts').select('queue_pos').eq('assignee_id', personId).not('queue_pos', 'is', null).order('queue_pos', { ascending: false }).limit(1)
+  return (data?.[0]?.queue_pos as number | undefined) ?? 0
+}
+
+async function inBatches<T, R>(items: T[], run: (x: T) => Promise<R>, size = 8): Promise<R[]> {
+  const out: R[] = []
+  for (let i = 0; i < items.length; i += size) out.push(...(await Promise.all(items.slice(i, i + size).map(run))))
+  return out
+}
+
+/**
+ * Hands parts to a person, at the end of their list in part-number order, or at `at` (a queue
+ * position, for a card dropped between two others). Leads and admins only; the database checks.
+ */
+export async function assignParts(parts: Part[], person: { id: string; name: string }, who: Who, at?: number): Promise<Res<Part[]>> {
+  const list = parts.filter((p) => p.assignee_id !== person.id || at !== undefined).sort((a, b) => a.part_no - b.part_no)
+  if (!list.length) return { data: [] }
+  let pos = at ?? (await lastPos(person.id))
+  const now = new Date().toISOString()
+  const results = await inBatches(list, (p) => {
+    pos = at ?? pos + 1
+    return updatePart(p.id, { assignee_id: person.id, assigned_at: now, assigned_by: who.userId, queue_pos: pos })
+  })
+  const failed = results.find((r) => r.error)
+  const saved = results.flatMap((r) => (r.data ? [r.data] : []))
+  const moved = list.filter((p) => saved.some((s) => s.id === p.id))
+  if (moved.length) {
+    await logPart(
+      moved.map((p) => p.id),
+      'assigned',
+      who,
+      { to: person.name },
+    )
+    const fresh = moved.filter((p) => p.assignee_id !== person.id)
+    if (fresh.length) {
+      const one = fresh.length === 1 ? `${fresh[0].part_no} ${partName(fresh[0])}` : `${fresh.length} parts`
+      await notify([person.id], 'assigned', `${firstName(who.name)} gave you ${one}`, '/manufacturing/mine', who.userId)
+    }
+    await tellPrevious(fresh, `moved to ${firstName(person.name)}`, who)
+  }
+  return failed ? { error: failed.error, data: saved } : { data: saved }
+}
+
+/** Back to Unassigned, by the lead. */
+export async function unassignParts(parts: Part[], who: Who): Promise<Res<Part[]>> {
+  const list = parts.filter((p) => p.assignee_id)
+  if (!list.length) return { data: [] }
+  const res = await updateParts(
+    list.map((p) => p.id),
+    { assignee_id: null, assigned_at: null, assigned_by: null, queue_pos: null },
+  )
+  if (res.error) return res
+  await logPart(
+    list.map((p) => p.id),
+    'unassigned',
+    who,
+  )
+  await tellPrevious(list, 'unassigned', who)
+  return res
+}
+
+/** "Itamar moved 3012 to Ari": one note per person who lost parts. */
+async function tellPrevious(parts: Part[], what: string, who: Who) {
+  const by = new Map<string, Part[]>()
+  for (const p of parts) if (p.assignee_id) by.set(p.assignee_id, [...(by.get(p.assignee_id) ?? []), p])
+  for (const [id, list] of by) {
+    const one = list.length === 1 ? `${list[0].part_no} ${partName(list[0])} was` : `${list.length} of your parts were`
+    await notify([id], 'unassigned', `${one} ${what}`, '/manufacturing/mine', who.userId)
+  }
+}
+
+/** Moves a part inside its person's list, to a queue position between its new neighbours. */
+export async function moveInQueue(p: Part, pos: number) {
+  return updatePart(p.id, { queue_pos: pos })
+}
+
+/** A queue position between two cards (either can be missing at the ends of the list). */
+export function between(before: Part | undefined, after: Part | undefined) {
+  const a = before?.queue_pos ?? null
+  const b = after?.queue_pos ?? null
+  if (a == null && b == null) return Date.now() / 1000
+  if (a == null) return b! - 1
+  if (b == null) return a + 1
+  return (a + b) / 2
+}
+
+/** The person hands it back: Unassigned and To-do again, and the leads hear about it. */
+export async function giveBack(p: Part, who: Who): Promise<Res<Part>> {
+  const owner = p.assignee_id
+  const res = await updatePart(p.id, { assignee_id: null, assigned_at: null, assigned_by: null, queue_pos: null, status: 'todo', maker_id: null, maker_name: null })
+  if (res.error) return res
+  await logPart(p.id, 'gave_back', who)
+  const name = owner ? ((await personName(owner)) ?? who.name) : who.name
+  await notify(await workshopLeads(), 'gave_back', `${firstName(name)} gave back ${p.part_no} ${partName(p)}`, '/manufacturing/board', who.userId)
+  if (owner) await tellIfEmpty(owner, who)
+  return res
 }

@@ -5,8 +5,8 @@ import { ago, saveFile, type Profile } from '../lib/mfg'
 import { buildZip } from '../lib/step/engine'
 import { selectAll, supabase } from '../lib/supabase'
 
-// The admin's page: everyone who has signed in (anyone with a Google account can, so the admin
-// can ban accounts that don't belong), how much each section is used, and a backup of everything.
+// The admin's page: everyone who has signed in, who else may join (new accounts are refused
+// unless their email is on that list), how much each section is used, and a backup of everything.
 // A ban takes effect on their next page load.
 
 export default function People() {
@@ -48,6 +48,14 @@ function Admin({ userId }: { userId: string | null }) {
     toast(shared ? `${p.name} is the shared workshop PC. Start on it asks who's making the part.` : `${p.name} is a personal account again`)
   }
 
+  // Workshop leads hand out parts on the board (WORKSHOP_TASKS.md).
+  const setLead = async (p: Profile, lead: boolean) => {
+    const { error } = await supabase.from('profiles').update({ workshop_lead: lead }).eq('id', p.id)
+    if (error) return toast(error.message)
+    await load()
+    toast(lead ? `${p.name} can hand out parts on the board` : `${p.name} is no longer a workshop lead`)
+  }
+
   return (
     <div className="page page--narrow">
       <div className="page__head">
@@ -69,8 +77,14 @@ function Admin({ userId }: { userId: string | null }) {
             </span>
             {p.banned && <span className="tag tag--bad">Banned</span>}
             {p.shared && <span className="tag">Shared workshop PC</span>}
+            {p.workshop_lead && <span className="tag">Workshop lead</span>}
             {p.id !== userId && (
               <span className="row__end people__acts">
+                {!p.shared && (
+                  <button type="button" className="q-btn q-btn--small" onClick={() => setLead(p, !p.workshop_lead)}>
+                    {p.workshop_lead ? 'Not lead' : 'Lead'}
+                  </button>
+                )}
                 <button type="button" className="q-btn q-btn--small" onClick={() => setShared(p, !p.shared)}>
                   {p.shared ? 'Not shared' : 'Shared PC'}
                 </button>
@@ -93,10 +107,95 @@ function Admin({ userId }: { userId: string | null }) {
         ))}
       </ul>
 
+      <WhoCanJoin userId={userId} />
       <SectionUse />
       <Backup />
     </div>
   )
+}
+
+/**
+ * Emails that may make a new account. Accounts that already exist sign in as before; anyone else
+ * gets "not on the list" (handle_new_user in the database refuses them).
+ */
+function WhoCanJoin({ userId }: { userId: string | null }) {
+  const toast = useToast()
+  const [rows, setRows] = useState<{ email: string; created_at: string }[] | null>(null)
+  const [email, setEmail] = useState('')
+  const load = async () => {
+    const { data, error } = await supabase.from('allowed_emails').select('email, created_at').order('created_at', { ascending: false })
+    setRows(error ? [] : (data ?? []))
+  }
+  useEffect(() => {
+    load()
+  }, [])
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const list = email
+      .split(/[\s,;]+/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+    if (!list.length) return
+    const bad = list.find((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))
+    if (bad) return toast(`${bad} isn't an email`)
+    const { error } = await supabase.from('allowed_emails').upsert(
+      list.map((x) => ({ email: normEmail(x), added_by: userId })),
+      { onConflict: 'email', ignoreDuplicates: true },
+    )
+    if (error) return toast(error.message)
+    setEmail('')
+    await load()
+    toast(list.length === 1 ? `${list[0]} can join` : `${list.length} emails can join`)
+  }
+
+  const remove = async (x: string) => {
+    const { error } = await supabase.from('allowed_emails').delete().eq('email', x)
+    if (error) return toast(error.message)
+    await load()
+    toast(`${x} is off the list`)
+  }
+
+  return (
+    <section className="section">
+      <h2 className="section__title">Who can join</h2>
+      <p className="soft small">Only these emails can make a new account. Everyone above already has one and keeps it. Removing an email here doesn't remove an account; use Ban for that.</p>
+      <form className="inline-form people__add" onSubmit={add}>
+        <input className="field" type="text" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" aria-label="Email to allow" />
+        <button type="submit" className="q-btn">
+          Add
+        </button>
+      </form>
+      {rows == null ? (
+        <p className="soft">Loading</p>
+      ) : rows.length === 0 ? (
+        <p className="soft">Nobody yet, so no new accounts can be made.</p>
+      ) : (
+        <ul className="rows">
+          {rows.map((r) => (
+            <li key={r.email} className="row">
+              <span className="row__main">
+                <span className="strong">{r.email}</span>
+                <span className="soft small">added {ago(r.created_at)}</span>
+              </span>
+              <span className="row__end">
+                <button type="button" className="q-btn q-btn--small" onClick={() => remove(r.email)}>
+                  Remove
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+/** Same as norm_email in the database: lower case, and Gmail ignores dots and "+anything". */
+function normEmail(e: string) {
+  const [name, domain] = e.trim().toLowerCase().split('@')
+  if (domain === 'gmail.com' || domain === 'googlemail.com') return `${name.split('+')[0].replace(/\./g, '')}@gmail.com`
+  return `${name}@${domain}`
 }
 
 const SECTION_NAME: Record<string, string> = {

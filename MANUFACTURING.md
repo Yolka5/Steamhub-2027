@@ -13,7 +13,7 @@ So the rules are:
 - **Upload does the typing.** Drop in a STEP file and every part is listed, numbered and classified, with a drawing. Nobody types a part list.
 - **The workshop screen is as simple as Monday.** One list, the same for everyone, big touch targets, phone-first, with nothing that only works on hover.
 - **Every added field must earn its place.** If it can be filled automatically, it is. If it can't and it's rarely needed, it isn't there.
-- **No personalised views.** Filters live in the URL and everyone sees the same screens.
+- **No personalised views.** Filters live in the URL and everyone sees the same screens. One exception since 2026-11-13: My parts, your own list from the workshop lead (WORKSHOP_TASKS.md).
 
 ## Decisions
 
@@ -24,13 +24,13 @@ So the rules are:
 - **Status:** To-do → In progress → Done, plus Cancelled. Bought parts use Needed → Got it, or Missing.
 - **In design vs released.** Uploaded parts start **in design** and only show on the subsystem page. Anyone selects parts and taps **Release**, and those parts go to the workshop list. Parts can be released while others are still in work; there's no whole-mechanism gate.
 - **Urgent.** Anyone can mark a part urgent. Urgent parts sit at the top of the workshop list in the warning colour.
-- **Claiming.** One tap on **I'll make it** sets you as maker and moves the part to In progress. **Done** is one more tap. The maker is your account, never typed.
+- **Claiming.** One tap on **I'll make it** sets you as maker and moves the part to In progress. **Done** is one more tap. The maker is your account, never typed. Since 2026-11-13 the workshop lead hands out parts first (see WORKSHOP_TASKS.md): you start your own parts and unassigned ones, not other people's.
 - **Changes after release.** On re-upload, each part is classed as unchanged, changed, new or gone:
   - Unchanged: same geometry signature.
   - Changed: same name, different signature. The part keeps its number. If it was released, its lead and maker get a warning, and the lead decides (remake, or keep as is).
   - New: gets the next number, in design.
   - Gone: marked Cancelled. If it was in progress or done, the lead gets a warning.
-- **Permissions.** Sign-in is required for the whole site, Stock and Tools included. Anyone with a Google account can sign in, and Yoni (the only admin) gets a notification for every new account and can ban it. Everyone signed in can do everything. Admin powers are only banning and deleting robots.
+- **Permissions.** Sign-in is required for the whole site, Stock and Tools included. Anyone with a Google account can sign in, and Yoni (the only admin) gets a notification for every new account and can ban it. Everyone signed in can do everything, except handing out parts, which is for workshop leads and admins (WORKSHOP_TASKS.md). Admin powers are banning, deleting robots, marking workshop leads and the sign-in allowlist (only existing accounts and emails on People → Who can join get in).
 - **Notifications.** In Steamhub first: a badge on the rail and tab bar, plus a list. Email comes next, phone push after that (that needs Steamhub added to the home screen).
 - **Drawings** are English only; CAD never uses Hebrew. The title block shows STEAMPUNK 1577, robot, subsystem, part number, material, scale, quantity, "drawn by" and "manufactured by". "Drawn by" is whoever uploaded the STEP; "manufactured by" is whoever claimed the part. Tolerance on 3D-printed parts is ±0.15. Machined parts get no tolerance field; the workshop handles it.
 - **Outputs.** Drawings are PDF. The CNC team uses Estlcam, which takes DXF. 3D printing uses STEP (per part). Drawings print from a USB stick because the printer has no Wi-Fi. A batch is whatever is ready in one subsystem; subsystems never mix. The workshop selects parts and downloads one combined PDF to put on the stick. Each part also has its own PDF download.

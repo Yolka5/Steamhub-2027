@@ -12,9 +12,25 @@ const GoogleMark = () => (
   </svg>
 )
 
+/**
+ * A Google account that isn't on the list comes back from sign-in with an error in the address
+ * (Supabase can't make the account). Read it once and tidy the address.
+ */
+function refusedSignIn() {
+  const url = new URL(window.location.href)
+  const hash = new URLSearchParams(url.hash.slice(1))
+  const err = url.searchParams.get('error_description') ?? hash.get('error_description')
+  if (!err) return null
+  for (const k of ['error', 'error_code', 'error_description']) url.searchParams.delete(k)
+  window.history.replaceState(null, '', url.pathname + url.search)
+  return /database error saving new user|not on the steamhub list/i.test(err)
+    ? "That Google account isn't on Steamhub's list yet. Ask Yoni to add your email, then sign in again."
+    : err
+}
+
 export function SignIn() {
   const { signIn } = useAuth()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(refusedSignIn)
   return (
     <main className="gate">
       <div className="shell gate__box">

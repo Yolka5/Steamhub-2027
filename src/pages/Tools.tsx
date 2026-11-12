@@ -77,6 +77,13 @@ export default function Tools() {
         </div>
       </section>
 
+      <section className="tools-group">
+        <h2 className="section__title">New to Steamhub</h2>
+        <div className="tools">
+          <ToolCard t={{ name: 'How to use Steamhub', what: 'The everyday things a step at a time, with pictures. Also the wall poster with its QR code.', icon: 'flag', to: '/guide' }} />
+        </div>
+      </section>
+
       {/* Phones have no Handbook tab (Make took its place), so it lives here. */}
       <section className="tools-group tools-group--phone">
         <h2 className="section__title">Handbook and prototypes</h2>

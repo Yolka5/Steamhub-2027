@@ -42,6 +42,8 @@ import Plates from './pages/Plates'
 import EndMills from './pages/EndMills'
 import Notifications from './pages/Notifications'
 import People from './pages/People'
+import GuidePage from './pages/Guide'
+import GuidePoster from './pages/GuidePoster'
 import { NoAccess, SignIn } from './components/SignIn'
 import { useNotifications } from './lib/notifications'
 
@@ -157,12 +159,17 @@ export default function App() {
 
   // Steamhub is for the team: nothing shows until you're signed in. While that's being checked,
   // the startup frame from index.html stays, so the screen never goes blank.
+  // The wall poster is paper: no menus, signed in or not.
+  if (location.pathname === '/guide/print') return <GuidePoster />
+
   if (!ready)
     return (
       <div className="boot" aria-hidden="true">
         <span className="boot__logo" />
       </div>
     )
+  // The QR code on the workshop wall opens the guide on phones that aren't signed in yet.
+  if (!session && location.pathname === '/guide') return <PublicGuide />
   if (!session) return <SignIn />
   if (banned) return <NoAccess />
 
@@ -257,6 +264,7 @@ export default function App() {
             <Route path="/stock/end-mills" element={<EndMills />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/people" element={<People />} />
+            <Route path="/guide" element={<GuidePage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
@@ -286,6 +294,23 @@ export default function App() {
       <Palette open={paletteOpen} animated={paletteAnim} initial={paletteText} onClose={() => setPaletteOpen(false)} />
     </ToastProvider>
     </PaletteContext.Provider>
+  )
+}
+
+/** The guide for someone not signed in yet: the same page under a plain bar, with Sign in. */
+function PublicGuide() {
+  return (
+    <div className="guide-public">
+      <header className="guide-public__bar">
+        <Link to="/" className="brand">
+          <span className="logo" style={{ width: 32, height: 32 }} aria-hidden="true" />
+          <span className="brand__name">Steamhub</span>
+        </Link>
+      </header>
+      <main className="main">
+        <GuidePage signedIn={false} />
+      </main>
+    </div>
   )
 }
 

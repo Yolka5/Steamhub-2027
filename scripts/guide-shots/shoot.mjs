@@ -207,5 +207,7 @@ for (const s of SHOTS) {
   }
 }
 await browser.close()
+// A full run also forgets shots that were removed from the list.
+if (!OUT && !only.size) for (const k of Object.keys(sizes)) if (!SHOTS.some((s) => s.name === k)) delete sizes[k]
 if (!OUT) writeFileSync(manifest, `${JSON.stringify(sizes, null, 2)}\n`)
 if (failed.length) process.exitCode = 1

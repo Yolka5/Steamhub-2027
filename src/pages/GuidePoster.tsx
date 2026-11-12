@@ -14,7 +14,8 @@ const STEPS: { title: string; how: ReactNode }[] = [
   { title: 'Make a part', how: <>Make → Start → Done. Tap the part for its drawing</> },
   { title: 'Test a prototype', how: <>Record a test → film → values → Save test</> },
   { title: 'Search anything', how: <>Ctrl K or the magnifier: <code>3004</code>, <code>M5</code>, a page</> },
-  { title: 'Tools and Handbook', how: <>Tools tab: calculators, tap drills, the Handbook</> },
+  { title: 'Plan your work', how: <>Calendar → + Task. Leads: Send today’s update</> },
+  { title: 'Tools and Handbook', how: <>Tiles on Home: calculators, tap drills, the Handbook</> },
 ]
 
 export default function GuidePoster() {

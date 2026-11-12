@@ -58,10 +58,11 @@ export const CHAPTERS: Chapter[] = [
             <B>Make</B>: Manufacturing, the parts to make and their drawings.
           </>,
           <>
-            <B>Tools</B>: calculators, plus the Calendar, Prototypes and the Handbook.
+            <B>Calendar</B>: tasks, the plan and the daily updates.
           </>,
         ],
-        shot: { name: 'tabbar', alt: 'The phone tab bar with Home, Stock, Add, Make and Tools marked 1 to 5.' },
+        tip: 'Tools, with Prototypes and the Handbook inside, is a tile on Home. Search finds every tool too.',
+        shot: { name: 'tabbar', alt: 'The phone tab bar with Home, Stock, Add, Make and Calendar marked 1 to 5.' },
       },
       {
         title: 'The top bar on a phone',
@@ -138,7 +139,7 @@ export const CHAPTERS: Chapter[] = [
           <>
             <B>Team activity</B>: who started, finished, added or reserved what. Tap a line to open it.
           </>,
-          <>Shortcuts to the Calendar, Record a test and the Handbook (on a computer, to every section).</>,
+          <>Shortcuts to Record a test, Tools and the Handbook (on a computer, to every section).</>,
           <>
             The <B>kickoff countdown</B>, with Add to calendar.
           </>,
@@ -526,7 +527,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'The prototypes list',
         body: (
           <>
-            Open <A to="/prototypes">Prototypes</A> (in Tools on a phone).
+            Open <A to="/prototypes">Prototypes</A> (on a phone: the Tools tile on Home, then Prototypes).
           </>
         ),
         how: [
@@ -640,15 +641,19 @@ export const CHAPTERS: Chapter[] = [
         title: 'The board',
         body: (
           <>
-            Open the <A to="/calendar">Calendar</A>: in the menu on a computer, from Home or Tools on a phone.
+            Open the <A to="/calendar">Calendar</A>: the Calendar tab on a phone, the menu on a computer.
           </>
         ),
         how: [
-          <>Four views: Board, Calendar, Gantt and Updates.</>,
+          <>Four views: Board, Calendar, Plan (the Gantt, on a computer) and Updates.</>,
           <>Filters: one team, or only your own tasks.</>,
           <>One box per group: each team, CNC, the Workshop, and each subsystem with its lead and the phase it’s in.</>,
+          <>
+            <B>+ Task</B> adds a task. On a computer there’s one under each group.
+          </>,
         ],
-        shot: { name: 'cal-board', alt: 'The Calendar board: the views, the filters and the first group marked 1 to 3.' },
+        tip: 'A lead who hasn’t sent today’s update sees a Send today’s update row at the top.',
+        shot: { name: 'cal-board', alt: 'The Calendar board on a phone: the views, the filters, the first group and the + Task button marked 1 to 4.' },
       },
       {
         title: 'Tasks',
@@ -657,20 +662,22 @@ export const CHAPTERS: Chapter[] = [
           <>Tap the name to open the task.</>,
           <>High priority tasks are tagged.</>,
           <>“Waits for” means it starts after another task. A task that slips moves the ones waiting for it.</>,
-          <>
-            <B>+ Task</B> adds one to that group.
-          </>,
         ],
-        shot: { name: 'cal-rows', alt: 'The 3 Intake group: a task’s status circle, its name, a High tag, a waits-for note and + Task marked 1 to 5.' },
+        shot: { name: 'cal-rows', alt: 'The 3 Intake group: a task’s status circle, its name, a High tag and a waits-for note marked 1 to 4.' },
       },
       {
         title: 'Add a task in one line',
+        body: 'Press + Task.',
         how: [
+          <>The group. It starts on the last one you used, or the one you lead.</>,
           <>
             Type the task with the day at the end: <C>Roller test thu high @noa</C>. The day (<C>thu</C>, <C>14/11</C>, <C>mon-thu</C>), High or Low, and <C>@name</C> for who are read from the end.
           </>,
+          <>
+            <B>Add</B>.
+          </>,
         ],
-        shot: { name: 'cal-quick', alt: 'A new task typed in one line under 3 Intake, marked 1.' },
+        shot: { name: 'cal-new', alt: 'The New task sheet: the group, the typed line and Add marked 1 to 3.' },
       },
       {
         title: 'Open a task',
@@ -682,13 +689,22 @@ export const CHAPTERS: Chapter[] = [
         title: 'A group’s page',
         body: 'Tap a group’s name on the board.',
         how: [
-          <>Today’s update, for the group’s lead.</>,
-          <>The phases. Each subsystem goes Prototypes, CAD, Manufacturing, and their progress comes from Steamhub itself.</>,
+          <>Today’s update, for the group’s lead. It gets a tick once it’s sent.</>,
+          <>Three tabs: the group’s Tasks, its Phases and its Updates. Today’s update is written right there in Updates.</>,
+          <>Add a task to this group in one line, the same way as + Task.</>,
+        ],
+        shot: { name: 'cal-group', alt: 'The Intake group page: today’s update, the Tasks, Phases and Updates tabs, and the task line marked 1 to 3.' },
+      },
+      {
+        title: 'Phases',
+        how: [
+          <>Each subsystem goes Prototypes, CAD, Manufacturing, and their progress comes from Steamhub itself: prototypes tested, parts made.</>,
           <>
             <B>Finish</B> a phase when it’s done. Steamhub asks the lead when one looks finished.
           </>,
+          <>Add a phase of your own, like Wiring.</>,
         ],
-        shot: { name: 'cal-group', alt: 'The Intake group page: today’s update, the phases and Finish marked 1 to 3.' },
+        shot: { name: 'cal-phases', alt: 'The Phases tab: the phases, Finish and the new phase box marked 1 to 3.' },
       },
       {
         title: 'For leads: today’s update',
@@ -726,6 +742,11 @@ export const CHAPTERS: Chapter[] = [
         how: [<>What kind of event it is.</>, <>Repeat it every week on the days you pick.</>, <>Remind everyone before it starts.</>],
         tip: 'When a meeting ends, leads who haven’t sent their update get a reminder.',
         shot: { name: 'cal-event', alt: 'A new event: kind, repeat days and reminders marked 1 to 3.' },
+      },
+      {
+        title: 'The plan on a phone',
+        how: [<>Plan, the Gantt for phones.</>, <>Each group’s phases (done, now, next) with dates and progress, then its dated tasks in order.</>],
+        shot: { name: 'cal-plan', alt: 'The Plan view on a phone: the Plan tab and the Intake group’s phases and tasks marked 1 and 2.' },
       },
       {
         title: 'The Gantt',
@@ -786,10 +807,10 @@ export const CHAPTERS: Chapter[] = [
         title: 'The Tools page',
         body: (
           <>
-            <A to="/tools">Tools</A> has every calculator, plus links to JVN, AMB and ReCalc further down.
+            <A to="/tools">Tools</A> has every calculator, plus links to JVN, AMB and ReCalc further down. On a phone, open it from its tile on Home.
           </>
         ),
-        how: [<>The Calendar (on a phone, this is where it is).</>, <>Motor and gearbox: gear ratio, current and battery budget.</>, <>Tap drills and holes.</>, <>Center distance for belts, chains and gears.</>],
+        how: [<>The Calendar.</>, <>Motor and gearbox: gear ratio, current and battery budget.</>, <>Tap drills and holes.</>, <>Center distance for belts, chains and gears.</>],
         shot: { name: 'tools', alt: 'The Tools page with Calendar, Motor and gearbox, Tap drills and holes and Center distance marked 1 to 4.' },
       },
       {
@@ -830,7 +851,7 @@ export const CHAPTERS: Chapter[] = [
   {
     id: 'handbook',
     title: 'Handbook',
-    intro: 'The Handbook is in Hebrew. On a phone, it’s in Tools.',
+    intro: 'The Handbook is in Hebrew. On a phone, it’s a tile on Home, and in Tools.',
     steps: [
       {
         title: 'Two parts',

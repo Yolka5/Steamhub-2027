@@ -27,7 +27,7 @@ export const SHOTS = [
     name: 'tabbar',
     path: '/',
     clip: '.tabbar',
-    marks: ['Home', 'Stock', 'Add', 'Make', 'Tools'].map((t) => ({ sel: `.tabbar >> text=${t}` })),
+    marks: ['Home', 'Stock', 'Add', 'Make', 'Calendar'].map((t) => ({ sel: `.tabbar >> text=${t}` })),
   },
   {
     name: 'topbar',
@@ -358,14 +358,14 @@ export const SHOTS = [
   {
     name: 'cal-board',
     path: '/calendar',
-    height: 420,
-    marks: [{ sel: '[aria-label="Calendar views"]' }, { sel: ':is(.cal-filters summary, summary:has-text("Filters"), .cal-filters) >> nth=0' }, { sel: '.cal-group >> nth=0' }],
+    marks: [{ sel: '[aria-label="Calendar views"]' }, { sel: ':is(.cal-filters summary, summary:has-text("Filters"), .cal-filters) >> nth=0' }, { sel: '.cal-group >> nth=0' }, { sel: '.cal-fab' }],
+    height: 844,
   },
   {
     name: 'cal-rows',
     path: '/calendar',
     css: NO_BARS,
-    act: (page) => scrollTo(page, '.cal-group:has-text("3 Intake")', 40),
+    act: (page) => scrollTo(page, '.cal-group:has-text("3 Intake")', 260),
     clip: '.cal-group:has-text("3 Intake")',
     pad: 12,
     marks: [
@@ -373,23 +373,17 @@ export const SHOTS = [
       { sel: '.cal-group:has-text("3 Intake") .cal-row__title >> nth=0' },
       { sel: '.cal-group:has-text("3 Intake") >> text=High' },
       { sel: '.cal-group:has-text("3 Intake") >> text=/waits for/' },
-      { sel: '.cal-group:has-text("3 Intake") >> role=button[name="Task"]' },
     ],
   },
   {
-    name: 'cal-quick',
+    name: 'cal-new',
     path: '/calendar',
-    css: NO_BARS,
-    clip: '.cal-group:has-text("3 Intake")',
-    pad: 12,
     act: async (page) => {
-      await scrollTo(page, '.cal-group:has-text("3 Intake")', 40)
-      await page.locator('.cal-group:has-text("3 Intake") >> role=button[name="Task"]').click()
-      await pause(page, 300)
+      await click('.cal-fab', 700)(page)
       await page.keyboard.type('Roller test thu high @noa')
-      await pause(page, 500)
+      await pause(page, 400)
     },
-    marks: [{ sel: '.cal-quick' }],
+    marks: [{ sel: '.sheet .ctl:has-text("Group")' }, { sel: '.sheet input >> nth=0' }, { sel: '.sheet >> role=button[name="Add"]' }],
   },
   {
     name: 'cal-task',
@@ -405,8 +399,24 @@ export const SHOTS = [
   {
     name: 'cal-group',
     path: (ids) => `/calendar/g/${ids.group('Intake')}`,
-    height: 780,
-    marks: [{ sel: tap("today") }, { sel: 'h2:has-text("Phases")' }, { sel: btn('Finish') }],
+    height: 760,
+    marks: [{ sel: tap("Today") }, { sel: '[aria-label="Show"]' }, { sel: 'main input.field >> nth=0' }],
+  },
+  {
+    name: 'cal-phases',
+    path: (ids) => `/calendar/g/${ids.group('Intake')}`,
+    viewport: { width: 390, height: 1240 },
+    css: NO_TABBAR,
+    height: 1200,
+    act: click('[aria-label="Show"] >> text=Phases', 700),
+    marks: [{ sel: 'h2:has-text("Phases")' }, { sel: btn('Finish') }, { sel: '[aria-label="New phase name"]' }],
+  },
+  {
+    name: 'cal-plan',
+    path: '/calendar?view=gantt',
+    height: 760,
+    act: (page) => scrollTo(page, 'main :text-is("Intake")', 300),
+    marks: [{ sel: '[aria-label="Calendar views"] >> text=Plan' }, { sel: 'main :text-is("Intake") >> xpath=ancestor::*[contains(@class,"cal")][1]' }],
   },
   {
     name: 'cal-update',

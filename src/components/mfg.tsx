@@ -81,6 +81,9 @@ function PartRowBody({ part, showMaker, showStatus, assignee }: { part: Part; sh
       </span>
       <span className="mfg-row__tags">
         {part.changed && <span className="tag tag--reserved">Changed</span>}
+        {part.rejected_note && !part.released_at && <span className="tag tag--bad">Rejected</span>}
+        {part.asking && part.status !== 'done' && <span className="tag tag--warn">Waiting for an answer</span>}
+        {part.made_differently && part.status === 'done' && <span className="tag tag--warn">Made differently</span>}
         {part.urgent && part.status !== 'done' && <UrgentTag />}
         {assignee && <span className="tag tag--who">→ {assignee.split(' ')[0]}</span>}
         {showStatus && <PartStatusTag part={part} />}

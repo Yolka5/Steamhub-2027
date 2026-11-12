@@ -4,7 +4,10 @@ import { useAuth, useWho } from './auth'
 import {
   assignParts,
   between,
+  askFirst,
   claimPart,
+  doneWithNote,
+  rejectPart,
   doneRecently,
   giveBack,
   isOpen,
@@ -23,6 +26,29 @@ import {
 import { useParts, usePeople, useRobots } from './useMfg'
 import { useToast } from '../components/ui'
 import { useClaimAs, usePickPerson } from '../components/WhoPicker'
+import { useNote } from '../components/NoteSheet'
+
+/** What the note sheet says for each kind of pushback (WORKSHOP_TASKS.md, "Pushback"). */
+export const NOTE = {
+  reject: (p: Part) => ({
+    title: `Reject ${p.part_no}`,
+    sub: 'It goes back to design, and whoever released it and the subsystem lead get your note.',
+    placeholder: 'No 6 mm plate in stock / the drawing is missing the hole sizes',
+    button: 'Reject',
+  }),
+  ask: (p: Part) => ({
+    title: `Ask about ${p.part_no}`,
+    sub: 'Whoever released it and the subsystem lead get the question. Wait for their answer before you start.',
+    placeholder: 'Can I use the 6 mm plate instead of 5 mm?',
+    button: 'Send',
+  }),
+  doneNote: (p: Part) => ({
+    title: `${p.part_no} done, with a note`,
+    sub: 'It counts as done. Whoever released it and the subsystem lead get your note, and the part is marked Made differently.',
+    placeholder: 'Used 6 mm plate instead of 5 mm',
+    button: 'Done',
+  }),
+}
 
 // What the board, the person lists and the workshop list share: the parts the workshop hands
 // out, who may do what with each, and the actions (WORKSHOP_TASKS.md).
@@ -79,6 +105,7 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
   const navigate = useNavigate()
   const { pick, picker } = useClaimAs()
   const { ask, sheet } = usePickPerson()
+  const { write, sheet: noteSheet } = useNote()
   const running = useRef(new Set<string>())
   const [held, setHeld] = useState<Set<string>>(new Set())
   const hold = useCallback(
@@ -220,6 +247,41 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
     }
   }
 
+  /** The lead sends it back to design with a note. */
+  const reject = async (p: Part) => {
+    if (!who) return
+    const note = await write(NOTE.reject(p))
+    if (!note) return
+    const res = await rejectPart(p, note, who)
+    if (res.error) return toast(res.error)
+    if (res.data) put(res.data)
+    toast(`${p.part_no} is back with design`)
+  }
+
+  /** A question before starting. On the shared PC, for the person picked. */
+  const askAbout = async (p: Part) => {
+    if (!who) return
+    const by = await pick(p)
+    if (by === null) return
+    const note = await write(NOTE.ask(p))
+    if (!note) return
+    const res = await askFirst(p, note, who, by)
+    if (res.error) return toast(res.error)
+    if (res.data) put(res.data)
+    toast('Question sent. You get a notification with the answer.')
+  }
+
+  /** Done, but made differently. */
+  const doneNote = async (p: Part) => {
+    if (!who) return
+    const note = await write(NOTE.doneNote(p))
+    if (!note) return
+    const res = await doneWithNote(p, note, who)
+    if (res.error) return toast(res.error)
+    if (res.data) put(res.data)
+    toast(`${p.part_no} done, note sent`)
+  }
+
   const toggleUrgent = async (p: Part) => {
     if (!who) return
     const res = await updatePart(p.id, { urgent: !p.urgent })
@@ -228,10 +290,11 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
     await logPart(p.id, p.urgent ? 'not_urgent' : 'urgent', who)
   }
 
-  return { start, done, handBack, assignTo, assign, unassign, move, drop, toggleUrgent, held, sheets: (
+  return { start, done, handBack, assignTo, assign, unassign, move, drop, toggleUrgent, reject, askAbout, doneNote, held, sheets: (
       <>
         {picker}
         {sheet}
+        {noteSheet}
       </>
     ),
   }

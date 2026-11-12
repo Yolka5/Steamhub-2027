@@ -360,3 +360,63 @@ a.tcol__name:hover {
   width: 3.25rem;
   height: 3.25rem;
 }
+
+/* ===== Pushback ===== */
+.sp-row__why {
+  color: var(--ink-soft);
+  white-space: normal;
+}
+.sp-row__why--bad {
+  color: var(--meaning-c);
+}
+
+.note-sheet {
+  display: grid;
+  gap: 0.6rem;
+}
+.note-sheet p {
+  margin: 0;
+}
+.note-sheet textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+/* Questions and notes on the part page. */
+.preq {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+.preq p {
+  margin: 0;
+}
+.preq__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.preq__answer {
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--surface-3);
+}
+.preq__form {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.preq__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.preqs {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

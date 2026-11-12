@@ -8,12 +8,18 @@ import { useStore } from '../../lib/store'
 import { Copy, LoadError, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
 import { useClaimAs, usePickPerson } from '../../components/WhoPicker'
-import { useNames, useTaskRules } from '../../lib/useTasks'
+import { NOTE, useNames, useTaskRules } from '../../lib/useTasks'
+import { useNote } from '../../components/NoteSheet'
 import { canDraw, partDrawing, saveDxf, savePdf, saveStep, type Ctx } from '../../lib/drawing'
 import {
   ago,
+  answerAsk,
+  askFirst,
   assignParts,
   claimPart,
+  doneWithNote,
+  partRequests,
+  rejectPart,
   giveBack,
   unassignParts,
   logPart,
@@ -28,6 +34,7 @@ import {
   updatePart,
   type Machine,
   type Part,
+  type PartRequest,
   type PartStatus,
   type Robot,
   type Subsystem,
@@ -112,6 +119,10 @@ const WORDS: Record<string, string> = {
   urgent: 'Marked urgent',
   not_urgent: 'No longer urgent',
   remake: 'Remake after a CAD change',
+  rejected: 'Rejected by the workshop',
+  asked: 'Asked before starting',
+  ask_approved: 'Go ahead',
+  ask_denied: 'Make it as drawn',
   keep: 'Kept after a CAD change',
   edited: 'Edited',
   assigned: 'Handed out',
@@ -119,6 +130,8 @@ const WORDS: Record<string, string> = {
   gave_back: 'Given back',
   moved_top: 'Moved to the top of the list',
 }
+
+const REQUEST_WORD: Record<PartRequest['kind'], string> = { ask: 'Asked first', done_note: 'Made differently', reject: 'Rejected' }
 
 export default function PartPage() {
   const { id = '' } = useParams()
@@ -163,6 +176,14 @@ export default function PartPage() {
       supabase.removeChannel(channel)
     }
   }, [id])
+
+  // Questions and notes. Every pushback action also changes the part, so updated_at reloads them.
+  const [requests, setRequests] = useState<PartRequest[]>([])
+  useEffect(() => {
+    partRequests(id).then(setRequests)
+  }, [id, part?.updated_at])
+  const { write, sheet: noteSheet } = useNote()
+  const [answer, setAnswer] = useState('')
 
   useEffect(() => {
     supabase
@@ -290,6 +311,31 @@ export default function PartPage() {
   } else if (part.status === 'done') {
     others.push({ label: 'Not done yet', run: () => status('doing', 'Back in progress') })
   }
+  // Pushback: ask before starting, finish with a note, or (the lead) send it back to design.
+  const pushback = async (kind: 'ask' | 'doneNote' | 'reject') => {
+    if (!who) return
+    const by = kind === 'ask' ? await pickMaker(part) : undefined
+    if (by === null) return
+    const note = await write(NOTE[kind](part))
+    if (!note) return
+    if (kind === 'ask') act(() => askFirst(part, note, who, by), 'Question sent. You get a notification with the answer.')
+    if (kind === 'doneNote') act(() => doneWithNote(part, note, who), 'Done, note sent')
+    if (kind === 'reject') act(() => rejectPart(part, note, who), 'Sent back to design')
+  }
+  if (part.released_at && !bought && rules.canWork(part) && part.status === 'todo') others.push({ label: 'Ask first…', run: () => pushback('ask') })
+  if (part.released_at && !bought && rules.canWork(part) && part.status === 'doing') others.push({ label: 'Done, with a note…', run: () => pushback('doneNote') })
+  if (part.released_at && !bought && rules.canAssign && part.status === 'todo') others.push({ label: 'Reject…', run: () => pushback('reject') })
+  // Who answers a question: leads, whoever released it, the subsystem lead.
+  const canAnswer = rules.canAssign || (!!who && (who.userId === part.released_by || who.userId === ctx.sub.lead_id))
+  const open = requests.filter((r) => r.status === 'open')
+  const reply = (r: PartRequest, ok: boolean) =>
+    who &&
+    act(async () => {
+      const res = await answerAsk(part, r, ok, answer.trim(), who)
+      if (!res.error) setAnswer('')
+      return res
+    }, ok ? 'Told them to go ahead' : 'Told them to make it as drawn')
+
   // Handing out: the lead gives, takes away; the person it's assigned to can give it back.
   const handable = !bought && !!part.released_at && (part.status === 'todo' || part.status === 'doing')
   if (handable && rules.canAssign) {
@@ -347,6 +393,48 @@ export default function PartPage() {
           )}
         </div>
       )}
+
+      {part.rejected_note && !part.released_at && (
+        <div className="mfg-note mfg-note--bad">
+          <p>
+            <strong>Rejected by {nameOf(part.rejected_by) || 'the workshop'}</strong>
+            {part.rejected_at ? `, ${ago(part.rejected_at)}` : ''}: {part.rejected_note}
+          </p>
+          <p className="small">Fix it, then release it again. That clears this note.</p>
+        </div>
+      )}
+
+      {part.made_differently && part.status === 'done' && (
+        <p className="mfg-note mfg-note--warn">
+          <strong>Made differently:</strong> {part.made_differently}
+        </p>
+      )}
+
+      {open.map((r) => (
+        <div key={r.id} className="preq">
+          <p className="preq__head">
+            <span className="tag tag--warn">Waiting for an answer</span>
+            <strong>{r.by_name}</strong>
+            <span className="soft small">asked {ago(r.created_at)}</span>
+          </p>
+          <p dir="auto">{r.note}</p>
+          {canAnswer ? (
+            <div className="preq__form">
+              <input className="field" dir="auto" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Add a note (optional)" aria-label="Your answer" />
+              <div className="preq__acts">
+                <button type="button" className="q-btn q-btn--main" onClick={() => reply(r, true)}>
+                  Go ahead
+                </button>
+                <button type="button" className="q-btn" onClick={() => reply(r, false)}>
+                  No, make it as drawn
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="soft small">Whoever released it, the subsystem lead or the workshop lead answers. You get a notification.</p>
+          )}
+        </div>
+      ))}
 
       {part.status === 'cancelled' && <p className="mfg-note mfg-note--bad">Cancelled: this part is no longer in the CAD. If it comes back in a new STEP, it returns here with the same number.</p>}
 
@@ -465,6 +553,32 @@ export default function PartPage() {
         </div>
       </div>
 
+      {requests.some((r) => r.status !== 'open') && (
+        <section className="section">
+          <h2 className="section__title">Questions and notes</h2>
+          <ul className="preqs">
+            {requests
+              .filter((r) => r.status !== 'open')
+              .map((r) => (
+                <li key={r.id} className="preq">
+                  <p className="preq__head">
+                    <span className={r.kind === 'reject' ? 'tag tag--bad' : 'tag'}>{REQUEST_WORD[r.kind]}</span>
+                    <strong>{r.by_name}</strong>
+                    <span className="soft small">{ago(r.created_at)}</span>
+                  </p>
+                  <p dir="auto">{r.note}</p>
+                  {r.answered_at && (
+                    <p className="preq__answer" dir="auto">
+                      <strong>{r.status === 'approved' ? 'Go ahead' : 'Make it as drawn'}</strong>, {r.answered_by_name}
+                      {r.answer ? `: ${r.answer}` : ''}
+                    </p>
+                  )}
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
+
       {events.length > 0 && (
         <section className="section">
           <h2 className="section__title">History</h2>
@@ -484,6 +598,7 @@ export default function PartPage() {
       )}
       {picker}
       {personSheet}
+      {noteSheet}
     </div>
   )
 }

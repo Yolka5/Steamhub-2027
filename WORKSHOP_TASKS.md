@@ -143,3 +143,42 @@ Migration `supabase/migrations/20261113_workshop_tasks.sql` (applied 2026-11-12)
 - Splitting one part between people.
 - Assigning bought parts to collect.
 - Leads per machine (a CNC lead, a print lead). The flag already allows several leads if that's ever wanted.
+
+## Pushback: reject, ask first, done with a note (planned 2026-11-12)
+
+Three ways to push back on a part, each with a note to the people responsible for it: **whoever released it, plus the subsystem lead if that's someone else**. Agreed with Yoni in one round of Q&A.
+
+### Decisions
+- **Reject (workshop lead, before handing out or starting).**
+  - Toledano (or an admin) presses **Reject…** on a To-do part, writes why ("no 6 mm plate", "drawing is missing a hole"), and sends.
+  - The part goes back to **In design** on its subsystem page, with a red **Rejected** note: who, when, and why. It drops off the board and the list, and any assignee is cleared (they're told).
+  - **Release** clears the note. The responsible people, and the assignee if there was one, get the note as a notification.
+- **Ask first (the maker, instead of Start).**
+  - On a To-do part you may work on, **Ask first…** sends a question ("can I use the 6 mm plate instead of 5?").
+  - The card shows **Waiting for an answer** until someone answers.
+  - The responsible people, or a workshop lead, answer on the part page with **Go ahead** or **No, make it as drawn**, plus an optional note.
+  - The asker is told. The question and answer stay on the part page.
+  - Nothing is blocked: it's a question, not a lock. On the shared PC it asks who's asking, like Start.
+- **Done, with a note (the maker, instead of Done).**
+  - On an In-progress part, **Done, with a note…** finishes the part and sends what was different ("used 6 mm instead of 5").
+  - Nobody approves anything. The part keeps a **Made differently** tag with the note on the part page, the subsystem page, the board and the list, so assembly knows. The rest is sorted out in person.
+
+### Data
+Migration `supabase/migrations/20261114_part_pushback.sql`:
+- `parts`:
+  - `rejected_note`, `rejected_by`, `rejected_at`.
+  - `asking` (bool): an open question, for the card tag.
+  - `made_differently` (text).
+- `part_requests`: id, part_id, kind (`ask` / `done_note` / `reject`), note, by_id, by_name, for_id (the person, when the shared PC asks for them), status (`open` / `approved` / `denied` / `info`), answer, answered_by, answered_by_name, answered_at, created_at. Members read and add. Answering (update) is for leads, admins, the releaser and the subsystem lead (`can_answer(part_id)`).
+- The guard on `parts` refuses setting `rejected_note` unless `can_assign()`. Clearing it (Release) is open to everyone.
+
+### Build
+- [ ] Migration, applied. Written; waiting on Yoni's OK in the Supabase tool (it timed out unanswered on 2026-11-12).
+- [x] `src/lib/mfg.ts`: `responsibleFor(part)`, `rejectPart`, `askFirst`, `answerAsk`, `doneWithNote`; release clears the rejection.
+- [x] A note sheet (one text box, one button), used by all three.
+- [x] Board and list card menu: Reject… (leads), Ask first… (To-do), Done, with a note… (In progress). Tags: Waiting for an answer, Made differently.
+- [x] Part page: the same actions, the red Rejected box, the open question with Go ahead / No, and a Questions section with the history.
+- [x] Subsystem page: Rejected and Made differently tags with the note.
+- [x] Home: "Waiting for your answer" for the responsible people.
+- [x] Guide entries.
+- [ ] Deploy, after the migration.

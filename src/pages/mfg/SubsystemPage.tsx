@@ -456,6 +456,9 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         <span className="soft small num">
           {sizeText(part.size)} mm · ×{part.qty}
         </span>
+        {/* Why the workshop lead sent it back, or what was made differently, right where the fix happens. */}
+        {part.rejected_note && !part.released_at && <span className="small sp-row__why sp-row__why--bad">Rejected: {part.rejected_note}</span>}
+        {part.made_differently && part.status === 'done' && <span className="small sp-row__why">Made differently: {part.made_differently}</span>}
       </Link>
       <Select
         className="field--inline sp-row__machine"
@@ -494,6 +497,9 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
       <span className="sp-row__tags">
         {part.bad && <span className="tag tag--bad">Unreadable</span>}
         {part.changed && <span className="tag tag--reserved">Changed</span>}
+        {part.rejected_note && !part.released_at && <span className="tag tag--bad">Rejected</span>}
+        {part.asking && part.status !== 'done' && <span className="tag tag--warn">Waiting for an answer</span>}
+        {part.made_differently && part.status === 'done' && <span className="tag tag--warn">Made differently</span>}
         {part.urgent && part.status !== 'done' && <UrgentTag />}
         {/* The In design section says it already. */}
         {(part.released_at || part.machine === 'Bought') && <PartStatusTag part={part} />}

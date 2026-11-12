@@ -46,6 +46,30 @@ function useMyParts(userId: string | null) {
   return parts
 }
 
+interface OpenAsk {
+  id: string
+  note: string
+  by_name: string
+  part: { id: string; part_no: number; released_by: string | null; subsystem: { lead_id: string | null } | null } | null
+}
+
+/** "Ask first" questions this person should answer: as lead, as releaser or as subsystem lead. */
+function useAsksForMe(userId: string | null, canAssign: boolean) {
+  const [asks, setAsks] = useState<OpenAsk[]>([])
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('part_requests')
+      .select('id, note, by_name, part:parts(id, part_no, released_by, subsystem:subsystems(lead_id))')
+      .eq('status', 'open')
+      .order('created_at')
+      .then(({ data }) =>
+        setAsks(((data ?? []) as unknown as OpenAsk[]).filter((a) => a.part && (canAssign || a.part.released_by === userId || a.part.subsystem?.lead_id === userId))),
+      )
+  }, [userId, canAssign])
+  return asks
+}
+
 /**
  * The title flips up letter by letter, the TTM letters pattern. It plays once per visit to the
  * site, not on every trip back to Home, so it stays a greeting and never becomes a wait.
@@ -81,7 +105,8 @@ export default function Home() {
   const navigate = useNavigate()
   const openPalette = useOpenPalette()
   const { pieces } = useStore()
-  const { userId, name } = useAuth()
+  const { userId, name, canAssign } = useAuth()
+  const asks = useAsksForMe(userId, canAssign)
   const [text, setText] = useState('')
 
   const mine = useMemo(() => pieces.filter((p) => p.status === 'reserved' && p.reserved_by === userId), [pieces, userId])
@@ -147,6 +172,27 @@ export default function Home() {
           </Link>
         ))}
       </div>
+
+      {asks.length > 0 && (
+        <section className="section">
+          <h2 className="section__title">Waiting for your answer</h2>
+          <ul className="rows">
+            {asks.map((a) => (
+              <li key={a.id}>
+                <Link to={`/manufacturing/p/${a.part!.id}`} className="row">
+                  <span className="mfg-row__no num">{a.part!.part_no}</span>
+                  <span className="row__main">
+                    <span className="strong">{a.by_name} asks</span>
+                    <span className="soft small" dir="auto">
+                      {a.note}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {(myParts.length > 0 || mine.length > 0) && (
         <div className="home__mine">

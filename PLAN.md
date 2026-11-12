@@ -127,7 +127,7 @@ Asked for by Yoni on 2026-11-11, built on 2026-11-12.
 
 - `/guide`: how to use Steamhub, phone first, with a contents row that follows you (a rail on computers) and real screenshots in light and dark. It opens without signing in, so the wall QR works on a new student's phone; its links lead to sign-in and then to the page. Linked from Tools and Ctrl K.
 - `/guide/print`: the A4 wall poster, the same steps cut to a line each, with a QR code to steamhub2027.vercel.app/guide made in the browser (`qrcode-generator`). Checked: prints as one A4 page and the code scans.
-- 2026-11-12, later: the guide went into detail: 10 chapters (a new one for subsystem leads), every step a numbered list whose numbers match blue rings and arrows drawn over its picture, 56 screens. The marks are measured from the real buttons when the shots are taken, so they stay right after a re-shoot. Words in `src/content/guide.tsx`.
+- 2026-11-12, later: the guide went into detail: 11 chapters (new ones for subsystem leads and the Calendar), every step a numbered list whose numbers match blue rings and arrows drawn over its picture, 66 screens. The marks are measured from the real buttons when the shots are taken, so they stay right after a re-shoot. Words in `src/content/guide.tsx`.
 - The pictures come from `scripts/guide-shots` (real app, demo data, Supabase never called). Run it again when a screen changes: start `npx vite --port 5199`, then `node scripts/guide-shots/shoot.mjs`.
 
 ## Still open

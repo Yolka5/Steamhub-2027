@@ -683,6 +683,16 @@
   gap: 0.4rem;
 }
 
+.people__add {
+  max-width: 28rem;
+  margin-bottom: 0.75rem;
+}
+
+.people__add .field {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ===== Home: Workshop now ===== */
 .wnow {
   display: grid;

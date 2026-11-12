@@ -12,6 +12,8 @@ import { usePhone } from '../../lib/usePhone'
 import { Board } from './Board'
 import { Gantt } from './Gantt'
 import { MonthView } from './MonthView'
+import { Plan } from './Plan'
+import { NewTaskButton } from './NewTask'
 
 // The Calendar: Board, Calendar and Gantt over the same tasks. View and filters live in the URL,
 // so a link shows the same screen to everyone.
@@ -76,14 +78,27 @@ export default function CalendarPage() {
       <div className="page__head">
         <h1 className="page__title">Calendar</h1>
         <div className="cal-head-end">
-          {unsent.length > 0 && (
+          {unsent.length > 0 && !phone && (
             <Link to={unsent.length === 1 ? `/calendar/update?g=${unsent[0].id}` : '/calendar/update'} className="q-btn q-btn--main">
               Send today's update
             </Link>
           )}
-          <CalTabs />
+          {!phone && <CalTabs />}
         </div>
       </div>
+      {/* On phones it's a direct child of the page, so it can stick under the top bar. */}
+      {phone && <CalTabs />}
+
+      {/* Phones: a slim row instead of a big button, so the tasks start on the first screen. */}
+      {unsent.length > 0 && phone && (
+        <Link to={unsent.length === 1 ? `/calendar/update?g=${unsent[0].id}` : '/calendar/update'} className="row cal-update-row">
+          <span className="row__main">
+            <span className="strong">Send today's update</span>
+            <span className="soft small">{unsent.map((g) => g.name).join(', ')}</span>
+          </span>
+          <span className="q-btn q-btn--small">Write it</span>
+        </Link>
+      )}
 
       {phone ? (
         <details className="finder__more mfg-filters-fold">
@@ -103,11 +118,12 @@ export default function CalendarPage() {
       ) : view === 'calendar' ? (
         <MonthView cal={cal} filter={{ team, mine, done }} people={people} />
       ) : view === 'gantt' ? (
-        <Gantt cal={cal} linked={linked} filter={{ team, mine, done }} people={people} />
+        phone ? <Plan cal={cal} linked={linked} filter={{ team, mine, done }} people={people} /> : <Gantt cal={cal} linked={linked} filter={{ team, mine, done }} people={people} />
       ) : (
         <Board cal={cal} linked={linked} filter={{ team, mine, done }} people={people} />
       )}
 
+      {phone && view !== 'calendar' && !cal.loading && <NewTaskButton cal={cal} people={people} team={team} />}
       <TaskSheetHost cal={cal} />
       <EventSheetHost cal={cal} />
     </div>

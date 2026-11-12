@@ -5,6 +5,7 @@ import { LoadError, useToast } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { addDays, firstName, groupOrder, longDay, TEAMS, TEAM_WORD, todayIso } from '../../lib/cal'
 import { useCal } from '../../lib/useCal'
+import { usePhone } from '../../lib/usePhone'
 import { usePeople } from '../../lib/useMfg'
 
 // One day's updates from every group, by team, on one screen. Leads who haven't sent theirs show
@@ -16,6 +17,7 @@ export default function Summary() {
   const { nameOf } = usePeople()
   const { userId } = useAuth()
   const toast = useToast()
+  const phone = usePhone()
   const [params, setParams] = useSearchParams()
   const today = todayIso()
   const day = params.get('d') ?? today
@@ -48,10 +50,13 @@ export default function Summary() {
     <div className="page cal-page cal-summary">
       <div className="page__head">
         <h1 className="page__title">Updates</h1>
-        <div className="cal-head-end">
-          <CalTabs />
-        </div>
+        {!phone && (
+          <div className="cal-head-end">
+            <CalTabs />
+          </div>
+        )}
       </div>
+      {phone && <CalTabs />}
 
       <div className="cal-summary__bar">
         <button type="button" className="icon-btn" aria-label="Day before" onClick={() => go(addDays(day, -1))}>

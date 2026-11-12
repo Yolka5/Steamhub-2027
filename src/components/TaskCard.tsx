@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from './Icon'
 import { Sheet } from './ui'
 import { UrgentTag } from './mfg'
+import { PartThumb } from './PartThumb'
 import { partName, partNo, type Part } from '../lib/mfg'
 import type { useTaskActions, useTaskRules } from '../lib/useTasks'
 
@@ -60,6 +61,7 @@ export function TaskCard({
   const meta = [part.machine, `×${part.qty}`, sub].filter(Boolean).join(' · ')
   const body = (
     <>
+      <PartThumb part={part} />
       <span className="task__no num">{partNo(part)}</span>
       <span className="task__main">
         <span className="task__name">{partName(part)}</span>
@@ -67,12 +69,12 @@ export function TaskCard({
           {meta}
           {maker ? ` · ${maker}` : ''}
         </span>
-      </span>
-      <span className="task__tags">
-        {part.changed && !done && <span className="tag tag--reserved">Changed</span>}
-        {part.urgent && !done && <UrgentTag />}
-        {part.status === 'doing' && <span className="tag tag--reserved">In progress</span>}
-        {done && <span className="tag tag--ok">Done</span>}
+        <span className="task__tags">
+          {part.changed && !done && <span className="tag tag--reserved">Changed</span>}
+          {part.urgent && !done && <UrgentTag />}
+          {part.status === 'doing' && <span className="tag tag--reserved">In progress</span>}
+          {done && <span className="tag tag--ok">Done</span>}
+        </span>
       </span>
     </>
   )

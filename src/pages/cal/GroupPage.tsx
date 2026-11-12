@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { Select } from '../../components/Select'
 import { CalTabs, ProgressBar, TaskRow, useCalSeason } from '../../components/cal'
@@ -13,7 +13,7 @@ import {
   deletePhase,
   firstName,
   isoDay,
-  longDay,
+  rangeLabel,
   pushPhases,
   movePhases,
   taskOrder,
@@ -27,6 +27,8 @@ import { showSuggest, useLinked, useSuggestNotify, type Progress } from '../../l
 import { applyRow, putRows, useCal, type Cal } from '../../lib/useCal'
 import { usePeople } from '../../lib/useMfg'
 import { QuickAdd } from './Board'
+import { TodayUpdate } from './TodayUpdate'
+import { usePhone } from '../../lib/usePhone'
 
 // One group: its lead, its phases in order (dates, progress, finish), its tasks and the history
 // of its daily updates, filterable by phase.
@@ -43,6 +45,17 @@ export default function GroupPage() {
   const [phaseFilter, setPhaseFilter] = useState<string>('all')
   const [showDone, setShowDone] = useState(false)
   const group = cal.groups.find((g) => g.id === id)
+  // Phones show one part at a time (Tasks, Phases, Updates) instead of one long page.
+  const phone = usePhone()
+  const [params, setParams] = useSearchParams()
+  const part = params.get('s') ?? 'tasks'
+  const shows = (k: string) => !phone || part === k
+  const go = (k: string) => {
+    const next = new URLSearchParams(params)
+    if (k === 'tasks') next.delete('s')
+    else next.set('s', k)
+    setParams(next, { replace: true })
+  }
 
   if (cal.error && !cal.groups.length) return <LoadError onRetry={cal.reload} />
   if (cal.loading) return <p className="soft page">Loading</p>
@@ -63,7 +76,8 @@ export default function GroupPage() {
   const open = tasks.filter((t) => t.status !== 'done')
   const done = tasks.filter((t) => t.status === 'done')
   const updates = cal.updates
-    .filter((u) => u.group_id === group.id && (phaseFilter === 'all' || u.phase_id === (phaseFilter === 'none' ? null : phaseFilter)))
+    // Today's is in the box above the list.
+    .filter((u) => u.group_id === group.id && u.day !== todayIso() && (phaseFilter === 'all' || u.phase_id === (phaseFilter === 'none' ? null : phaseFilter)))
     .sort((a, b) => (a.day < b.day ? 1 : -1))
   const sentToday = cal.updates.some((u) => u.group_id === group.id && u.day === todayIso())
 
@@ -81,16 +95,30 @@ export default function GroupPage() {
     <div className="page cal-page">
       <div className="page__head">
         <div>
-          <Link to={`/calendar${group.team ? `?team=${group.team}` : ''}`} className="soft small cal-crumb">
-            {TEAM_WORD[group.team]}
-          </Link>
+          {TEAM_WORD[group.team] !== group.name && (
+            <Link to={`/calendar?team=${group.team}`} className="soft small cal-crumb">
+              {TEAM_WORD[group.team]}
+            </Link>
+          )}
           <h1 className="page__title">{group.name}</h1>
         </div>
         <div className="cal-head-end">
-          <Link to={`/calendar/update?g=${group.id}`} className={`q-btn${sentToday ? '' : ' q-btn--main'}`}>
-            {sentToday ? 'Edit today’s update' : 'Write today’s update'}
-          </Link>
-          <CalTabs />
+          {/* Takes you to today's box in Updates, where the update is written. */}
+          <button
+            type="button"
+            className="q-btn"
+            onClick={() => {
+              if (phone) go('updates')
+              window.setTimeout(() => {
+                const box = document.getElementById(`today-${group.id}`)
+                box?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                box?.focus({ preventScroll: true })
+              }, 60)
+            }}
+          >
+            {sentToday ? 'Today’s update ✓' : 'Write today’s update'}
+          </button>
+          {!phone && <CalTabs />}
         </div>
       </div>
 
@@ -106,10 +134,25 @@ export default function GroupPage() {
         {group.kind === 'subsystem' && <span className="soft small">Follows the subsystem's lead from V1 setup. Change it there or here.</span>}
       </div>
 
+      {phone && (
+        <div className="picks picks--seg cal-parts" role="tablist" aria-label="Show">
+          {[
+            ['tasks', `Tasks${open.length ? ` ${open.length}` : ''}`],
+            ['phases', 'Phases'],
+            ['updates', 'Updates'],
+          ].map(([k, label]) => (
+            <button key={k} type="button" role="tab" className="pick" aria-selected={part === k} onClick={() => go(k)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="cal-group-page">
         <div>
-          <Phases group={group.id} phases={phases} cal={cal} linked={linked} current={cur?.id ?? null} />
+          {shows('phases') && <Phases group={group.id} phases={phases} cal={cal} linked={linked} current={cur?.id ?? null} />}
 
+          {shows('tasks') && (
           <section className="section">
             <h2 className="section__title">Tasks</h2>
             {open.length > 0 && (
@@ -135,10 +178,13 @@ export default function GroupPage() {
               </>
             )}
           </section>
+          )}
         </div>
 
+        {shows('updates') && (
         <section className="section cal-updates">
           <h2 className="section__title">Updates</h2>
+          <TodayUpdate group={group} phase={cur} cal={cal} />
           {phases.length > 0 && (
             <div className="picks picks--seg cal-updates__filter" role="radiogroup" aria-label="Phase">
               <button type="button" role="radio" className="pick" aria-checked={phaseFilter === 'all'} onClick={() => setPhaseFilter('all')}>
@@ -152,7 +198,7 @@ export default function GroupPage() {
             </div>
           )}
           {updates.length === 0 ? (
-            <p className="soft">{phaseFilter === 'all' ? 'No updates yet. The lead writes one at the end of each day.' : 'No updates during this phase.'}</p>
+            <p className="soft">{phaseFilter === 'all' ? 'Earlier days show up here.' : 'No earlier updates during this phase.'}</p>
           ) : (
             <ol className="cal-feed">
               {updates.map((u) => (
@@ -172,6 +218,7 @@ export default function GroupPage() {
             </ol>
           )}
         </section>
+        )}
       </div>
 
       <TaskSheetHost cal={cal} />
@@ -223,8 +270,11 @@ function Phases({ group, phases, cal, linked, current }: { group: string; phases
 function PhaseCard({ p, i, phases, cal, prog, current, who }: { p: Phase; i: number; phases: Phase[]; cal: Cal; prog: Progress | undefined; current: boolean; who: ReturnType<typeof useWho> }) {
   const toast = useToast()
   const [name, setName] = useState(p.name)
+  const [editing, setEditing] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const tasks = cal.tasks.filter((t) => t.phase_id === p.id && !t.parent_id).length
+  const end = p.ends_on ?? p.starts_on
+  const late = !p.done_at && !!end && end < todayIso()
 
   const save = async (patch: Partial<Phase>) => {
     putRows('cal_phases', [{ ...p, ...patch }])
@@ -286,37 +336,33 @@ function PhaseCard({ p, i, phases, cal, prog, current, who }: { p: Phase; i: num
   }
 
   const suggest = showSuggest(p, prog)
+  const state = p.done_at ? 'Done' : current ? 'Now' : 'Next'
 
   return (
-    <li className="cal-phase" data-done={!!p.done_at || undefined} data-current={current || undefined}>
+    <li className="cal-phase" data-done={!!p.done_at || undefined} data-current={current || undefined} data-editing={editing || undefined}>
       <div className="cal-phase__top">
-        <span className="cal-phase__state small">{p.done_at ? 'Done' : current ? 'Now' : 'Next'}</span>
-        <input
-          className="field cal-phase__name"
-          aria-label="Phase name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => {
-            const n = name.trim()
-            if (!n) return setName(p.name)
-            if (n !== p.name) save({ name: n })
-          }}
-        />
-        <div className="cal-phase__moves">
-          {i > 0 && (
-            <button type="button" className="icon-btn" aria-label={`Move ${p.name} up`} onClick={() => swap(-1)}>
-              <Icon name="up" size={16} />
-            </button>
-          )}
-          {i < phases.length - 1 && (
-            <button type="button" className="icon-btn" aria-label={`Move ${p.name} down`} onClick={() => swap(1)}>
-              <Icon name="down" size={16} />
-            </button>
-          )}
-        </div>
+        <span className="cal-phase__state small">{state}</span>
+        {editing ? (
+          <input
+            className="field cal-phase__name"
+            aria-label="Phase name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              const n = name.trim()
+              if (!n) return setName(p.name)
+              if (n !== p.name) save({ name: n })
+            }}
+          />
+        ) : (
+          <h3 className="cal-phase__title">{p.name}</h3>
+        )}
+        <span className="small num cal-phase__when" data-late={late || undefined}>
+          {p.done_at ? `Finished ${dayLabel(isoDay(new Date(p.done_at)))}` : p.starts_on || p.ends_on ? rangeLabel(p.starts_on, p.ends_on) : 'No dates'}
+        </span>
       </div>
 
-      {prog && (
+      {prog && !p.done_at && (
         <div className="cal-phase__prog">
           <ProgressBar p={prog} />
           <span className="soft small">{prog.line}</span>
@@ -337,57 +383,75 @@ function PhaseCard({ p, i, phases, cal, prog, current, who }: { p: Phase; i: num
         </div>
       )}
 
-      <div className="task__pair task__dates">
-        <label className="task__date">
-          <span className="soft small">Start</span>
-          <input type="date" className="field num" value={p.starts_on ?? ''} onChange={(e) => setDates(e.target.value || null, p.ends_on)} />
-        </label>
-        <span className="soft" aria-hidden="true">
-          →
-        </span>
-        <label className="task__date">
-          <span className="soft small">End</span>
-          <input type="date" className="field num" value={p.ends_on ?? ''} onChange={(e) => setDates(p.starts_on, e.target.value || null)} />
-        </label>
-      </div>
+      {editing && (
+        <div className="cal-phase__edit">
+          <div className="task__pair task__dates">
+            <label className="task__date">
+              <span className="soft small">Start</span>
+              <input type="date" className="field num" value={p.starts_on ?? ''} onChange={(e) => setDates(e.target.value || null, p.ends_on)} />
+            </label>
+            <span className="soft" aria-hidden="true">
+              →
+            </span>
+            <label className="task__date">
+              <span className="soft small">End</span>
+              <input type="date" className="field num" value={p.ends_on ?? ''} onChange={(e) => setDates(p.starts_on, e.target.value || null)} />
+            </label>
+          </div>
+          {i > 0 && (
+            <label className="check small">
+              <input type="checkbox" checked={p.follows_previous} onChange={(e) => save({ follows_previous: e.target.checked })} />
+              Starts after {phases[i - 1].name}
+            </label>
+          )}
+          <div className="cal-phase__tools">
+            {i > 0 && (
+              <button type="button" className="q-btn q-btn--small" onClick={() => swap(-1)}>
+                <Icon name="up" size={16} /> Earlier
+              </button>
+            )}
+            {i < phases.length - 1 && (
+              <button type="button" className="q-btn q-btn--small" onClick={() => swap(1)}>
+                <Icon name="down" size={16} /> Later
+              </button>
+            )}
+            {confirm ? (
+              <>
+                <button type="button" className="q-btn q-btn--small" onClick={() => setConfirm(false)}>
+                  Keep
+                </button>
+                <button type="button" className="q-btn q-btn--small q-btn--danger" onClick={remove}>
+                  Delete phase
+                </button>
+              </>
+            ) : (
+              <button type="button" className="q-btn q-btn--small" onClick={() => setConfirm(true)}>
+                <Icon name="trash" size={16} /> Delete
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="cal-phase__foot">
-        {i > 0 && (
-          <label className="check small">
-            <input type="checkbox" checked={p.follows_previous} onChange={(e) => save({ follows_previous: e.target.checked })} />
-            Starts after {phases[i - 1].name}
-          </label>
-        )}
-        <span className="cal-phase__end">
-          {p.done_at ? (
+        <button type="button" className="q-btn q-btn--small" aria-expanded={editing} onClick={() => setEditing((e) => !e)}>
+          {editing ? 'Done editing' : (
             <>
-              <span className="soft small">Finished {longDay(isoDay(new Date(p.done_at)))}</span>
-              <button type="button" className="q-btn q-btn--small" onClick={() => save({ done_at: null, done_by: null })}>
-                Reopen
-              </button>
+              <Icon name="edit" size={16} /> {p.starts_on || p.ends_on ? 'Edit' : 'Set dates'}
             </>
-          ) : (
-            !suggest && (
-              <button type="button" className="q-btn q-btn--small" onClick={finish}>
-                Finish
-              </button>
-            )
           )}
-          {confirm ? (
-            <>
-              <button type="button" className="q-btn q-btn--small" onClick={() => setConfirm(false)}>
-                Keep
-              </button>
-              <button type="button" className="q-btn q-btn--small q-btn--danger" onClick={remove}>
-                Delete phase
-              </button>
-            </>
-          ) : (
-            <button type="button" className="icon-btn" aria-label={`Delete ${p.name}`} onClick={() => setConfirm(true)}>
-              <Icon name="trash" size={16} />
+        </button>
+        {p.done_at ? (
+          <button type="button" className="q-btn q-btn--small" onClick={() => save({ done_at: null, done_by: null })}>
+            Reopen
+          </button>
+        ) : (
+          !suggest && (
+            <button type="button" className="q-btn q-btn--small" onClick={finish}>
+              Finish
             </button>
-          )}
-        </span>
+          )
+        )}
       </div>
     </li>
   )

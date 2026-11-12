@@ -20,9 +20,9 @@ const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?:
   { to: '/stock', label: 'Find stock', hint: 'By size and length', icon: 'search', tabbar: true },
   { to: '/stock/add', label: 'Add stock', hint: 'From your phone', icon: 'plus', tabbar: true },
   { to: '/manufacturing', label: 'Manufacturing', hint: 'What to make, drawings', icon: 'gear', tabbar: true },
-  { to: '/calendar', label: 'Calendar', hint: 'Tasks, Gantt, daily updates', icon: 'calendar' },
+  { to: '/calendar', label: 'Calendar', hint: 'Tasks, Gantt, daily updates', icon: 'calendar', tabbar: true },
   { to: '/prototypes/record', label: 'Record a test', hint: 'Prototype video and parameters', icon: 'video' },
-  { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench', tabbar: true },
+  { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench' },
   { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
 ]
 

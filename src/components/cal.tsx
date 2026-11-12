@@ -4,6 +4,7 @@ import { useWho } from '../lib/auth'
 import { dayLabel, firstName, NEXT_STATUS, setTaskStatus, STATUS_WORD, todayIso, type Task, type TaskStatus } from '../lib/cal'
 import type { Progress } from '../lib/calLinked'
 import { useSeasons } from '../lib/proto'
+import { usePhone } from '../lib/usePhone'
 import { putRows, type Cal } from '../lib/useCal'
 import { useToast } from './ui'
 
@@ -17,6 +18,7 @@ export function useCalSeason() {
 
 /** Board | Calendar | Gantt, plus Summary. The view lives in the URL. */
 export function CalTabs() {
+  const phone = usePhone()
   const { pathname } = useLocation()
   const [params] = useSearchParams()
   const view = pathname === '/calendar' ? (params.get('view') ?? 'board') : pathname === '/calendar/summary' ? 'summary' : ''
@@ -36,7 +38,8 @@ export function CalTabs() {
         Calendar
       </Link>
       <Link to={keep('gantt')} className="pick" aria-current={view === 'gantt' ? 'page' : undefined}>
-        Gantt
+        {/* Phones get the plan as a list; the drag-and-drop Gantt is for computers. */}
+        {phone ? 'Plan' : 'Gantt'}
       </Link>
       <Link to="/calendar/summary" className="pick" aria-current={view === 'summary' ? 'page' : undefined}>
         Updates

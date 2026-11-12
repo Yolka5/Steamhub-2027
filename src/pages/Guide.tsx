@@ -42,8 +42,8 @@ const CHAPTERS: Chapter[] = [
       },
       {
         title: 'Find your way on a phone',
-        body: 'The tabs at the bottom are Home, Stock, Add, Make and Tools. Add is the orange button in the middle. The Handbook and Prototypes sit inside Tools.',
-        shot: { name: 'tabbar', alt: 'The phone tab bar: Home, Stock, Add, Make and Tools.' },
+        body: 'The tabs at the bottom are Home, Stock, Add, Make and Calendar. Add is the orange button in the middle. Tools, with the Handbook and Prototypes inside, is a tile on Home, and the search button finds every tool.',
+        shot: { name: 'tabbar', alt: 'The phone tab bar: Home, Stock, Add, Make and Calendar.' },
       },
       {
         title: 'Find your way on a computer',

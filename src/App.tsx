@@ -70,11 +70,15 @@ const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/
 const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
 
 const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, CAL, TOOLS, HANDBOOK]
-/** Phones: the workshop needs Make in reach, so Handbook moves into Tools there. Add sits in the middle. */
+/**
+ * Phones: the workshop needs Make in reach and leads use the Calendar daily, so those two sit on the
+ * right. Tools (with the Handbook inside) is a tile on Home there, and search finds every tool.
+ * Add sits in the middle.
+ */
 const TABS_LEFT: NavItem[] = [HOME, STOCK]
 const TABS_RIGHT: { item: NavItem; label: string }[] = [
   { item: MFG, label: 'Make' },
-  { item: TOOLS, label: 'Tools' },
+  { item: CAL, label: 'Calendar' },
 ]
 
 function Bell({ compact = false }: { compact?: boolean }) {

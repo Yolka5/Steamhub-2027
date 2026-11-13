@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /guide/print
+
+Sitemap: https://steamhub1577.com/sitemap.xml

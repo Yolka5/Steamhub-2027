@@ -7,7 +7,7 @@ import { useAuth } from '../lib/auth'
  * of tapping your own avatar. `placement` sets which way the menu grows from its trigger.
  */
 export function AccountMenu({ placement, compact = false }: { placement: 'up' | 'down'; compact?: boolean }) {
-  const { session, name, signOut, isAdmin } = useAuth()
+  const { session, name, signOut, isAdmin, seesAll } = useAuth()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -47,9 +47,9 @@ export function AccountMenu({ placement, compact = false }: { placement: 'up' | 
             <span className="strong">{name}</span>
             {email && <span className="soft small">{email}</span>}
           </div>
-          {isAdmin && (
+          {seesAll && (
             <Link to="/people" role="menuitem" className="pick" onClick={() => setOpen(false)}>
-              People and bans
+              {isAdmin ? 'People and bans' : 'People'}
             </Link>
           )}
           <button

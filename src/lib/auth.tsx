@@ -13,6 +13,10 @@ interface Auth {
   /** The signed-in person's row in profiles: admin and banned flags. */
   profile: Profile | null
   isAdmin: boolean
+  /** The team captain: sees everything an admin sees (People, SteamLab). Fixed in the database. */
+  isCaptain: boolean
+  /** Admin or captain: may open the admin's pages to look. */
+  seesAll: boolean
   /** Workshop leads and admins hand out parts (WORKSHOP_TASKS.md). */
   canAssign: boolean
   /** The shared workshop PC account. */
@@ -90,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userId: uid,
     profile,
     isAdmin: !!profile?.is_admin,
+    isCaptain: !!profile?.captain && !profile?.banned,
+    seesAll: !!profile?.is_admin || (!!profile?.captain && !profile?.banned),
     canAssign: !!profile?.is_admin || !!profile?.workshop_lead,
     shared: !!profile?.shared,
     room: profile ? (profile.shared && profile.room ? profile.room : null) : uid ? savedRoom() : null,

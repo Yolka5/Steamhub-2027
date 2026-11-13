@@ -7,16 +7,16 @@ import { selectAll, supabase } from '../lib/supabase'
 
 // The admin's page: everyone who has signed in, who else may join (new accounts are refused
 // unless their email is on that list), how much each section is used, and a backup of everything.
-// A ban takes effect on their next page load.
+// A ban takes effect on their next page load. The captain sees it all too, without the buttons.
 
 export default function People() {
-  const { isAdmin, userId, profile } = useAuth()
+  const { isAdmin, seesAll, userId, profile } = useAuth()
   if (!profile) return <div className="page page--narrow"><p className="soft">Loading</p></div>
-  if (!isAdmin) return <div className="page page--narrow"><p className="soft">This page is for the admin.</p></div>
-  return <Admin userId={userId} />
+  if (!seesAll) return <div className="page page--narrow"><p className="soft">This page is for the admin.</p></div>
+  return <Admin userId={userId} edits={isAdmin} />
 }
 
-function Admin({ userId }: { userId: string | null }) {
+function Admin({ userId, edits }: { userId: string | null; edits: boolean }) {
   const toast = useToast()
   const [people, setPeople] = useState<Profile[]>([])
   const [armed, setArmed] = useState<string | null>(null)
@@ -85,7 +85,7 @@ function Admin({ userId }: { userId: string | null }) {
             <span className="row__main">
               <span className="strong">
                 {p.name}
-                {p.is_admin ? <span className="soft"> · admin</span> : null}
+                {p.captain ? <span className="soft"> · Captain</span> : p.is_admin ? <span className="soft"> · admin</span> : null}
               </span>
               <span className="soft small">
                 {p.email ? `${p.email} · ` : ''}joined {ago(p.created_at)}
@@ -95,7 +95,8 @@ function Admin({ userId }: { userId: string | null }) {
             {p.shared && <span className="tag">{p.room === 'cnc' ? 'Shared CNC PC' : 'Shared workshop PC'}</span>}
             {p.workshop_lead && <span className="tag">Workshop lead</span>}
             {p.mentor && <span className="tag">Mentor</span>}
-            {p.id !== userId && (
+            {/* The captain's row has no buttons: the database refuses a ban or shared PC for them. */}
+            {edits && p.id !== userId && !p.captain && (
               <span className="row__end people__acts">
                 {!p.shared && (
                   <button type="button" className="q-btn q-btn--small" onClick={() => setMentor(p, !p.mentor)}>
@@ -134,7 +135,7 @@ function Admin({ userId }: { userId: string | null }) {
         ))}
       </ul>
 
-      <WhoCanJoin userId={userId} />
+      <WhoCanJoin userId={userId} edits={edits} />
       <SectionUse />
       <Backup />
     </div>
@@ -145,7 +146,7 @@ function Admin({ userId }: { userId: string | null }) {
  * Emails that may make a new account. Accounts that already exist sign in as before; anyone else
  * gets "not on the list" (handle_new_user in the database refuses them).
  */
-function WhoCanJoin({ userId }: { userId: string | null }) {
+function WhoCanJoin({ userId, edits }: { userId: string | null; edits: boolean }) {
   const toast = useToast()
   const [rows, setRows] = useState<{ email: string; created_at: string }[] | null>(null)
   const [email, setEmail] = useState('')
@@ -187,12 +188,12 @@ function WhoCanJoin({ userId }: { userId: string | null }) {
     <section className="section">
       <h2 className="section__title">Who can join</h2>
       <p className="soft small">Only these emails can make a new account. Everyone above already has one and keeps it. Removing an email here doesn't remove an account; use Ban for that.</p>
-      <form className="inline-form people__add" onSubmit={add}>
+      {edits && <form className="inline-form people__add" onSubmit={add}>
         <input className="field" type="text" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" aria-label="Email to allow" />
         <button type="submit" className="q-btn">
           Add
         </button>
-      </form>
+      </form>}
       {rows == null ? (
         <p className="soft">Loading</p>
       ) : rows.length === 0 ? (
@@ -205,11 +206,13 @@ function WhoCanJoin({ userId }: { userId: string | null }) {
                 <span className="strong">{r.email}</span>
                 <span className="soft small">added {ago(r.created_at)}</span>
               </span>
-              <span className="row__end">
-                <button type="button" className="q-btn q-btn--small" onClick={() => remove(r.email)}>
-                  Remove
-                </button>
-              </span>
+              {edits && (
+                <span className="row__end">
+                  <button type="button" className="q-btn q-btn--small" onClick={() => remove(r.email)}>
+                    Remove
+                  </button>
+                </span>
+              )}
             </li>
           ))}
         </ul>

@@ -57,7 +57,7 @@ export const MATERIALS = [
 ]
 
 /** What everyone may read about an account. Emails are for the admin only (admin_people). */
-export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, room, workshop_lead, mentor, created_at'
+export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, room, workshop_lead, mentor, captain, created_at'
 
 export interface Profile {
   id: string
@@ -75,6 +75,8 @@ export interface Profile {
   workshop_lead?: boolean
   /** Opens SteamLab (STEAMLAB.md). Leads and admins can without it. */
   mentor?: boolean
+  /** The team captain (Tom Haitin). Sees all an admin sees. Locked in the database: nobody can change it. */
+  captain?: boolean
   created_at: string
 }
 

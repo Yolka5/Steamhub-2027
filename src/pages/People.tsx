@@ -64,6 +64,14 @@ function Admin({ userId }: { userId: string | null }) {
     toast(lead ? `${p.name} can hand out parts on the board` : `${p.name} is no longer a workshop lead`)
   }
 
+  // Mentors open SteamLab (STEAMLAB.md). Leads and admins can without the switch.
+  const setMentor = async (p: Profile, mentor: boolean) => {
+    const { error } = await supabase.from('profiles').update({ mentor }).eq('id', p.id)
+    if (error) return toast(error.message)
+    await load()
+    toast(mentor ? `${p.name} is a mentor and can open SteamLab` : `${p.name} is no longer a mentor`)
+  }
+
   return (
     <div className="page page--narrow">
       <div className="page__head">
@@ -86,8 +94,14 @@ function Admin({ userId }: { userId: string | null }) {
             {p.banned && <span className="tag tag--bad">Banned</span>}
             {p.shared && <span className="tag">{p.room === 'cnc' ? 'Shared CNC PC' : 'Shared workshop PC'}</span>}
             {p.workshop_lead && <span className="tag">Workshop lead</span>}
+            {p.mentor && <span className="tag">Mentor</span>}
             {p.id !== userId && (
               <span className="row__end people__acts">
+                {!p.shared && (
+                  <button type="button" className="q-btn q-btn--small" onClick={() => setMentor(p, !p.mentor)}>
+                    {p.mentor ? 'Not mentor' : 'Mentor'}
+                  </button>
+                )}
                 {!p.shared && (
                   <button type="button" className="q-btn q-btn--small" onClick={() => setLead(p, !p.workshop_lead)}>
                     {p.workshop_lead ? 'Not lead' : 'Lead'}

@@ -30,6 +30,7 @@ Status: V1 built on 2026-11-02 (Stock, Calculator, Handbook). Extras added 2026-
 | Manufacturing | Tool | Robots, subsystems, STEP upload → numbered part list and drawings, workshop list, plates, wishlist, bolt table, assembly guide ([MANUFACTURING.md](MANUFACTURING.md)) |
 | Prototypes | Tool | Prototypes per subsystem, tests as video + parameter values + result, modular blocks, compare, choose ([PROTOTYPES.md](PROTOTYPES.md)) |
 | Calendar | Tool (built 2026-11-12, not live yet) | Tasks per group (teams, CNC, Workshop, subsystems), phases, daily lead updates, Board, Calendar and Gantt views, reminders ([CALENDAR.md](CALENDAR.md)) |
+| SteamLab | Tool (built 2026-11-13) | Mentors and leads: schedule per subsystem, both rooms live with replay, the day's feed, Claude's 02:00 recaps and pushes ([STEAMLAB.md](STEAMLAB.md)) |
 
 ## Stock
 

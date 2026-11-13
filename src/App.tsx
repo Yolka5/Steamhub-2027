@@ -53,6 +53,8 @@ import GroupPage from './pages/cal/GroupPage'
 import UpdatePage from './pages/cal/UpdatePage'
 import CalSummary from './pages/cal/Summary'
 import CalImport from './pages/cal/Import'
+import SteamLab from './pages/SteamLab'
+import { useSteamlabAccess } from './lib/steamlab'
 import { refreshPush } from './lib/push'
 import { NoAccess, SignIn } from './components/SignIn'
 import { useNotifications } from './lib/notifications'
@@ -73,6 +75,8 @@ const PROTO: NavItem = { to: '/prototypes', label: 'Prototypes', icon: 'flask' }
 const CAL: NavItem = { to: '/calendar', label: 'Calendar', icon: 'calendar' }
 const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] }
 const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
+/** Mentors, leads and admins only (STEAMLAB.md). */
+const STEAMLAB: NavItem = { to: '/steamlab', label: 'SteamLab', icon: 'chart' }
 
 const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, CAL, TOOLS, HANDBOOK]
 /** Manufacturing opens where you'd want it: the board, your list or the workshop list (MfgStart). */
@@ -148,6 +152,8 @@ export default function App() {
   const { session, ready, banned, userId, room } = useAuth()
   // The CNC room's PC: Home is the CNC Home, so it says so.
   const navLabel = (n: NavItem) => (n === HOME && room === 'cnc' ? 'CNC' : n.label)
+  const steamlab = useSteamlabAccess(userId)
+  const nav = steamlab ? [...NAV, STEAMLAB] : NAV
   const location = useLocation()
 
   // How often each section is opened, so two weeks after kickoff the unused ones can go.
@@ -213,7 +219,7 @@ export default function App() {
           </button>
           <nav className="picks picks--stack">
             <Indicator selector='[aria-current="page"]' />
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <Link key={n.to} to={linkTo(n)} className="pick" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
                 <Icon name={n.icon} />
                 {navLabel(n)}
@@ -300,6 +306,7 @@ export default function App() {
             <Route path="/calendar/update" element={<UpdatePage />} />
             <Route path="/calendar/summary" element={<CalSummary />} />
             <Route path="/calendar/import" element={<CalImport />} />
+            <Route path="/steamlab" element={<SteamLab />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

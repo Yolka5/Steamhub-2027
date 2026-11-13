@@ -1,0 +1,656 @@
+/* SteamLab (STEAMLAB.md): ttm-design Use / Tool. Depth from the surfaces, colour only for meaning:
+   green running or done, yellow behind, orange the plan tick and the playhead. */
+
+.steamlab {
+  --sl-gap: 1.25rem;
+}
+
+/* ===== Head ===== */
+.sl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.sl-head__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+}
+
+.sl-day {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sl-day__btn {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  place-items: center;
+}
+
+.sl-day__label {
+  min-width: 9.5rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.sl-day__label b {
+  display: block;
+  font-family: var(--font-voice);
+  font-size: 1.375rem;
+  font-weight: 500;
+}
+
+.sl-day__label span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sl-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--run-t);
+  border-radius: 50%;
+}
+
+/* ===== Layout ===== */
+.sl-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24rem;
+  gap: var(--sl-gap);
+  align-items: start;
+}
+
+.sl-sched {
+  grid-column: 1 / -1;
+}
+
+.sl-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sl-gap);
+}
+
+.sl-card {
+  padding: 1.25rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-shell);
+}
+
+.sl-card .section__title {
+  margin: 0;
+}
+
+/* ===== Schedule tiles ===== */
+.sl-sched {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13.5rem), 1fr));
+  gap: 0.5rem;
+}
+
+.sl-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: var(--surface-1);
+  border: 0;
+  border-radius: var(--radius-panel);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.sl-tile.is-hot {
+  background: var(--surface-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sl-tile:hover {
+    background: var(--surface-2);
+  }
+}
+
+.sl-tile:active {
+  transform: scale(0.985);
+}
+
+.sl-tile__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sl-tile__top b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-bar {
+  position: relative;
+  display: block;
+  height: 0.5rem;
+  background: var(--surface-3);
+  border-radius: 0.25rem;
+}
+
+.sl-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ink);
+  border-radius: 0.25rem;
+}
+
+.sl-bar em {
+  position: absolute;
+  top: -0.25rem;
+  bottom: -0.25rem;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--main);
+  border-radius: 2px;
+}
+
+/* ===== Rooms ===== */
+.sl-scene {
+  padding-bottom: 0.9rem;
+}
+
+.sl-scene__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sl-scene__head .section__title {
+  flex: 1;
+}
+
+.sl-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.8125rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+}
+
+.sl-mode.is-replay {
+  color: var(--surface-0);
+  background: var(--ink);
+}
+
+.sl-rooms {
+  display: grid;
+  grid-template-columns: 1.9fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  margin-top: 0.75rem;
+}
+
+.sl-room {
+  margin: 0;
+}
+
+.sl-room figcaption {
+  margin: 0 0 0.25rem 0.25rem;
+  font-weight: 600;
+}
+
+.sl-map {
+  position: relative;
+}
+
+.sl-ava {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  margin: 0.6rem 0 0 1.4rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  place-items: center;
+  color: var(--ink);
+  background: var(--surface-0);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18), inset 0 0 0 2px var(--run-t);
+  pointer-events: none;
+  animation: sl-in 160ms var(--ease-out) both;
+}
+
+.sl-pop {
+  position: absolute;
+  z-index: 3;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--meaning-b);
+  background: var(--meaning-b-soft);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+  transform: translate(-50%, -260%);
+  animation: sl-pop 1400ms var(--ease-out) both;
+}
+
+@keyframes sl-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* The replay is a sim, so this one runs longer than interface motion. */
+@keyframes sl-pop {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, calc(-260% - 2rem));
+  }
+}
+
+.sl-printer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.sl-printer .wmap-chip {
+  vertical-align: 0;
+}
+
+/* ===== Timeline ===== */
+.sl-tl {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.sl-tl__top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sl-play {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  place-items: center;
+  color: var(--surface-0);
+  background: var(--ink);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+
+.sl-play:active {
+  transform: scale(0.92);
+}
+
+.sl-tl__area {
+  position: relative;
+  user-select: none;
+}
+
+.sl-tl__rows {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sl-tl__row {
+  display: grid;
+  grid-template-columns: 4rem 1fr;
+  align-items: center;
+}
+
+.sl-track {
+  position: relative;
+  height: 1rem;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 0.25rem;
+}
+
+.sl-track__future {
+  position: absolute;
+  inset: 0 0 0 auto;
+  right: 0;
+  background: repeating-linear-gradient(135deg, transparent 0 4px, var(--line) 4px 6px);
+}
+
+.sl-seg {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: var(--surface-3);
+  border-radius: 3px;
+  transition: background-color 160ms var(--ease-out);
+}
+
+.sl-seg.is-past {
+  background: var(--ink);
+}
+
+.sl-seg.is-live {
+  background: var(--run-t);
+}
+
+.sl-seg.is-hot {
+  background: var(--main);
+}
+
+.sl-tl__rows.is-filtered .sl-seg.is-past:not(.is-hot) {
+  background: var(--ink-soft);
+}
+
+.sl-tl__hours {
+  position: relative;
+  height: 1.1rem;
+  margin-left: 4rem;
+  font-size: 0.75rem;
+}
+
+.sl-tl__hours span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.sl-scrub {
+  position: absolute;
+  top: -0.5rem;
+  right: 0;
+  bottom: 1.1rem;
+  left: 4rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sl-scrub:active {
+  cursor: grabbing;
+}
+
+.sl-head-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--main);
+  pointer-events: none;
+}
+
+.sl-head-line::before {
+  position: absolute;
+  top: -0.25rem;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  content: '';
+  background: var(--main);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--surface-1);
+}
+
+/* ===== Recap ===== */
+.sl-recap__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sl-recap__tabs {
+  margin-top: 0.75rem;
+}
+
+.sl-recap__headline {
+  margin: 0.75rem 0 0.5rem;
+  font-family: var(--font-voice);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.sl-recap__body {
+  animation: sl-fade 160ms var(--ease-out) both;
+}
+
+.sl-recap__body p {
+  margin: 0 0 0.5rem;
+}
+
+@keyframes sl-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.sl-look {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-panel);
+}
+
+.sl-look b {
+  font-size: 0.8125rem;
+}
+
+.sl-look ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.sl-recap__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.sl-sofar,
+.sl-stats {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.sl-sofar {
+  grid-template-columns: 1fr 1fr;
+}
+
+.sl-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sl-sofar div,
+.sl-stats div {
+  padding: 0.5rem 0.65rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.sl-sofar b,
+.sl-stats b {
+  display: block;
+  font-size: 1.25rem;
+  line-height: 1.15;
+}
+
+.sl-sofar span,
+.sl-stats span {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+
+/* ===== Feed ===== */
+.sl-feed__list {
+  max-height: 28rem;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.sl-feed__list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.sl-feed__item {
+  display: grid;
+  grid-template-columns: 2.75rem 1.4rem 1fr;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.45rem 0.25rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+}
+
+button.sl-feed__item {
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.sl-feed__item:hover {
+    background: var(--surface-2);
+  }
+}
+
+.sl-feed__ic {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  font-size: 0.6875rem;
+  place-items: center;
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+.sl-feed__ic--done {
+  color: var(--meaning-b);
+  background: var(--meaning-b-soft);
+}
+
+.sl-feed__meta {
+  display: block;
+}
+
+.sl-feed__empty {
+  margin: 0.5rem 0 0;
+}
+
+/* ===== Phones: the recap first, tiles swipe sideways, one room at a time ===== */
+@media (max-width: 899px) {
+  .sl-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .sl-rail {
+    display: contents;
+  }
+
+  .sl-recap {
+    order: 1;
+  }
+
+  .sl-sched {
+    display: flex;
+    order: 2;
+    margin: 0 -1rem;
+    padding: 0 1rem 0.25rem;
+    overflow-x: auto;
+    scroll-padding-inline: 1rem;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .sl-sched::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sl-tile {
+    flex: 0 0 74%;
+    scroll-snap-align: start;
+  }
+
+  .sl-scene {
+    order: 3;
+  }
+
+  .sl-feed {
+    order: 4;
+  }
+
+  .sl-card {
+    padding: 1rem 0.9rem;
+    border-radius: var(--radius-panel);
+  }
+
+  .sl-rooms {
+    display: block;
+  }
+
+  .sl-scene__head .section__title {
+    flex-basis: 100%;
+  }
+
+  .sl-feed__list {
+    max-height: none;
+  }
+
+  .sl-day {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-ava,
+  .sl-pop,
+  .sl-recap__body {
+    animation: none;
+  }
+
+  .sl-tile,
+  .sl-seg {
+    transition: none;
+  }
+}

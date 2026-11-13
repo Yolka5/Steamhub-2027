@@ -57,7 +57,7 @@ export const MATERIALS = [
 ]
 
 /** What everyone may read about an account. Emails are for the admin only (admin_people). */
-export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, room, workshop_lead, created_at'
+export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, room, workshop_lead, mentor, created_at'
 
 export interface Profile {
   id: string
@@ -73,6 +73,8 @@ export interface Profile {
   room?: 'cnc' | null
   /** Hands out parts on the board (WORKSHOP_TASKS.md). Admins can too. */
   workshop_lead?: boolean
+  /** Opens SteamLab (STEAMLAB.md). Leads and admins can without it. */
+  mentor?: boolean
   created_at: string
 }
 

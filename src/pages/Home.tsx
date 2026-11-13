@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase'
 import { PartRow } from '../components/mfg'
 import { queueSort, type Part } from '../lib/mfg'
 import CncHome from './CncHome'
+import { useSteamlabAccess } from '../lib/steamlab'
 
 /** `tabbar`: the phone tab bar already has it, so phones hide the tile. */
 const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?: boolean }[] = [
@@ -26,6 +27,8 @@ const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?:
   { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench' },
   { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
 ]
+/** Mentors, leads and admins (STEAMLAB.md). The phone tab bar has no room for it, so it's a tile. */
+const STEAMLAB_TILE: (typeof QUICK)[number] = { to: '/steamlab', label: 'SteamLab', hint: "The whole team's day, and Claude's recap", icon: 'chart' }
 
 /**
  * Your parts, fresh each time Home opens: the ones handed to you, in the lead's order, plus any
@@ -113,6 +116,7 @@ function TeamHome() {
   const openPalette = useOpenPalette()
   const { pieces } = useStore()
   const { userId, name, canAssign } = useAuth()
+  const steamlab = useSteamlabAccess(userId)
   const asks = useAsksForMe(userId, canAssign)
   const [text, setText] = useState('')
 
@@ -169,7 +173,7 @@ function TeamHome() {
       <WorkshopNow />
 
       <div className="quick">
-        {QUICK.map((q) => (
+        {(steamlab ? [...QUICK, STEAMLAB_TILE] : QUICK).map((q) => (
           <Link key={q.to} to={q.to === '/manufacturing' ? '/manufacturing/start' : q.to} className="quick__item" data-tabbar={q.tabbar || undefined}>
             <Icon name={q.icon} size={22} />
             <span className="quick__label">{q.label}</span>

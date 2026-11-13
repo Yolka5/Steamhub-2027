@@ -145,7 +145,9 @@ export default function App() {
     setPaletteAnim(true)
     setPaletteOpen(true)
   }, [])
-  const { session, ready, banned, userId } = useAuth()
+  const { session, ready, banned, userId, room } = useAuth()
+  // The CNC room's PC: Home is the CNC Home, so it says so.
+  const navLabel = (n: NavItem) => (n === HOME && room === 'cnc' ? 'CNC' : n.label)
   const location = useLocation()
 
   // How often each section is opened, so two weeks after kickoff the unused ones can go.
@@ -214,7 +216,7 @@ export default function App() {
             {NAV.map((n) => (
               <Link key={n.to} to={linkTo(n)} className="pick" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
                 <Icon name={n.icon} />
-                {n.label}
+                {navLabel(n)}
               </Link>
             ))}
           </nav>
@@ -307,7 +309,7 @@ export default function App() {
           {TABS_LEFT.map((n) => (
             <Link key={n.to} to={n.to} className="tab" aria-current={isActive(n, location.pathname, true) ? 'page' : undefined}>
               <Icon name={n.icon} size={22} />
-              {n.label}
+              {navLabel(n)}
             </Link>
           ))}
           <NavLink to="/stock/add" className="tab tab--add">

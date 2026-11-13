@@ -1086,7 +1086,7 @@ dialog {
 }
 
 @media (max-width: 899px) {
-  .countdown {
+  :root:not(.tall) .countdown {
     grid-template-columns: 1fr;
   }
 }
@@ -1275,10 +1275,10 @@ dialog {
   grid-area: mine;
 }
 
-/* Phones: what's yours comes right after search, the countdown shrinks to one line of digits,
-   and tiles the tab bar already has are hidden. */
+/* Phones (not the TV, see tv.css): what's yours comes right after search, the countdown
+   shrinks to one line of digits, and tiles the tab bar already has are hidden. */
 @media (max-width: 899px) {
-  .home {
+  :root:not(.tall) .home {
     grid-template-areas:
       'hero'
       'tasks'
@@ -1288,45 +1288,45 @@ dialog {
       'count';
   }
 
-  .home > .hero {
+  :root:not(.tall) .home > .hero {
     padding-bottom: 1rem;
   }
 
-  .home > .activity {
+  :root:not(.tall) .home > .activity {
     margin-top: 1.75rem;
     margin-bottom: 1.5rem;
   }
 
-  .home__mine > .section:first-child {
+  :root:not(.tall) .home__mine > .section:first-child {
     margin-top: 0;
   }
 
-  .quick__item[data-tabbar] {
+  :root:not(.tall) .quick__item[data-tabbar] {
     display: none;
   }
 
-  .home .countdown {
+  :root:not(.tall) .home .countdown {
     gap: 0.75rem;
     margin-top: 1.5rem;
     padding: 1rem 1.25rem;
   }
 
-  .home .countdown .roll {
+  :root:not(.tall) .home .countdown .roll {
     font-size: 2rem;
   }
 
-  .home .countdown__info p,
-  .home .countdown__info .q-btn,
-  .home .season-card__text p,
-  .home .season-card__actions {
+  :root:not(.tall) .home .countdown__info p,
+  :root:not(.tall) .home .countdown__info .q-btn,
+  :root:not(.tall) .home .season-card__text p,
+  :root:not(.tall) .home .season-card__actions {
     display: none;
   }
 
-  .home .season-card {
+  :root:not(.tall) .home .season-card {
     position: relative;
   }
 
-  .home .season-card__go {
+  :root:not(.tall) .home .season-card__go {
     position: absolute;
     inset: 0;
     display: block;
@@ -1337,7 +1337,7 @@ dialog {
     border-radius: inherit;
   }
 
-  .home .countdown__title {
+  :root:not(.tall) .home .countdown__title {
     font-size: 1.25rem;
   }
 

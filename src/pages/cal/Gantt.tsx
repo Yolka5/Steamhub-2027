@@ -33,7 +33,7 @@ import type { Progress } from '../../lib/calLinked'
 import { useRobots } from '../../lib/useMfg'
 import { putRows, type Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
-import { usePhone } from '../../lib/usePhone'
+import { usePhone, useTall } from '../../lib/usePhone'
 import type { BoardFilter } from './Board'
 
 // Phases and tasks on a timeline. Each group's row holds its phase bars with the progress inside;
@@ -71,7 +71,10 @@ const FOLD_KEY = 'gantt-open'
 
 export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<string, Progress>; filter: BoardFilter; people: Profile[] }) {
   const phone = usePhone()
-  const edit = !phone
+  // The TV in the CAD room shows the Gantt but doesn't drag it: on a wall screen anyone walking by
+  // touches it, and a stray swipe would move a real task. Dates change from the group page.
+  const tall = useTall()
+  const edit = !phone && !tall
   const who = useWho()
   const toast = useToast()
   const navigate = useNavigate()
@@ -380,7 +383,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
         >
           Today
         </button>
-        <span className="soft small gantt__hint">{edit ? 'Drag a bar to move it, its end to stretch it, the dot onto another task to make it wait.' : 'Open on a computer to drag bars.'}</span>
+        <span className="soft small gantt__hint">{edit ? 'Drag a bar to move it, its end to stretch it, the dot onto another task to make it wait.' : tall ? 'Tap a group to change its dates.' : 'Open on a computer to drag bars.'}</span>
       </div>
 
       <div className="gantt__scroll" ref={scroller}>

@@ -29,7 +29,8 @@ export function Indicator({ selector = '[aria-current="page"], [aria-checked="tr
 
     place()
     const mo = new MutationObserver(place)
-    mo.observe(parent, { subtree: true, attributes: true, attributeFilter: ['aria-current', 'aria-checked', 'aria-selected'] })
+    // childList too: a tab added later (SteamLab once access loads) moves the others along.
+    mo.observe(parent, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-current', 'aria-checked', 'aria-selected'] })
     const ro = new ResizeObserver(place)
     ro.observe(parent)
     return () => {

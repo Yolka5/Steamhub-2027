@@ -17,15 +17,15 @@ import { queueSort, type Part } from '../lib/mfg'
 import CncHome from './CncHome'
 import { useSteamlabAccess } from '../lib/steamlab'
 
-/** `tabbar`: the phone tab bar already has it, so phones hide the tile. */
-const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?: boolean }[] = [
+/** `tabbar`: the phone tab bar already has it, so phones hide the tile. `dock`: so does the TV's. */
+const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?: boolean; dock?: boolean }[] = [
   { to: '/stock', label: 'Find stock', hint: 'By size and length', icon: 'search', tabbar: true },
   { to: '/stock/add', label: 'Add stock', hint: 'From your phone', icon: 'plus', tabbar: true },
-  { to: '/manufacturing', label: 'Manufacturing', hint: 'What to make, drawings', icon: 'gear', tabbar: true },
-  { to: '/calendar', label: 'Calendar', hint: 'Tasks, Gantt, daily updates', icon: 'calendar', tabbar: true },
+  { to: '/manufacturing', label: 'Manufacturing', hint: 'What to make, drawings', icon: 'gear', tabbar: true, dock: true },
+  { to: '/calendar', label: 'Calendar', hint: 'Tasks, Gantt, daily updates', icon: 'calendar', tabbar: true, dock: true },
   { to: '/prototypes/record', label: 'Record a test', hint: 'Prototype video and parameters', icon: 'video' },
-  { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench' },
-  { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book' },
+  { to: '/tools', label: 'Tools', hint: 'Calculators, tap drills, links', icon: 'wrench', dock: true },
+  { to: '/handbook', label: 'Handbook', hint: 'המדריך ומקורות מידע', icon: 'book', dock: true },
 ]
 /** Mentors, leads and admins (STEAMLAB.md). The phone tab bar has no room for it, so it's a tile. */
 const STEAMLAB_TILE: (typeof QUICK)[number] = { to: '/steamlab', label: 'SteamLab', hint: "The whole team's day, and Claude's recap", icon: 'chart' }
@@ -174,7 +174,7 @@ function TeamHome() {
 
       <div className="quick">
         {(steamlab ? [...QUICK, STEAMLAB_TILE] : QUICK).map((q) => (
-          <Link key={q.to} to={q.to === '/manufacturing' ? '/manufacturing/start' : q.to} className="quick__item" data-tabbar={q.tabbar || undefined}>
+          <Link key={q.to} to={q.to === '/manufacturing' ? '/manufacturing/start' : q.to} className="quick__item" data-tabbar={q.tabbar || undefined} data-dock={q.dock || undefined}>
             <Icon name={q.icon} size={22} />
             <span className="quick__label">{q.label}</span>
             <span className="soft small" dir="auto">

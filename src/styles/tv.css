@@ -1,0 +1,298 @@
+/* The portrait TV in the CAD room (usePhone.ts: TALL). 720 × 1280, touch, always on.
+   It's narrower than 900 px, so the phone CSS still stacks things, but every page shows its PC
+   version. This file only adds what the TV needs: a bigger top bar with a clock, a bottom bar with
+   every section, a Home that fills the screen, and fixes for things that run off the side. */
+
+/* ===== Shell ===== */
+/* Fingers scroll it; a desktop scrollbar down the side only looks unfinished on a wall screen. */
+:root.tall {
+  scrollbar-width: none;
+}
+
+:root.tall .topbar {
+  min-height: 4.25rem;
+  padding: 0.5rem 1.25rem 0.5rem 1.5rem;
+}
+
+:root.tall .topbar__end {
+  gap: 0.6rem;
+}
+
+:root.tall .topbar .icon-btn {
+  width: 3rem;
+  height: 3rem;
+  background: var(--surface-1);
+  border-radius: 50%;
+}
+
+:root.tall .topbar .icon-btn--add {
+  color: var(--on-main);
+  background: var(--main);
+}
+
+.clock {
+  display: grid;
+  justify-items: end;
+  margin-right: 0.4rem;
+  line-height: 1.15;
+}
+
+.clock b {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.clock span {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+:root.tall .tabbar--tv {
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+:root.tall .tabbar--tv .tab {
+  position: relative;
+  gap: 0.3rem;
+  padding: 0.7rem 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-radius: 1rem;
+}
+
+:root.tall .tabbar--tv .tab[aria-current='page'] svg {
+  color: var(--brand-text);
+}
+
+:root.tall .main {
+  padding: 1.25rem 1.5rem calc(7.5rem + env(safe-area-inset-bottom));
+}
+
+/* ===== Home: a status display that fills the screen ===== */
+:root.tall .home {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'hero hero'
+    'count count'
+    'tasks activity'
+    'wnow wnow'
+    'quick quick'
+    'mine mine';
+  gap: 1rem;
+}
+
+:root.tall .home > .hero {
+  max-width: none;
+  gap: 0.6rem;
+  padding: 0.5rem 0 0;
+}
+
+:root.tall .home .hero__title {
+  font-size: 4.25rem;
+}
+
+:root.tall .home .hero__sub {
+  font-size: 1.05rem;
+}
+
+:root.tall .home > .hero > .small {
+  display: none;
+}
+
+:root.tall .home > .countdown {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem 1.5rem;
+  margin: 0;
+  padding: 1.25rem 1.5rem;
+}
+
+:root.tall .home .countdown__units {
+  flex-wrap: nowrap;
+  gap: 1rem;
+}
+
+:root.tall .home .countdown .roll {
+  font-size: 3.5rem;
+}
+
+:root.tall .home .countdown__title {
+  font-size: 1.6rem;
+}
+
+:root.tall .home .countdown__info p {
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+/* Your tasks and Team activity side by side, each on its own card. */
+:root.tall .home > .home__cal,
+:root.tall .home > .activity {
+  align-self: stretch;
+  margin: 0;
+  padding: 1.1rem 1.25rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-shell);
+}
+
+:root.tall .home > .home__cal .your-tasks {
+  margin: 0;
+}
+
+:root.tall .home .activity__item {
+  min-height: 2.25rem;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+:root.tall .home .activity__item:nth-child(n + 6) {
+  display: none;
+}
+
+:root.tall .home > .wnow {
+  grid-area: wnow;
+}
+
+:root.tall .home > .quick {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+:root.tall .quick__item[data-dock] {
+  display: none;
+}
+
+/* Workshop now: the workshop and the CNC room side by side. */
+/* Columns in the ratio of the two small maps (820 × 360 and 400 × 420), so both are as tall. */
+.wnow--rooms {
+  grid-template-columns: minmax(0, 2.28fr) minmax(0, 0.95fr);
+  align-items: start;
+  gap: 0.75rem 0.9rem;
+  margin: 0;
+  padding: 1rem 1rem 1.1rem;
+}
+
+.wnow--rooms .wnow__title {
+  grid-column: 1 / -1;
+  margin: 0 0.25rem;
+}
+
+.wnow__room {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.wnow__map {
+  position: relative;
+}
+
+.wnow__name {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--surface-0);
+  background: var(--ink);
+  border-radius: var(--radius-pill);
+}
+
+.wnow--rooms .wnow__list {
+  padding: 0 0.25rem;
+  font-size: 0.875rem;
+}
+
+.wnow--rooms .wnow__list li {
+  align-items: baseline;
+}
+
+.wnow--rooms .wnow__list b {
+  flex: none;
+}
+
+/* ===== Calendar ===== */
+/* Title and Send today's update on one row, the view switch across the full width under them. */
+:root.tall .cal-page .page__head {
+  margin-bottom: 1rem;
+}
+
+:root.tall .cal-page .cal-head-end {
+  display: contents;
+}
+
+:root.tall .cal-page .cal-tabs {
+  position: static;
+  flex: 1 0 100%;
+}
+
+:root.tall .cal-tabs .pick {
+  flex: 1;
+  justify-content: center;
+  min-height: 2.9rem;
+}
+
+/* ===== Calculator ===== */
+/* All eight tabs in two rows of four, so none hide off the side. */
+:root.tall .calc-bar .calc-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  overflow: visible;
+}
+
+:root.tall .calc-tabs .pick {
+  justify-content: center;
+  min-height: 2.9rem;
+}
+
+/* The mechanisms as a grid of cards, all at once; the selected one opens below. */
+:root.tall .mechs__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+:root.tall .mech-row {
+  align-content: center;
+  min-height: 4.25rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+:root.tall .mech-row[aria-selected='true'] {
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+:root.tall .mechs__add {
+  min-height: 4.25rem;
+  margin: 0;
+}
+
+/* ===== Everywhere ===== */
+/* Rows that stick under the top bar: the TV's bar is taller and its page edge wider. */
+:root.tall .hb-toc,
+:root.tall .guide-toc {
+  top: 4.3rem;
+  margin: 0 -1.5rem;
+  padding: 0.4rem 1.5rem;
+}
+
+:root.tall .cal-tabs,
+:root.tall .cal-parts {
+  top: 4.3rem;
+}
+
+/* Calculator › Motors: the motor's name was squeezed to two letters. */
+:root.tall .ctable td:first-child .field {
+  min-width: 8.5rem;
+}
+
+:root.tall .ctable .num-field {
+  min-width: 4.75rem;
+}
+
+:root.tall .ctable th {
+  white-space: normal;
+  vertical-align: bottom;
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import { PaletteContext } from './lib/palette'
 import { supabase } from './lib/supabase'
 import { flushSync } from 'react-dom'
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from './components/Icon'
 import { AccountMenu } from './components/AccountMenu'
 import { BackButton } from './components/BackButton'
@@ -58,6 +58,7 @@ import { useSteamlabAccess } from './lib/steamlab'
 import { refreshPush } from './lib/push'
 import { NoAccess, SignIn } from './components/SignIn'
 import { useNotifications } from './lib/notifications'
+import { useTall } from './lib/usePhone'
 
 interface NavItem {
   to: string
@@ -91,6 +92,71 @@ const TABS_RIGHT: { item: NavItem; label: string }[] = [
   { item: MFG, label: 'Make' },
   { item: CAL, label: 'Calendar' },
 ]
+/**
+ * The portrait TV in the CAD room: every section in the bottom bar, Calculator on its own because
+ * it's one of the three pages used there most. Add moves up to the top bar.
+ */
+const CALC: NavItem = { to: '/calculators', label: 'Calculator', icon: 'calc' }
+const TV_TABS: { item: NavItem; label: string }[] = [
+  { item: HOME, label: 'Home' },
+  { item: STOCK, label: 'Stock' },
+  { item: MFG, label: 'Make' },
+  { item: PROTO, label: 'Prototypes' },
+  { item: CAL, label: 'Calendar' },
+  { item: CALC, label: 'Calculator' },
+  { item: { ...TOOLS, also: [] }, label: 'Tools' },
+  { item: HANDBOOK, label: 'Handbook' },
+]
+
+/** Five minutes without a touch on the TV: back to Home, the status board. */
+const TV_IDLE_MS = 5 * 60 * 1000
+
+/**
+ * The TV is always on and shown to visitors, so it finds its way back to Home after five quiet
+ * minutes, and Home reloads every five quiet minutes so its numbers never go stale. Not while
+ * someone is mid-typing in a field. Returns a number that changes on each reload, for Home's key.
+ */
+function useTvIdle(tall: boolean) {
+  const navigate = useNavigate()
+  const [reload, setReload] = useState(0)
+  useEffect(() => {
+    if (!tall) return
+    let last = Date.now()
+    const touched = () => (last = Date.now())
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+    events.forEach((e) => window.addEventListener(e, touched, { passive: true }))
+    const t = window.setInterval(() => {
+      if (Date.now() - last < TV_IDLE_MS) return
+      if (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]')) return
+      last = Date.now()
+      if (window.location.pathname !== '/') navigate('/')
+      else {
+        window.scrollTo({ top: 0 })
+        setReload((n) => n + 1)
+      }
+    }, 30000)
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, touched))
+      window.clearInterval(t)
+    }
+  }, [tall, navigate])
+  return reload
+}
+
+/** The TV's clock: big time and the date, for a screen that's always on. */
+function Clock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 10000)
+    return () => window.clearInterval(t)
+  }, [])
+  return (
+    <div className="clock" aria-hidden="true">
+      <b className="num">{now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b>
+      <span>{now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+    </div>
+  )
+}
 
 function Bell({ compact = false }: { compact?: boolean }) {
   const { unread } = useNotifications()
@@ -153,6 +219,8 @@ export default function App() {
   // The CNC room's PC: Home is the CNC Home, so it says so.
   const navLabel = (n: NavItem) => (n === HOME && room === 'cnc' ? 'CNC' : n.label)
   const steamlab = useSteamlabAccess(userId)
+  const tall = useTall()
+  const homeReload = useTvIdle(tall)
   const nav = steamlab ? [...NAV, STEAMLAB] : NAV
   const location = useLocation()
 
@@ -244,9 +312,15 @@ export default function App() {
             <span className="brand__name">Steamhub</span>
           </NavLink>
           <div className="topbar__end">
+            {tall && <Clock />}
             <button type="button" className="icon-btn" aria-label="Search" onClick={() => openPalette()}>
               <Icon name="search" />
             </button>
+            {tall && (
+              <Link to="/stock/add" className="icon-btn icon-btn--add" aria-label="Add stock">
+                <Icon name="plus" />
+              </Link>
+            )}
             <Bell compact />
             <button type="button" className="icon-btn" aria-label="Toggle dark mode" onClick={toggleTheme}>
               <span className="swap" key={theme}>
@@ -260,7 +334,7 @@ export default function App() {
         <main className="main">
           <BackButton />
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Home key={homeReload} />} />
             <Route path="/cnc" element={<CncHome />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/stock/add" element={<AddStock />} />
@@ -311,6 +385,17 @@ export default function App() {
           </Routes>
         </main>
 
+        {tall ? (
+          <nav className="tabbar tabbar--tv" aria-label="Main" style={{ gridTemplateColumns: `repeat(${TV_TABS.length + (steamlab ? 1 : 0)}, minmax(0, 1fr))` }}>
+            <Indicator selector='.tab[aria-current="page"]' />
+            {(steamlab ? [...TV_TABS, { item: STEAMLAB, label: 'SteamLab' }] : TV_TABS).map(({ item: n, label }) => (
+              <Link key={n.to} to={linkTo(n)} className="tab" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
+                <Icon name={n.icon} size={26} />
+                {n === HOME ? navLabel(n) : label}
+              </Link>
+            ))}
+          </nav>
+        ) : (
         <nav className="tabbar" aria-label="Main">
           <Indicator selector='.tab:not(.tab--add)[aria-current="page"]' />
           {TABS_LEFT.map((n) => (
@@ -332,6 +417,7 @@ export default function App() {
             </Link>
           ))}
         </nav>
+        )}
       </div>
       <Palette open={paletteOpen} animated={paletteAnim} initial={paletteText} onClose={() => setPaletteOpen(false)} />
     </ToastProvider>

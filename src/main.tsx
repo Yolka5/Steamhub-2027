@@ -16,6 +16,7 @@ import './styles/guide.css'
 import './styles/cal.css'
 import './styles/tasks.css'
 import './styles/steamlab.css'
+import './styles/tv.css'
 import App from './App'
 import { AuthProvider } from './lib/auth'
 import { NotificationsProvider } from './lib/notifications'
@@ -24,7 +25,9 @@ import { initPointerGlow } from './lib/motion'
 import { preloadKatex } from './lib/katex'
 import { registerServiceWorker } from './lib/pwa'
 import { AppStatus } from './components/AppStatus'
+import { watchTall } from './lib/usePhone'
 
+watchTall()
 initPointerGlow()
 preloadKatex()
 registerServiceWorker()

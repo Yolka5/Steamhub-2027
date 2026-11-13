@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CNC_ROOM } from '../lib/cncRoom'
-import { partName, type Part } from '../lib/mfg'
+import { useTall } from '../lib/usePhone'
+import { ROOM } from '../lib/workshopRoom'
+import { partName, type Machine, type Part } from '../lib/mfg'
 import { useParts, useRobots } from '../lib/useMfg'
 import { machineView, MAP_MACHINES, span, startedAt, STATE_WORD } from '../lib/workshopMap'
 import { WorkshopMap } from './WorkshopMap'
@@ -9,7 +11,33 @@ import { WorkshopMap } from './WorkshopMap'
 // Home's "Workshop now" card (WORKSHOP_MAP.md, phase 5): the back of the room where the machines
 // are, live, and one line per machine. Tapping it opens the full map on the Workshop page.
 
+/** One line per machine: what it's making and for how long, or how many parts wait for it. */
+function MachineList({ machines, live, now }: { machines: Machine[]; live: Part[]; now: number }) {
+  return (
+    <ul className="wnow__list">
+      {machines.map((m) => {
+        const v = machineView(m, live, now, null)
+        const text = v.cur
+          ? `${v.cur.part_no} ${partName(v.cur)} · ${span(now - startedAt(v.cur))}`
+          : v.urgent.length
+            ? `Idle, urgent ${v.urgent[0].part_no} waiting`
+            : v.waiting.length
+              ? `Idle · ${v.waiting.length} waiting`
+              : 'Idle'
+        return (
+          <li key={m}>
+            <i className={`wmap-chip ${v.state}`} aria-hidden="true" />
+            <b>{m}</b>
+            <span className="soft num">{v.state === 'stale' ? `${STATE_WORD.stale} ${text}` : text}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export function WorkshopNow() {
+  const tall = useTall()
   const { parts } = useParts({ released: true })
   const { robots, subs } = useRobots()
   const [now, setNow] = useState(Date.now())
@@ -26,30 +54,29 @@ export function WorkshopNow() {
   // Nothing released yet (between seasons): no card.
   if (!live.length) return null
 
+  // The TV has room for both rooms, side by side, each with its own machines.
+  if (tall)
+    return (
+      <Link to="/manufacturing?map=1" className="wnow wnow--rooms" aria-label="Workshop now. Open the workshop map">
+        <h2 className="wnow__title">Workshop now</h2>
+        {[ROOM, CNC_ROOM].map((room) => (
+          <div key={room.name} className="wnow__room">
+            <div className="wnow__map">
+              <WorkshopMap room={room} parts={live} lastUsed={{}} now={now} compact />
+              <span className="wnow__name">{room.name}</span>
+            </div>
+            <MachineList machines={room.machines.map((m) => m.machine)} live={live} now={now} />
+          </div>
+        ))}
+      </Link>
+    )
+
   return (
     <Link to="/manufacturing?map=1" className="wnow" aria-label="Workshop now. Open the workshop map">
       <WorkshopMap parts={live} lastUsed={{}} now={now} compact />
       <div>
         <h2 className="wnow__title">Workshop now</h2>
-        <ul className="wnow__list">
-          {MAP_MACHINES.map((m) => {
-            const v = machineView(m, live, now, null)
-            const text = v.cur
-              ? `${v.cur.part_no} ${partName(v.cur)} · ${span(now - startedAt(v.cur))}`
-              : v.urgent.length
-                ? `Idle, urgent ${v.urgent[0].part_no} waiting`
-                : v.waiting.length
-                  ? `Idle · ${v.waiting.length} waiting`
-                  : 'Idle'
-            return (
-              <li key={m}>
-                <i className={`wmap-chip ${v.state}`} aria-hidden="true" />
-                <b>{m}</b>
-                <span className="soft num">{v.state === 'stale' ? `${STATE_WORD.stale} ${text}` : text}</span>
-              </li>
-            )
-          })}
-        </ul>
+        <MachineList machines={MAP_MACHINES} live={live} now={now} />
       </div>
     </Link>
   )

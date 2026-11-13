@@ -35,6 +35,7 @@ const PAGES: Item[] = [
   { key: 'p-photos', label: 'Stock photos: shoot or copy from Drive', to: '/stock/photos', keywords: 'photo picture camera drive needs' },
   { key: 'p-make', label: 'Manufacturing: what to make', to: '/manufacturing', keywords: 'workshop make parts drawings cnc lathe print' },
   { key: 'p-robots', label: 'Robots and subsystems', to: '/manufacturing/robots', keywords: 'step upload bom subsystem mechanism' },
+  { key: 'p-cnc', label: 'CNC: parts to cut, by plate', to: '/cnc', keywords: 'cnc router dxf cut plate' },
   { key: 'p-plates', label: 'Plates: CNC plate stock', to: '/stock/plates', keywords: 'plate sheet aluminum polycarb cnc' },
   { key: 'p-mills', label: 'End mills', to: '/stock/end-mills', keywords: 'end mill cutter flute cnc' },
   { key: 'p-wish', label: 'Wishlist: parts to buy', to: '/manufacturing/wishlist', keywords: 'buy order missing uri' },

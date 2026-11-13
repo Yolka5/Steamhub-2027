@@ -27,6 +27,7 @@ import { useParts, usePeople, useRobots } from './useMfg'
 import { useToast } from '../components/ui'
 import { useClaimAs, usePickPerson } from '../components/WhoPicker'
 import { useNote } from '../components/NoteSheet'
+import { usePlateAsk } from '../components/PlateAsk'
 
 /** What the note sheet says for each kind of pushback (WORKSHOP_TASKS.md, "Pushback"). */
 export const NOTE = {
@@ -106,6 +107,7 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
   const { pick, picker } = useClaimAs()
   const { ask, sheet } = usePickPerson()
   const { write, sheet: noteSheet } = useNote()
+  const plateAsk = usePlateAsk()
   const running = useRef(new Set<string>())
   const [held, setHeld] = useState<Set<string>>(new Set())
   const hold = useCallback(
@@ -168,6 +170,7 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
           if (back.data) put(back.data)
         },
       })
+      if (res.data) plateAsk.after(res.data, put)
     })
 
   const handBack = (p: Part) =>
@@ -280,6 +283,7 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
     if (res.error) return toast(res.error)
     if (res.data) put(res.data)
     toast(`${p.part_no} done, note sent`)
+    if (res.data) plateAsk.after(res.data, put)
   }
 
   const toggleUrgent = async (p: Part) => {
@@ -295,6 +299,7 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
         {picker}
         {sheet}
         {noteSheet}
+        {plateAsk.sheet}
       </>
     ),
   }

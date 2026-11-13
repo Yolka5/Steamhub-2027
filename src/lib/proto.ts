@@ -137,13 +137,16 @@ export function useSeasons() {
   const { robots, subs, loading } = useRobots()
   const now = new Date()
   const fallback = now.getFullYear() + (now.getMonth() >= 8 ? 1 : 0)
-  const seasons = useMemo(() => [...new Set([fallback, ...robots.map((r) => r.season)])].sort((a, b) => b - a), [robots, fallback])
-  const current = robots.length ? Math.max(...robots.map((r) => r.season)) : fallback
+  // Off-season projects don't start or pick a season.
+  const seasonRobots = robots.filter((r) => !r.offseason)
+  const seasons = useMemo(() => [...new Set([fallback, ...robots.filter((r) => !r.offseason).map((r) => r.season)])].sort((a, b) => b - a), [robots, fallback])
+  const current = seasonRobots.length ? Math.max(...seasonRobots.map((r) => r.season)) : fallback
   /** Subsystem numbers and names of a season, one per number. Active robots win over archived ones. */
   const subsystemsOf = useCallback(
     (season: number) => {
       const byNo = new Map<number, { number: number; name: string; lead_id: string | null; id: string; robotName: string }>()
-      const rs = robots.filter((r) => r.season === season).sort((a, b) => Number(a.archived) - Number(b.archived) || b.created_at.localeCompare(a.created_at))
+      // Off-season projects share the year but not the season's subsystem numbers.
+      const rs = robots.filter((r) => r.season === season && !r.offseason).sort((a, b) => Number(a.archived) - Number(b.archived) || b.created_at.localeCompare(a.created_at))
       for (const r of rs)
         for (const s of subs.filter((x) => x.robot_id === r.id))
           if (!byNo.has(s.number)) byNo.set(s.number, { number: s.number, name: s.name, lead_id: s.lead_id, id: s.id, robotName: r.name })

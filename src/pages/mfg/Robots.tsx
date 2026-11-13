@@ -14,7 +14,8 @@ export default function Robots() {
   const { robots, subs, loading, error, reload } = useRobots()
   const counts = useCounts()
   const [adding, setAdding] = useState(false)
-  const active = robots.filter((r) => !r.archived)
+  const active = robots.filter((r) => !r.archived && !r.offseason)
+  const projects = robots.filter((r) => !r.archived && r.offseason)
   const archived = robots.filter((r) => r.archived)
 
   const row = (r: (typeof robots)[number]) => {
@@ -27,7 +28,10 @@ export default function Robots() {
       <li key={r.id}>
         <Link to={`/manufacturing/r/${r.id}`} className="row row--tall">
           <span className="row__main">
-            <span className="strong">{r.name}</span>
+            <span className="strong">
+              {r.name}
+              {r.offseason && r.archived && <span className="soft small"> · off-season</span>}
+            </span>
             <span className="soft small num">
               {mine.length} {mine.length === 1 ? 'subsystem' : 'subsystems'} · {c.made} parts to make{c.made ? ` · ${c.done} done` : ''}
             </span>
@@ -65,6 +69,14 @@ export default function Robots() {
         <ul className="rows">{active.map(row)}</ul>
       )}
 
+      {projects.length > 0 && (
+        <section className="section">
+          <h2 className="section__title">Off-season projects</h2>
+          <p className="soft small sp-hint">Never the season's robot: no V number, no season card, their own Calendar groups.</p>
+          <ul className="rows">{projects.map(row)}</ul>
+        </section>
+      )}
+
       {archived.length > 0 && (
         <details className="more mfg-archived">
           <summary>Archived ({archived.length})</summary>
@@ -72,7 +84,7 @@ export default function Robots() {
         </details>
       )}
 
-      <NewRobot open={adding} robots={active} onClose={() => setAdding(false)} />
+      <NewRobot open={adding} robots={[...active, ...projects]} onClose={() => setAdding(false)} />
     </div>
   )
 }
@@ -92,13 +104,14 @@ function NewRobotForm({ robots, onClose }: { robots: { id: string; name: string 
   const [name, setName] = useState('')
   const [season, setSeason] = useState(String(new Date().getMonth() >= 8 ? new Date().getFullYear() + 1 : new Date().getFullYear()))
   const [copy, setCopy] = useState('')
+  const [offseason, setOffseason] = useState(false)
   const [busy, run] = useBusy()
 
   const save = () =>
     run(async () => {
       if (!who) return
       if (!name.trim()) return toast('Give the robot a name first')
-      const res = await createRobot(name.trim(), Number(season) || new Date().getFullYear(), who, copy || undefined)
+      const res = await createRobot(name.trim(), Number(season) || new Date().getFullYear(), who, copy || undefined, undefined, offseason)
       if (res.error) return toast(res.error)
       onClose()
       navigate(`/manufacturing/r/${res.data!.id}`)
@@ -120,6 +133,20 @@ function NewRobotForm({ robots, onClose }: { robots: { id: string; name: string 
         <span className="ctl__name">Season</span>
         <input className="field num" inputMode="numeric" value={season} onChange={(e) => setSeason(e.target.value.replace(/\D/g, ''))} />
       </label>
+      <div className="ctl">
+        <span className="ctl__name">What it is</span>
+        <div className="picks picks--seg" role="radiogroup" aria-label="What it is">
+          <button type="button" role="radio" className="pick" aria-checked={!offseason} onClick={() => setOffseason(false)}>
+            Season robot
+          </button>
+          <button type="button" role="radio" className="pick" aria-checked={offseason} onClick={() => setOffseason(true)}>
+            Off-season project
+          </button>
+        </div>
+        <span className="soft small">
+          {offseason ? 'A practice build or side project. It gets its own Calendar groups and never counts as V1 or V2.' : 'V1, V2 or a test robot. Put V1 or V2 in the name to make it the season robot.'}
+        </span>
+      </div>
       {robots.length > 0 && (
         <label className="ctl">
           <span className="ctl__name">Copy subsystems from</span>

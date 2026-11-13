@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { partName, type Machine, type Part } from '../lib/mfg'
 import { countedMs, firstName, lastUsedBy, loadRuns, machineView, MAP_MACHINES, span, startedAt, STATE_WORD, weekStart, type Run } from '../lib/workshopMap'
+import { CNC_ROOM } from '../lib/cncRoom'
+import { ROOM } from '../lib/workshopRoom'
 import { WorkshopMap } from './WorkshopMap'
 
 // The map slides in over the Workshop list (WORKSHOP_MAP.md, phase 3). It always opens closed.
 // Ways out: Close, Escape, a click on the dimmed list, or dragging the grabber or header right.
 
-const OTHER_ROOM: Machine[] = ['CNC', '3D print']
+// The 3D printers' room isn't drawn: it stays a card.
+const OTHER_ROOM: Machine[] = ['3D print']
 
 interface Props {
   open: boolean
@@ -19,7 +21,6 @@ interface Props {
 }
 
 export function WorkshopPanel({ open, onClose, parts, onDone, onShow }: Props) {
-  const navigate = useNavigate()
   const [tab, setTab] = useState<'now' | 'history'>('now')
   const [entering, setEntering] = useState(false)
   const [now, setNow] = useState(Date.now())
@@ -129,11 +130,20 @@ export function WorkshopPanel({ open, onClose, parts, onDone, onShow }: Props) {
         <div className="wpanel__body">
           {open && tab === 'now' && (
             <section className="wpanel__now">
-              <div className="wpanel__scroll">
-                <WorkshopMap parts={parts} lastUsed={lastUsed} now={now} onDone={onDone} onShow={onShow} onStock={() => navigate('/stock')} onSaw={() => navigate('/stock/cut')} />
+              {/* Both rooms at the same scale: each takes width in proportion to its drawing. */}
+              <div className="wpanel__maps">
+                <div className="wpanel__room-map wpanel__room-map--workshop">
+                  <h3 className="wpanel__label">Workshop</h3>
+                  <div className="wpanel__scroll">
+                    <WorkshopMap room={ROOM} parts={parts} lastUsed={lastUsed} now={now} onDone={onDone} onShow={onShow} />
+                  </div>
+                </div>
+                <div className="wpanel__room-map wpanel__room-map--cnc">
+                  <h3 className="wpanel__label">CNC room</h3>
+                  <WorkshopMap room={CNC_ROOM} parts={parts} lastUsed={lastUsed} now={now} onDone={onDone} onShow={onShow} />
+                </div>
               </div>
               <div className="wpanel__rooms">
-                <h3 className="wpanel__label">Other room</h3>
                 {OTHER_ROOM.map((m) => (
                   <RoomCard key={m} machine={m} parts={parts} now={now} lastUsed={lastUsed[m] ?? null} onShow={onShow} />
                 ))}

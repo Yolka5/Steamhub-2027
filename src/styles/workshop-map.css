@@ -4,23 +4,15 @@
 
 :root {
   --clay-floor: #e6e5e1;
-  --clay-t: #ffffff;
-  --clay-s: #e9e7e1;
-  --clay-w: #d6d3cb;
   --clay-win: #dfe3e5;
   --clay-shadow: #3a3326;
-  --run-t: #4caf59;
-  --run-s: #3c9748;
-  --run-w: #2f7d3a;
-  --stale-t: #a8d6ae;
-  --stale-s: #93c69a;
-  --stale-w: #7fb387;
-  --urg-t: #f5c533;
-  --urg-s: #e0ac16;
-  --urg-w: #c4930c;
-  --stock-t: #ffe1c9;
-  --stock-s: #f8cfae;
-  --stock-w: #efbd96;
+  /* Each colour family: top (lit at the front, a shade darker at the back), front and side, each
+     fading to a "low" shade at the bottom. The gradients in WorkshopMap read these. */
+  --clay-t: #ffffff; --clay-t-back: #f3f2ee; --clay-s: #eceae4; --clay-s-low: #d9d6ce; --clay-w: #dcd9d1; --clay-w-low: #c9c5bb; --clay-w2: #cbc7be;
+  --run-t: #4caf59; --run-t-back: #45a352; --run-s: #3f9a4b; --run-s-low: #2f8139; --run-w: #337f3e; --run-w-low: #266a30; --run-w2: #266a30;
+  --stale-t: #a8d6ae; --stale-t-back: #9fcfa6; --stale-s: #93c69a; --stale-s-low: #82b78a; --stale-w: #7fb387; --stale-w-low: #6fa377; --stale-w2: #6fa377;
+  --urg-t: #f5c533; --urg-t-back: #ecbb27; --urg-s: #e0ac16; --urg-s-low: #c9970b; --urg-w: #c4930c; --urg-w-low: #a97e07; --urg-w2: #a97e07;
+  --warm-t: #ffe1c9; --warm-t-back: #fbd8bc; --warm-s: #f8cfae; --warm-s-low: #efbd96; --warm-w: #efbd96; --warm-w-low: #e2a87c; --warm-w2: #e2a87c;
   --warn: #7a5a00;
   --warn-soft: #fdf1c7;
   --map-tag: #141413;
@@ -31,23 +23,13 @@
 
 :root[data-theme='dark'] {
   --clay-floor: #1f1f1e;
-  --clay-t: #3a3a38;
-  --clay-s: #2e2e2c;
-  --clay-w: #262624;
   --clay-win: #2a2f33;
   --clay-shadow: #000000;
-  --run-t: #6fd47a;
-  --run-s: #4fb95c;
-  --run-w: #3e9c4a;
-  --stale-t: #3f6b45;
-  --stale-s: #355c3a;
-  --stale-w: #2b4c30;
-  --urg-t: #f6cf55;
-  --urg-s: #ddb132;
-  --urg-w: #bd9420;
-  --stock-t: #5a3a20;
-  --stock-s: #4a2f19;
-  --stock-w: #3d2614;
+  --clay-t: #3c3c3a; --clay-t-back: #353533; --clay-s: #30302e; --clay-s-low: #242422; --clay-w: #282826; --clay-w-low: #1d1d1c; --clay-w2: #1b1b1a;
+  --run-t: #6fd47a; --run-t-back: #62c56d; --run-s: #52bb5e; --run-s-low: #3f9a4a; --run-w: #43a04e; --run-w-low: #34833e; --run-w2: #2f7a39;
+  --stale-t: #3f6b45; --stale-t-back: #39623f; --stale-s: #355c3a; --stale-s-low: #2a4b2f; --stale-w: #2b4c30; --stale-w-low: #223d26; --stale-w2: #1f3823;
+  --urg-t: #f6cf55; --urg-t-back: #ecc548; --urg-s: #ddb132; --urg-s-low: #c49a22; --urg-w: #bd9420; --urg-w-low: #a07c16; --urg-w2: #94720f;
+  --warm-t: #5a3a20; --warm-t-back: #52351d; --warm-s: #4a2f19; --warm-s-low: #3d2614; --warm-w: #3d2614; --warm-w-low: #301e10; --warm-w2: #2a1a0d;
   --warn: #f6cf55;
   --warn-soft: #3a3010;
   --map-tag: #efefef;
@@ -85,51 +67,36 @@
 .wmap .t,
 .wmap .s,
 .wmap .w {
-  stroke-width: 0.6;
+  stroke-width: 1.2;
   stroke-linejoin: round;
-  transition:
-    fill 180ms var(--ease-out),
-    stroke 180ms var(--ease-out);
+  paint-order: stroke;
 }
 
-.wmap .t.n,
-.wmap .t.wall,
-.wmap .t.m {
-  fill: var(--clay-t);
-  stroke: var(--clay-t);
-}
-.wmap .s.n,
-.wmap .s.wall,
-.wmap .s.m {
-  fill: var(--clay-s);
-  stroke: var(--clay-s);
-}
-.wmap .w.n,
-.wmap .w.wall,
-.wmap .w.m,
-.wmap .w2 {
-  fill: var(--clay-w);
-  stroke: var(--clay-w);
-}
-.wmap .win {
-  fill: var(--clay-win);
-  stroke: var(--clay-win);
-}
+/* Soft shading: gradients from WorkshopMap's shared defs. Clay first, then each machine state. */
+.wmap .t:is(.n, .wall, .m) { fill: url(#wm-clay-t); stroke: url(#wm-clay-t); }
+.wmap .s:is(.n, .wall, .m) { fill: url(#wm-clay-s); stroke: url(#wm-clay-s); }
+.wmap .w:is(.n, .wall, .m) { fill: url(#wm-clay-w); stroke: url(#wm-clay-w); }
+.wmap :is(.w2, .m2) { fill: var(--clay-w2); stroke: var(--clay-w2); }
+.wmap .win { fill: var(--clay-win); stroke: var(--clay-win); }
 
-.wmap__spot.run .t.m { fill: var(--run-t); stroke: var(--run-t); }
-.wmap__spot.run .s.m { fill: var(--run-s); stroke: var(--run-s); }
-.wmap__spot.run .w.m { fill: var(--run-w); stroke: var(--run-w); }
-.wmap__spot.stale .t.m { fill: var(--stale-t); stroke: var(--stale-t); }
-.wmap__spot.stale .s.m { fill: var(--stale-s); stroke: var(--stale-s); }
-.wmap__spot.stale .w.m { fill: var(--stale-w); stroke: var(--stale-w); }
-.wmap__spot.urg .t.m { fill: var(--urg-t); stroke: var(--urg-t); }
-.wmap__spot.urg .s.m { fill: var(--urg-s); stroke: var(--urg-s); }
-.wmap__spot.urg .w.m { fill: var(--urg-w); stroke: var(--urg-w); }
+.wmap__spot.run .t.m { fill: url(#wm-run-t); stroke: url(#wm-run-t); }
+.wmap__spot.run .s.m { fill: url(#wm-run-s); stroke: url(#wm-run-s); }
+.wmap__spot.run .w.m { fill: url(#wm-run-w); stroke: url(#wm-run-w); }
+.wmap__spot.run .m2 { fill: var(--run-w2); stroke: var(--run-w2); }
+.wmap__spot.stale .t.m { fill: url(#wm-stale-t); stroke: url(#wm-stale-t); }
+.wmap__spot.stale .s.m { fill: url(#wm-stale-s); stroke: url(#wm-stale-s); }
+.wmap__spot.stale .w.m { fill: url(#wm-stale-w); stroke: url(#wm-stale-w); }
+.wmap__spot.stale .m2 { fill: var(--stale-w2); stroke: var(--stale-w2); }
+.wmap__spot.urg .t.m { fill: url(#wm-urg-t); stroke: url(#wm-urg-t); }
+.wmap__spot.urg .s.m { fill: url(#wm-urg-s); stroke: url(#wm-urg-s); }
+.wmap__spot.urg .w.m { fill: url(#wm-urg-w); stroke: url(#wm-urg-w); }
+.wmap__spot.urg .m2 { fill: var(--urg-w2); stroke: var(--urg-w2); }
 .wmap__spot.idle.is-hot .t.m { fill: var(--surface-1); stroke: var(--surface-1); }
-/* The two links, stock shelf and saw, warm to orange under the pointer. */
-:is(.wmap__stock, .wmap__saw).is-hot .t.n { fill: var(--stock-t); stroke: var(--stock-t); }
-:is(.wmap__stock, .wmap__saw).is-hot .s.n { fill: var(--stock-s); stroke: var(--stock-s); }
-:is(.wmap__stock, .wmap__saw).is-hot .w.n { fill: var(--stock-w); stroke: var(--stock-w); }
+/* Links (stock shelf, saw, End mills organizer) warm to orange under the pointer. */
+.wmap__spot.link.is-hot .t.n { fill: url(#wm-warm-t); stroke: url(#wm-warm-t); }
+.wmap__spot.link.is-hot .s.n { fill: url(#wm-warm-s); stroke: url(#wm-warm-s); }
+.wmap__spot.link.is-hot .w.n { fill: url(#wm-warm-w); stroke: url(#wm-warm-w); }
+.wmap__spot.link.is-hot .w2 { fill: var(--warm-w2); stroke: var(--warm-w2); }
 
 .wmap__entry {
   font-size: 13px;
@@ -146,7 +113,7 @@
 .wmap:not(.wmap--mini) .wmap__spot.is-hot {
   transform: translateY(-9px);
 }
-.wmap:not(.wmap--mini) :is(.wmap__stock, .wmap__saw).is-hot {
+.wmap:not(.wmap--mini) .wmap__spot.link.is-hot {
   transform: translateY(-5px);
 }
 .wmap:not(.wmap--mini) .wmap__spot:active {
@@ -156,7 +123,9 @@
 .wmap__svg.hot-lathe .sh-lathe,
 .wmap__svg.hot-mill .sh-mill,
 .wmap__svg.hot-stock .sh-stock,
-.wmap__svg.hot-saw .sh-saw {
+.wmap__svg.hot-saw .sh-saw,
+.wmap__svg.hot-cnc .sh-cnc,
+.wmap__svg.hot-endmills .sh-endmills {
   opacity: 0.45;
 }
 
@@ -458,19 +427,37 @@
 }
 
 .wpanel__now {
+  display: grid;
+  gap: 1rem;
+}
+/* Same scale for both rooms: widths in proportion to their drawings (820 and 430 units wide). */
+.wpanel__maps {
   display: flex;
   gap: 1.25rem;
   align-items: flex-start;
 }
+.wpanel__room-map {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.wpanel__room-map--workshop {
+  flex: 820 1 0;
+}
+.wpanel__room-map--cnc {
+  flex: 430 1 0;
+}
 .wpanel__scroll {
-  flex: 1;
   min-width: 0;
 }
 .wpanel__rooms {
   display: flex;
-  flex: 0 0 13rem;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+.wpanel__rooms .wpanel__room {
+  min-width: 13rem;
 }
 .wpanel__label {
   margin: 0.25rem 0 0;
@@ -515,6 +502,8 @@
 .wpanel.is-entering .wmap__mill { animation-delay: 470ms; }
 .wpanel.is-entering .wmap__saw { animation-delay: 520ms; }
 .wpanel.is-entering .wmap__stock { animation-delay: 560ms; }
+.wpanel.is-entering .wmap__cnc { animation-delay: 430ms; }
+.wpanel.is-entering .wmap__endmills { animation-delay: 600ms; }
 .wpanel.is-entering .wmap-tag,
 .wpanel.is-entering .wmap-lead,
 .wpanel.is-entering .wmap-stock {
@@ -765,8 +754,15 @@
   .wpanel__body {
     padding: 0 1rem calc(1.25rem + env(safe-area-inset-bottom));
   }
-  .wpanel__now {
+  .wpanel__maps {
     flex-direction: column;
+    gap: 1rem;
+  }
+  .wpanel__room-map {
+    width: 100%;
+  }
+  .wpanel__room-map--cnc .wmap {
+    max-width: 24rem;
   }
   .wpanel__scroll {
     width: 100%;
@@ -777,8 +773,7 @@
     width: 42.5rem;
   }
   .wpanel__rooms {
-    flex: none;
-    width: 100%;
+    align-items: stretch;
   }
   .whist-done {
     grid-template-columns: repeat(2, minmax(0, 1fr));

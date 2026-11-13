@@ -44,11 +44,14 @@ function titleBlock(p: Part, ctx: Ctx): TitleBlock {
 
 async function prepared(p: Part) {
   const G = await loadGeometry(p.geometry_path!)
-  let v = views.get(p.geometry_path!)
+  // CNC parts are cut from the file, so they all get the plate drawing (width and bearing checks),
+  // even a long bar. The machine is part of the key: changing it redraws the part.
+  const key = p.geometry_path! + '|' + p.machine
+  let v = views.get(key)
   if (!v) {
-    const info = classifyPart(G, p.name)
+    const info = p.machine === 'CNC' ? { cls: 'plate' as const } : classifyPart(G, p.name)
     v = { info, pre: computeViews(G, info) }
-    views.set(p.geometry_path!, v)
+    views.set(key, v)
   }
   return { G, ...v }
 }
@@ -92,13 +95,18 @@ export async function partDxfText(p: Part) {
 }
 
 export async function saveDxf(parts: Part[], ctx: Ctx) {
+  return saveDxfAs(parts, `${ctx.robot.name} ${ctx.sub.number} ${ctx.sub.name}`)
+}
+
+/** One DXF, or a zip named `${name} DXF <date>` when there are several (the CNC Home zips by plate). */
+export async function saveDxfAs(parts: Part[], name: string) {
   if (parts.length === 1) {
     saveFile(`${fileSafe(`${partNo(parts[0])} ${partName(parts[0])}`)}.dxf`, await partDxfText(parts[0]), 'application/dxf')
     return
   }
   const files = []
-  for (const p of parts) files.push({ name: `${fileSafe(`${partNo(p)} ${partName(p)}`)}.dxf`, data: await partDxfText(p) })
-  saveFile(`${fileSafe(`${ctx.robot.name} ${ctx.sub.number} ${ctx.sub.name} DXF ${stamp()}`)}.zip`, buildZip(files), 'application/zip')
+  for (const p of parts) files.push({ name: `${fileSafe(`${partNo(p)} ${partName(p)}${p.qty > 1 ? ` x${p.qty}` : ''}`)}.dxf`, data: await partDxfText(p) })
+  saveFile(`${fileSafe(`${name} DXF ${stamp()}`)}.zip`, buildZip(files), 'application/zip')
 }
 
 export async function saveStep(p: Part) {

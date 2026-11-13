@@ -101,6 +101,9 @@ async function pool<T>(items: T[], n: number, fn: (x: T, i: number) => Promise<v
 }
 
 const ORDER = (m: string) => MACHINES.indexOf(fromMethod(m))
+/** A part that needs more than one machine says so in its notes until parts keep a route of their own. */
+const routeNote = (it: { route?: string[]; why?: string }) =>
+  it.route && it.route.length > 1 ? `Route: ${it.route.join(' → ')}${it.why ? ` (${it.why})` : ''}` : ''
 
 export async function uploadStep(fileList: File[], sub: Subsystem, existing: Part[], who: Who, onProgress: (t: string) => void): Promise<UploadResult> {
   const steps = fileList.filter((f) => /\.(step|stp)$/i.test(f.name))
@@ -167,14 +170,25 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
   })
   const gone = live.filter((p) => !used.has(p.id) && p.status !== 'cancelled')
 
-  // New parts: next free numbers, by machine then size, as Tom's tool numbers them.
+  // New parts: the number CAD already gave it ("3035 - Wheels Shaft" is 3035), so the drawing and
+  // the CAD agree. Anything unnumbered, or a number that's taken, gets the next free one after
+  // every number in use, by machine then size, as Tom's tool numbers them.
   const base = sub.number * 1000
-  let nextNo = Math.max(base, ...live.map((p) => p.part_no)) + 1
   const fresh = plans
     .filter((p) => p.kind === 'new')
     .sort((a, b) => ORDER(a.item.method) - ORDER(b.item.method) || (b.item.size[0] ?? 0) - (a.item.size[0] ?? 0) || a.item.name.localeCompare(b.item.name))
   const numbers = new Map<Plan, number>()
-  for (const p of fresh) numbers.set(p, nextNo++)
+  const taken = new Set(live.map((p) => p.part_no))
+  for (const p of fresh) {
+    // Only numbers in the subsystem's own range: "1577 Spacer" is the team, "2026 ..." a year.
+    const n = cadNumber(p.item.name)
+    if (n != null && n > base && n < base + 1000 && !taken.has(n)) {
+      numbers.set(p, n)
+      taken.add(n)
+    }
+  }
+  let nextNo = Math.max(base, ...taken) + 1
+  for (const p of fresh) if (!numbers.has(p)) numbers.set(p, nextNo++)
 
   // ----- Files: geometry for drawings, STEP for printed parts -----
   const files = new Map<Plan, { geometry?: string; step?: string }>()
@@ -225,7 +239,7 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
       size: p.item.size.map((v) => Math.round(v * 100) / 100),
       cls: p.item.cls,
       bad: p.item.bad,
-      notes: p.item.bad ? 'Geometry could not be read' : '',
+      notes: p.item.bad ? 'Geometry could not be read' : routeNote(p.item),
       drawn_by: who.name,
       geometry_path: f.geometry ?? null,
       step_path: f.step ?? null,
@@ -317,6 +331,12 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
   if (stepPath) await removeOldSteps(sub.id, stepPath)
   if (errors.length) return { summary, error: errors[0] }
   return { summary }
+}
+
+/** The part number at the start of a CAD name: "3035 - Wheels Shaft", "3035_Bracket", "3035 Spacer". */
+export function cadNumber(name: string): number | null {
+  const m = /^\s*(\d{3,5})\s*[-–_. ]\s*\S/.exec(name)
+  return m ? Number(m[1]) : null
 }
 
 async function removeQuietly(bucket: string, paths: string[]) {

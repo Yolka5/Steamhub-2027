@@ -1,4 +1,5 @@
-import { useState, type DragEvent, type ReactNode } from 'react'
+import { useRef, useState, type DragEvent, type MouseEvent, type ReactNode } from 'react'
+import { isPickClick, pickClick } from '../../lib/pick'
 import { PartThumb } from '../../components/PartThumb'
 import { createPortal } from 'react-dom'
 import { Link, useParams } from 'react-router-dom'
@@ -45,6 +46,8 @@ export default function SubsystemPage() {
   const who = useWho()
   const toast = useToast()
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  // The last row clicked, where a Shift-click range starts.
+  const anchor = useRef<string | null>(null)
   const [printing, setPrinting] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [busy, run] = useBusy()
@@ -77,12 +80,26 @@ export default function SubsystemPage() {
     toast(assembled ? 'Marked assembled' : 'No longer assembled')
   }
 
-  const toggle = (pid: string) =>
-    setPicked((s) => {
-      const n = new Set(s)
-      if (n.has(pid)) n.delete(pid)
-      else n.add(pid)
-      return n
+  // Rows in the order they show, for Shift-click ranges across the lists.
+  const order = [...design, ...released, ...bought].map((p) => p.id)
+  const toggle = (pid: string, shift = false) => {
+    // Read the anchor now: React runs the update later, after it has moved on to this row.
+    const from = anchor.current
+    setPicked((s) => pickClick(s, pid, shift, order, from))
+    anchor.current = pid
+  }
+
+  const collect = (list: Part[]) =>
+    run(async () => {
+      if (!who) return
+      const todo = list.filter((p) => p.machine === 'Bought' && p.status !== 'done')
+      for (const p of todo) {
+        const res = await setStatus(p, 'done', who)
+        if (res.error) return toast(res.error)
+        put(res.data!)
+      }
+      setPicked(new Set())
+      toast(`${todo.length} collected`)
     })
 
   const release = (list: Part[]) =>
@@ -95,6 +112,27 @@ export default function SubsystemPage() {
       put(res.data!)
       setPicked(new Set())
       toast(`${todo.length} released to the workshop`)
+    })
+
+  // Many parts at once from the picked bar: the same rules as each row's own dropdowns.
+  const setMachine = (machine: Machine) =>
+    run(async () => {
+      const todo = pickedParts.filter((p) => p.machine !== machine)
+      for (const p of todo) {
+        const res = await updatePart(p.id, machinePatch(p, machine))
+        if (res.error) return toast(res.error)
+        put(res.data!)
+      }
+      toast(`${todo.length} set to ${machine}`)
+    })
+  const setMaterial = (material: string) =>
+    run(async () => {
+      const ids = pickedParts.filter((p) => p.machine !== 'Bought').map((p) => p.id)
+      if (!ids.length) return toast('Bought parts have no material')
+      const res = await updateParts(ids, { material })
+      if (res.error) return toast(res.error)
+      put(res.data!)
+      toast(`${ids.length} set to ${material}`)
     })
 
   const setUrgent = (urgent: boolean) =>
@@ -176,8 +214,10 @@ export default function SubsystemPage() {
         </div>
       </div>
 
-      <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} />
+      {/* Prototypes belong to the season's subsystem numbers, which an off-season project doesn't share. */}
+      {!robot.offseason && <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} />}
       {robot.version != null && <SubsystemCalendar season={robot.season} number={sub.number} />}
+      {robot.offseason && <SubsystemCalendar season={robot.season} number={sub.number} projectSub={sub.id} />}
 
       <Drop
         onFile={async (files, progress) => {
@@ -266,6 +306,22 @@ export default function SubsystemPage() {
                   Release
                 </button>
               )}
+              <Select
+                className="field--inline mfg-actionbar__pick"
+                label="Machine for the picked parts"
+                value=""
+                placeholder="Machine"
+                options={MACHINES.map((m) => ({ value: m, label: m }))}
+                onChange={(v) => v && setMachine(v as Machine)}
+              />
+              {pickedParts.some((p) => p.machine !== 'Bought') && (
+                <Combo className="field--inline mfg-actionbar__pick" label="Material for the picked parts" value="" placeholder="Material" options={MATERIALS} onCommit={(v) => v.trim() && setMaterial(v.trim())} />
+              )}
+              {pickedParts.some((p) => p.machine === 'Bought' && p.status !== 'done') && (
+                <button type="button" className="q-btn" disabled={busy} onClick={() => collect(pickedParts)}>
+                  <Icon name="check" size={18} /> Got it
+                </button>
+              )}
               {pickedParts.some((p) => !p.urgent) ? (
                 <button type="button" className="q-btn" disabled={busy} onClick={() => setUrgent(true)}>
                   <Icon name="flag" size={18} /> Urgent
@@ -285,6 +341,14 @@ export default function SubsystemPage() {
       <PrintSheet open={printing} parts={released} ctx={{ robot, sub }} onClose={() => setPrinting(false)} />
     </div>
   )
+}
+
+/** A new machine, and the material that goes with it when the old one no longer fits. */
+function machinePatch(part: Part, machine: Machine): Partial<Part> {
+  const patch: Partial<Part> = { machine }
+  if (machine === 'Bought') patch.material = ''
+  else if (!part.material || part.machine === 'Bought' || machine === '3D print' || part.machine === '3D print') patch.material = guessMaterial(machine, part.cls, part.size, part.name)
+  return patch
 }
 
 /**
@@ -410,7 +474,7 @@ function PartList({
   hint: string
   parts: Part[]
   picked: Set<string>
-  toggle: (id: string) => void
+  toggle: (id: string, shift?: boolean) => void
   put: (p: Part) => void
   action?: ReactNode
 }) {
@@ -426,14 +490,14 @@ function PartList({
       <p className="soft small sp-hint">{hint}</p>
       <ul className="sp-list">
         {parts.map((p) => (
-          <SubPartRow key={p.id} part={p} picked={picked.has(p.id)} toggle={() => toggle(p.id)} put={put} />
+          <SubPartRow key={p.id} part={p} picked={picked.has(p.id)} toggle={(shift) => toggle(p.id, shift)} put={put} />
         ))}
       </ul>
     </section>
   )
 }
 
-function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean; toggle: () => void; put: (p: Part) => void }) {
+function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean; toggle: (shift: boolean) => void; put: (p: Part) => void }) {
   const toast = useToast()
   const who = useWho()
   const save = async (patch: Partial<Part>) => {
@@ -441,10 +505,40 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
     if (res.error) return toast(res.error)
     put(res.data!)
   }
+  const collected = async (status: PartStatus) => {
+    if (!who) return
+    const res = await setStatus(part, status, who)
+    if (res.error) return toast(res.error)
+    put(res.data!)
+    if (status === 'missing') toast('Added to the wishlist')
+  }
+  // Pressing the lit button again puts the part back to Needed, so any state is one press away.
+  const mark = (status: PartStatus) => collected(part.status === status ? 'todo' : status)
+  // Ctrl or Shift on the row picks it instead of opening it. The machine and material fields keep their clicks.
+  const onRowClick = (e: MouseEvent) => {
+    if (!isPickClick(e) || (e.target as HTMLElement).closest('select, button, .field, .menu-pop, input:not(.sp-row__pick)')) return
+    e.preventDefault()
+    e.stopPropagation()
+    toggle(e.shiftKey)
+  }
   const link = `/manufacturing/p/${part.id}`
+  const route = /^Route: (.+?)(?: \(|$)/m.exec(part.notes ?? '')?.[1]
   return (
-    <li className="sp-row" data-picked={picked || undefined}>
-      <input type="checkbox" className="sp-row__pick" checked={picked} onChange={toggle} aria-label={`Pick ${partNo(part)}`} />
+    <li
+      className="sp-row"
+      data-picked={picked || undefined}
+      onClickCapture={onRowClick}
+      // Shift-click would otherwise select the row's text.
+      onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+    >
+      <input
+        type="checkbox"
+        className="sp-row__pick"
+        checked={picked}
+        onChange={() => {}}
+        onClick={(e) => toggle(e.shiftKey)}
+        aria-label={`Pick ${partNo(part)}`}
+      />
       <Link to={link} className="sp-row__thumb" tabIndex={-1} aria-hidden="true">
         <PartThumb part={part} />
       </Link>
@@ -455,6 +549,8 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         <span>{partName(part)}</span>
         <span className="soft small num">
           {sizeText(part.size)} mm · ×{part.qty}
+          {/* More than one machine, as guessed at upload ("Route: Lathe → Mill (why)" in the notes). */}
+          {route && part.machine !== 'Bought' && <> · {route}</>}
         </span>
         {/* Why the workshop lead sent it back, or what was made differently, right where the fix happens. */}
         {part.rejected_note && !part.released_at && <span className="small sp-row__why sp-row__why--bad">Rejected: {part.rejected_note}</span>}
@@ -465,32 +561,17 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         value={part.machine}
         label="Machine"
         options={MACHINES.map((m) => ({ value: m, label: m }))}
-        onChange={(v) => {
-          const machine = v as Machine
-          const patch: Partial<Part> = { machine }
-          if (machine === 'Bought') patch.material = ''
-          else if (!part.material || part.machine === 'Bought' || machine === '3D print' || part.machine === '3D print') patch.material = guessMaterial(machine, part.cls, part.size, part.name)
-          save(patch)
-        }}
+        onChange={(v) => save(machinePatch(part, v as Machine))}
       />
       {part.machine === 'Bought' ? (
-        <Select
-          className="field--inline sp-row__mat"
-          value={part.status === 'done' || part.status === 'missing' ? part.status : 'todo'}
-          label="Collected"
-          options={[
-            { value: 'todo', label: 'Needed' },
-            { value: 'done', label: 'Got it' },
-            { value: 'missing', label: 'Missing' },
-          ]}
-          onChange={async (v) => {
-            if (!who) return
-            const res = await setStatus(part, v as PartStatus, who)
-            if (res.error) return toast(res.error)
-            put(res.data!)
-            if (v === 'missing') toast('Added to the wishlist')
-          }}
-        />
+        <span className="sp-row__mat sp-got" role="group" aria-label="Collected">
+          <button type="button" className="q-btn q-btn--small sp-got__btn" data-kind="got" aria-pressed={part.status === 'done'} onClick={() => mark('done')}>
+            <Icon name="check" size={16} /> Got it
+          </button>
+          <button type="button" className="q-btn q-btn--small sp-got__btn" data-kind="missing" aria-pressed={part.status === 'missing'} onClick={() => mark('missing')}>
+            Missing
+          </button>
+        </span>
       ) : (
         <Combo className="field--inline sp-row__mat" label="Material" value={part.material} options={MATERIALS} onCommit={(v) => save({ material: v })} />
       )}
@@ -502,7 +583,8 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         {part.made_differently && part.status === 'done' && <span className="tag tag--warn">Made differently</span>}
         {part.urgent && part.status !== 'done' && <UrgentTag />}
         {/* The In design section says it already. */}
-        {(part.released_at || part.machine === 'Bought') && <PartStatusTag part={part} />}
+        {/* Bought parts show their state on the Got it and Missing buttons. */}
+        {part.released_at && part.machine !== 'Bought' && <PartStatusTag part={part} />}
       </span>
     </li>
   )

@@ -14,6 +14,7 @@ import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { PartRow } from '../components/mfg'
 import { queueSort, type Part } from '../lib/mfg'
+import CncHome from './CncHome'
 
 /** `tabbar`: the phone tab bar already has it, so phones hide the tile. */
 const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?: boolean }[] = [
@@ -101,7 +102,13 @@ function Letters({ text }: { text: string }) {
   )
 }
 
+/** The CNC room's PC gets its own Home (People: Shared PC, CNC room). */
 export default function Home() {
+  const { room } = useAuth()
+  return room === 'cnc' ? <CncHome /> : <TeamHome />
+}
+
+function TeamHome() {
   const navigate = useNavigate()
   const openPalette = useOpenPalette()
   const { pieces } = useStore()

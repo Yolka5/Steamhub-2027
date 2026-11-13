@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useWho } from '../lib/auth'
-import { dayLabel, firstName, NEXT_STATUS, setTaskStatus, STATUS_WORD, todayIso, type Task, type TaskStatus } from '../lib/cal'
+import { addDays, dayLabel, firstName, NEXT_STATUS, setTaskStatus, STATUS_WORD, todayIso, type Task, type TaskStatus } from '../lib/cal'
 import type { Progress } from '../lib/calLinked'
 import { useSeasons } from '../lib/proto'
 import { usePhone } from '../lib/usePhone'
@@ -116,9 +116,12 @@ export function StatusButton({ task, cal }: { task: Task; cal: Pick<Cal, 'tasks'
 
 export function DueLabel({ task }: { task: Pick<Task, 'due_on' | 'starts_on' | 'status'> }) {
   if (!task.due_on) return null
-  const late = task.status !== 'done' && task.due_on < todayIso()
+  const today = todayIso()
+  const late = task.status !== 'done' && task.due_on < today
+  // Due in the next three days: check this.
+  const soon = task.status !== 'done' && !late && task.due_on <= addDays(today, 3)
   return (
-    <span className="cal-due num" data-late={late || undefined}>
+    <span className="cal-due num" data-late={late || undefined} data-soon={soon || undefined}>
       {dayLabel(task.due_on)}
     </span>
   )

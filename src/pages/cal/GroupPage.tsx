@@ -29,6 +29,9 @@ import { usePeople } from '../../lib/useMfg'
 import { QuickAdd } from './Board'
 import { TodayUpdate } from './TodayUpdate'
 import { usePhone } from '../../lib/usePhone'
+import { PartsList } from '../../components/CalParts'
+import { CNC_MACHINES, openParts, WORKSHOP_MACHINES } from '../../lib/calParts'
+import { useTasks } from '../../lib/useTasks'
 
 // One group: its lead, its phases in order (dates, progress, finish), its tasks and the history
 // of its daily updates, filterable by phase.
@@ -45,6 +48,8 @@ export default function GroupPage() {
   const [phaseFilter, setPhaseFilter] = useState<string>('all')
   const [showDone, setShowDone] = useState(false)
   const group = cal.groups.find((g) => g.id === id)
+  // CNC and Workshop make parts: their page shows the parts waiting, not phases.
+  const { tasks: boardParts } = useTasks()
   // Phones show one part at a time (Tasks, Phases, Updates) instead of one long page.
   const phone = usePhone()
   const [params, setParams] = useSearchParams()
@@ -70,6 +75,8 @@ export default function GroupPage() {
       </div>
     )
 
+  const machines = group.kind === 'cnc' ? CNC_MACHINES : group.kind === 'workshop' ? WORKSHOP_MACHINES : null
+  const waiting = machines ? openParts(boardParts, machines) : []
   const phases = cal.phases.filter((p) => p.group_id === group.id).sort((a, b) => a.sort - b.sort)
   const cur = currentPhase(cal.phases, group.id)
   const tasks = cal.tasks.filter((t) => t.group_id === group.id && !t.parent_id).sort(taskOrder)
@@ -132,13 +139,14 @@ export default function GroupPage() {
           options={[{ value: '', label: 'No lead yet' }, ...people.filter((p) => !p.banned && !p.shared).map((p) => ({ value: p.id, label: p.name }))]}
         />
         {group.kind === 'subsystem' && <span className="soft small">Follows the subsystem's lead from V1 setup. Change it there or here.</span>}
+        {group.kind === 'project' && <span className="soft small">An off-season project. Follows its subsystem's lead in Manufacturing.</span>}
       </div>
 
       {phone && (
         <div className="picks picks--seg cal-parts" role="tablist" aria-label="Show">
           {[
             ['tasks', `Tasks${open.length ? ` ${open.length}` : ''}`],
-            ['phases', 'Phases'],
+            machines ? ['parts', `Parts${waiting.length ? ` ${waiting.length}` : ''}`] : ['phases', 'Phases'],
             ['updates', 'Updates'],
           ].map(([k, label]) => (
             <button key={k} type="button" role="tab" className="pick" aria-selected={part === k} onClick={() => go(k)}>
@@ -150,7 +158,9 @@ export default function GroupPage() {
 
       <div className="cal-group-page">
         <div>
-          {shows('phases') && <Phases group={group.id} phases={phases} cal={cal} linked={linked} current={cur?.id ?? null} />}
+          {machines
+            ? shows('parts') && <PartsList list={waiting} machines={machines} />
+            : shows('phases') && <Phases group={group.id} phases={phases} cal={cal} linked={linked} current={cur?.id ?? null} />}
 
           {shows('tasks') && (
           <section className="section">

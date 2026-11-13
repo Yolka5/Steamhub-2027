@@ -123,7 +123,9 @@
 
 /* ----- Pages come in softly ----- */
 .page {
-  animation: page-in 280ms var(--ease-out) both;
+  /* backwards, not both: a transform kept after the animation would trap position: fixed
+     children (the board's hand-out bar, drag ghosts) inside the page instead of the screen. */
+  animation: page-in 280ms var(--ease-out) backwards;
 }
 
 @keyframes page-in {

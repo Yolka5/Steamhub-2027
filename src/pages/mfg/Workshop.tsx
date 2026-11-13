@@ -15,6 +15,7 @@ import { WorkshopPanel } from '../../components/WorkshopPanel'
 import { machineView } from '../../lib/workshopMap'
 import { useNames, useTaskRules } from '../../lib/useTasks'
 import { YourPartsLink } from './Board'
+import { usePlateAsk } from '../../components/PlateAsk'
 
 // What the workshop makes: every released part of every active robot, one list for everyone.
 // Grouped by subsystem, urgent first. Filters live in the URL so a link shows the same view.
@@ -43,6 +44,7 @@ export default function Workshop() {
   const toast = useToast()
   const phone = usePhone()
   const { pick: pickMaker, picker } = useClaimAs()
+  const plateAsk = usePlateAsk()
   // Rows that are saving, or that just started and are still settling (see `cool`).
   const [held, setHeld] = useState<Set<string>>(new Set())
   const running = useRef(new Set<string>())
@@ -100,6 +102,7 @@ export default function Workshop() {
             if (back.data) put(back.data)
           },
         })
+        if (res.data) plateAsk.after(res.data, put)
       }
     }
     return (
@@ -184,6 +187,7 @@ export default function Workshop() {
         if (back.data) put(back.data)
       },
     })
+    if (res.data) plateAsk.after(res.data, put)
   }
 
   /** "Show in list": close the map, clear the filters that would hide it, flash its row. */
@@ -205,7 +209,7 @@ export default function Workshop() {
 
   // The edge tab: a click opens the map, and so does pulling it left.
   const pull = useRef<{ x: number } | null>(null)
-  const dots = MADE.filter((m) => m === 'Lathe' || m === 'Mill').map((m) => ({ m, state: machineView(m, mapParts, Date.now(), null).state }))
+  const dots = MADE.filter((m) => m === 'Lathe' || m === 'Mill' || m === 'CNC').map((m) => ({ m, state: machineView(m, mapParts, Date.now(), null).state }))
 
   const activeSubs = subs.filter((s) => robots.some((r) => r.id === s.robot_id && !r.archived))
   const multiRobot = new Set(activeSubs.map((s) => s.robot_id)).size > 1
@@ -347,6 +351,7 @@ export default function Workshop() {
         onClose={() => setPrinting(null)}
       />
       {picker}
+      {plateAsk.sheet}
 
       {!phone &&
         createPortal(

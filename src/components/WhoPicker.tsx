@@ -37,7 +37,7 @@ function remember(m: Maker) {
  * - `null` if the sheet was closed without picking.
  */
 export function useClaimAs() {
-  const { shared } = useAuth()
+  const { shared, room } = useAuth()
   const { people } = usePeople()
   const [asking, setAsking] = useState<Part | null>(null)
   const resolver = useRef<((m: Maker | null) => void) | null>(null)
@@ -68,7 +68,7 @@ export function useClaimAs() {
       <PersonSheet
         open={!!asking}
         title={asking ? `Who's making ${asking.part_no}?` : ''}
-        sub="The workshop PC is shared, so pick your name for this part."
+        sub={`The ${room === 'cnc' ? 'CNC' : 'workshop'} PC is shared, so pick your name for this part.`}
         typed="Start"
         onDone={done}
       />

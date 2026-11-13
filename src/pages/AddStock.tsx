@@ -38,7 +38,8 @@ function checkPiece(kind: Kind, dims: Dims, length: string): string | null {
     const v = num(dims[f.key])
     if (v == null) {
       if (f.key === 'inner_d') continue
-      return `Type the ${f.label.toLowerCase()}`
+      // OD and ID stay capitals; Width, Wall and the rest read as words.
+      return `Type the ${f.label === f.label.toUpperCase() ? f.label : f.label.toLowerCase()} first`
     }
     if (!Number.isFinite(v) || v <= 0) return `${f.label} has to be a number above 0`
   }
@@ -53,7 +54,7 @@ function checkPiece(kind: Kind, dims: Dims, length: string): string | null {
   }
   if (kind === 'flat' && wall != null && wall > a) return 'Thickness is more than the width'
   const len = num(length)
-  if (len == null) return 'Type the length'
+  if (len == null) return 'Type the length first'
   if (!Number.isFinite(len) || len <= 0) return 'Length has to be a number above 0'
   return null
 }
@@ -140,7 +141,9 @@ export default function AddStock() {
   // used to save the same piece twice under two IDs.
   const saving = useRef(false)
   const save = async () => {
-    if (!userId || !name || !ready || saving.current) return
+    // The button stays pressable and says what's missing, instead of greying out with no reason.
+    if (!ready) return toast(problem ?? 'Fill in the size first')
+    if (!userId || !name || saving.current) return
     saving.current = true
     try {
       await saveNow(userId, name)
@@ -332,7 +335,7 @@ export default function AddStock() {
         {error && <p className="error">{error}</p>}
         {/* Only once something is typed: an empty form doesn't need telling it's empty. */}
         {problem && (dims.a || length) && <p className="soft small" aria-live="polite">{problem}</p>}
-        <button type="submit" className="q-btn q-btn--main q-btn--wide q-btn--big" disabled={!ready || busy}>
+        <button type="submit" className="q-btn q-btn--main q-btn--wide q-btn--big" data-waiting={!ready || undefined}>
           {busy ? 'Saving' : `Save as ${id}`}
         </button>
       </form>

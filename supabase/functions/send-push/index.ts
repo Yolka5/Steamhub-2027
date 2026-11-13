@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
   if (!subs?.length) return json({ sent: 0 })
 
   const k = await keys()
-  webpush.setVapidDetails('https://steamhub2027.vercel.app', k.publicKey, k.privateKey)
+  webpush.setVapidDetails('https://steamhub1577.com', k.publicKey, k.privateKey)
   const { count } = await db.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', note.user_id).is('read_at', null)
   const payload = JSON.stringify({ title: 'Steamhub', body: note.text, url: note.link ?? '/notifications', tag: `${note.kind}-${note.id}`, badge: count ?? 0 })
 

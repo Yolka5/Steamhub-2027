@@ -1,39 +1,53 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { partName, type Machine, type Part } from '../lib/mfg'
-import { ROOM, type Spot } from '../lib/workshopRoom'
+import type { Room, Spot } from '../lib/roomKit'
+import { ROOM } from '../lib/workshopRoom'
 import { firstName, machineView, span, startedAt, STATE_WORD, type MachineView } from '../lib/workshopMap'
 
-// The clay workshop with live machine states (WORKSHOP_MAP.md). Tags are HTML laid over the SVG
-// so their text stays sharp and they can hold buttons. Hover opens a tag on a mouse, a tap pins
-// it open anywhere.
+// A clay room with live machine states (WORKSHOP_MAP.md): the workshop, the CNC room, and any
+// room drawn with roomKit. Tags are HTML laid over the SVG so their text stays sharp and they can
+// hold buttons. Hover opens a tag on a mouse, a tap pins it open anywhere.
 
-const SPOT_MACHINE: Partial<Record<Spot, Machine>> = { lathe: 'Lathe', mill: 'Mill' }
-const MACHINE_SPOTS = (['lathe', 'mill'] as const).map((spot) => ({ spot, machine: SPOT_MACHINE[spot]! }))
 const fine = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches
 
+// The soft light-to-shadow shading on every face. One set of gradients for the whole page, so
+// every map (panel, Home, CNC Home) shares it; the colours come from CSS variables per theme.
+const FAMILIES = ['clay', 'run', 'stale', 'urg', 'warm'] as const
+function useShading() {
+  useEffect(() => {
+    if (document.getElementById('wmap-shading')) return
+    const stop = (o: number, v: string) => `<stop offset="${o}" style="stop-color:var(${v})"/>`
+    const g = (id: string, a: string, b: string) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stop(0, a)}${stop(1, b)}</linearGradient>`
+    const defs = FAMILIES.map((f) => g(`wm-${f}-t`, `--${f}-t-back`, `--${f}-t`) + g(`wm-${f}-s`, `--${f}-s`, `--${f}-s-low`) + g(`wm-${f}-w`, `--${f}-w`, `--${f}-w-low`)).join('')
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    el.id = 'wmap-shading'
+    el.setAttribute('aria-hidden', 'true')
+    el.setAttribute('width', '0')
+    el.setAttribute('height', '0')
+    el.style.position = 'absolute'
+    el.innerHTML = `<defs>${defs}</defs>`
+    document.body.appendChild(el)
+  }, [])
+}
+
 interface Props {
+  room?: Room
   parts: Part[]
   lastUsed: Partial<Record<Machine, number>>
   now: number
   onDone?: (p: Part) => void
   onShow?: (p: Part) => void
-  onStock?: () => void
-  /** The saw opens the cut list. */
-  onSaw?: () => void
-  /** Home's mini map: the back half of the room, live colours, no tags, not interactive. */
+  /** Home's mini map: where the machines are, live colours, no tags, not interactive. */
   compact?: boolean
 }
 
-export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, onSaw, compact }: Props) {
-  // Spots that are links rather than machines.
-  const links: { spot: 'stock' | 'saw'; label: string; go?: () => void }[] = [
-    { spot: 'stock', label: 'Stock →', go: onStock },
-    { spot: 'saw', label: 'Cut list →', go: onSaw },
-  ]
-  const views = Object.fromEntries(MACHINE_SPOTS.map(({ spot, machine }) => [spot, machineView(machine, parts, now, lastUsed[machine] ?? null)])) as Record<
-    'lathe' | 'mill',
-    MachineView
-  >
+export function WorkshopMap({ room = ROOM, parts, lastUsed, now, onDone, onShow, compact }: Props) {
+  useShading()
+  const navigate = useNavigate()
+  const links = room.links.map((l) => ({ ...l, go: () => navigate(l.to) }))
+  const views = Object.fromEntries(room.machines.map(({ spot, machine }) => [spot, machineView(machine, parts, now, lastUsed[machine] ?? null)])) as Partial<Record<Spot, MachineView>>
+  const isMachine = (s: Spot) => !!views[s]
   const [hover, setHover] = useState<Spot | null>(null)
   const [pinned, setPinned] = useState<Spot | null>(null)
   const hideT = useRef(0)
@@ -75,7 +89,7 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, onS
     const r = w.getBoundingClientRect()
     const at = (spot: Spot) => {
       const p = s.createSVGPoint()
-      ;[p.x, p.y] = ROOM.anchors[spot]
+      ;[p.x, p.y] = room.anchors[spot] ?? [0, 0]
       const q = p.matrixTransform(m)
       return [q.x - r.left, q.y - r.top] as const
     }
@@ -99,37 +113,42 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, onS
     })
   }
   useLayoutEffect(place)
+  // The observer always calls the latest place(), so it never works from an old room or size.
+  const placeRef = useRef(place)
+  useLayoutEffect(() => {
+    placeRef.current = place
+  })
   useEffect(() => {
     const w = wrap.current
     if (!w) return
-    const ro = new ResizeObserver(() => place())
+    const ro = new ResizeObserver(() => placeRef.current())
     ro.observe(w)
     return () => ro.disconnect()
   }, [])
 
   const spotClass = (spot: Spot) => {
-    const st = spot === 'lathe' || spot === 'mill' ? views[spot].state : ''
+    const st = views[spot]?.state ?? 'link'
     return `wmap__spot wmap__${spot} ${st}${hot === spot ? ' is-hot' : ''}`
   }
 
   const map = (
-    <svg ref={svg} onAnimationEnd={compact ? undefined : place} className={`wmap__svg${hot ? ` hot-${hot}` : ''}`} viewBox={compact ? '40 185 780 320' : ROOM.viewBox} aria-hidden={compact || undefined} role={compact ? undefined : 'img'} aria-label={compact ? undefined : 'Workshop map, seen from the entry'}>
+    <svg ref={svg} onAnimationEnd={compact ? undefined : place} className={`wmap__svg${hot ? ` hot-${hot}` : ''}`} viewBox={compact ? room.miniViewBox : room.viewBox} aria-hidden={compact || undefined} role={compact ? undefined : 'img'} aria-label={compact ? undefined : `${room.name} map, seen from the ${room.entryLabel.toLowerCase()}`}>
       <defs>
         <filter id={fid} x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="7" />
         </filter>
       </defs>
-      <polygon className="floor" points={ROOM.floor} />
+      <polygon className="floor" points={room.floor} />
       <g filter={`url(#${fid})`}>
-        {ROOM.shadows.map((s, i) =>
+        {room.shadows.map((s, i) =>
           s.ellipse ? (
-            <ellipse key={i} className="sh" cx={s.ellipse[0]} cy={s.ellipse[1]} rx={s.ellipse[2]} ry={s.ellipse[2]} />
+            <ellipse key={i} className="sh" cx={s.ellipse[0]} cy={s.ellipse[1]} rx={s.ellipse[2]} ry={s.ellipse[3]} />
           ) : (
             <polygon key={i} className={`sh${s.spot ? ` sh-${s.spot}` : ''}`} points={s.points} />
           ),
         )}
       </g>
-      {ROOM.layers.map((layer, i) => {
+      {room.layers.map((layer, i) => {
         const polys = layer.polys.map((p, j) => <polygon key={j} className={`${p.face} ${p.tone}`} points={p.points} />)
         if (!layer.spot || compact) return layer.spot ? <g key={i} className={spotClass(layer.spot)}>{polys}</g> : <g key={i}>{polys}</g>
         const spot = layer.spot
@@ -139,15 +158,15 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, onS
             className={spotClass(spot)}
             onPointerEnter={() => enter(spot)}
             onPointerLeave={leave}
-            onClick={() => (spot === 'lathe' || spot === 'mill' ? setPinned((p) => (p === spot ? null : spot)) : links.find((l) => l.spot === spot)?.go?.())}
+            onClick={() => (isMachine(spot) ? setPinned((p) => (p === spot ? null : spot)) : links.find((l) => l.spot === spot)?.go())}
           >
             {polys}
           </g>
         )
       })}
       {!compact && (
-        <text className="wmap__entry" x={ROOM.entry[0]} y={ROOM.entry[1]} textAnchor="middle">
-          Entry
+        <text className="wmap__entry" x={room.entry[0]} y={room.entry[1]} textAnchor="middle">
+          {room.entryLabel}
         </text>
       )}
     </svg>
@@ -158,14 +177,14 @@ export function WorkshopMap({ parts, lastUsed, now, onDone, onShow, onStock, onS
   return (
     <div className="wmap" ref={wrap}>
       {map}
-      {MACHINE_SPOTS.map(({ spot, machine }) => {
-        const v = views[spot]
+      {room.machines.map(({ spot, machine }) => {
+        const v = views[spot]!
         const open = hot === spot
         return (
           <MachineTag key={spot} spot={spot} machine={machine} view={v} open={open} now={now} onEnter={() => enter(spot)} onLeave={leave} onToggle={() => setPinned((p) => (p === spot ? null : spot))} onDone={onDone} onShow={onShow} />
         )
       })}
-      {MACHINE_SPOTS.map(({ spot }) => (
+      {room.machines.map(({ spot }) => (
         <i key={spot} className="wmap-lead" data-anchor={spot} aria-hidden="true" />
       ))}
       {links.map((l) => (

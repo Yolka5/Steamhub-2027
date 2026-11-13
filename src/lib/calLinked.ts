@@ -32,7 +32,8 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
   const [parts, setParts] = useState<Slim[]>([])
 
   const seasonSubs = useMemo(() => {
-    const rs = new Set(robots.filter((r) => r.season === season && r.version != null).map((r) => r.id))
+    // The season's V robots, and its off-season projects, which have their own groups.
+    const rs = new Set(robots.filter((r) => r.season === season && (r.version != null || r.offseason)).map((r) => r.id))
     return subs.filter((s) => rs.has(s.robot_id))
   }, [robots, subs, season])
   const subKey = seasonSubs.map((s) => s.id).join(',')
@@ -74,8 +75,10 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
         })
         continue
       }
-      if ((ph.kind === 'cad' || ph.kind === 'manufacturing') && g.subsystem_number != null) {
-        const sub = seasonSubs.find((s) => s.robot_id === ph.robot_id && s.number === g.subsystem_number)
+      if ((ph.kind === 'cad' || ph.kind === 'manufacturing') && (g.subsystem_number != null || g.subsystem_id)) {
+        const sub = g.subsystem_id
+          ? seasonSubs.find((s) => s.id === g.subsystem_id)
+          : seasonSubs.find((s) => s.robot_id === ph.robot_id && s.number === g.subsystem_number)
         const c = countParts(sub ? parts.filter((p) => p.subsystem_id === sub.id) : [])
         if (ph.kind === 'cad') {
           out.set(ph.id, {

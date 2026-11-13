@@ -8,14 +8,15 @@ import { usePeople } from '../lib/useMfg'
 
 // On a subsystem's Manufacturing page: its Calendar phases and open tasks, short.
 
-export function SubsystemCalendar({ season, number }: { season: number; number: number }) {
+/** A season subsystem by its number, or an off-season project's subsystem by its id. */
+export function SubsystemCalendar({ season, number, projectSub }: { season: number; number: number; projectSub?: string }) {
   const current = useCalSeason()
   // Only this season's subsystems have a Calendar group.
   const cal = useCal(current === season ? season : null)
   const linked = useLinked(current === season ? season : null, cal)
   const { nameOf } = usePeople()
   if (current !== season || cal.loading) return null
-  const g = cal.groups.find((x) => x.kind === 'subsystem' && x.subsystem_number === number)
+  const g = cal.groups.find((x) => (projectSub ? x.kind === 'project' && x.subsystem_id === projectSub : x.kind === 'subsystem' && x.subsystem_number === number))
   if (!g) return null
   const phases = cal.phases.filter((p) => p.group_id === g.id).sort((a, b) => a.sort - b.sort)
   const cur = currentPhase(cal.phases, g.id)

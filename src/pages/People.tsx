@@ -48,6 +48,14 @@ function Admin({ userId }: { userId: string | null }) {
     toast(shared ? `${p.name} is the shared workshop PC. Start on it asks who's making the part.` : `${p.name} is a personal account again`)
   }
 
+  // Which room a shared PC stands in. The CNC room's PC opens on the CNC Home.
+  const setRoom = async (p: Profile, room: 'cnc' | null) => {
+    const { error } = await supabase.from('profiles').update({ room }).eq('id', p.id)
+    if (error) return toast(error.message)
+    await load()
+    toast(room === 'cnc' ? `${p.name} is the CNC room PC. It opens on the CNC parts.` : `${p.name} is the workshop PC again`)
+  }
+
   // Workshop leads hand out parts on the board (WORKSHOP_TASKS.md).
   const setLead = async (p: Profile, lead: boolean) => {
     const { error } = await supabase.from('profiles').update({ workshop_lead: lead }).eq('id', p.id)
@@ -76,13 +84,18 @@ function Admin({ userId }: { userId: string | null }) {
               </span>
             </span>
             {p.banned && <span className="tag tag--bad">Banned</span>}
-            {p.shared && <span className="tag">Shared workshop PC</span>}
+            {p.shared && <span className="tag">{p.room === 'cnc' ? 'Shared CNC PC' : 'Shared workshop PC'}</span>}
             {p.workshop_lead && <span className="tag">Workshop lead</span>}
             {p.id !== userId && (
               <span className="row__end people__acts">
                 {!p.shared && (
                   <button type="button" className="q-btn q-btn--small" onClick={() => setLead(p, !p.workshop_lead)}>
                     {p.workshop_lead ? 'Not lead' : 'Lead'}
+                  </button>
+                )}
+                {p.shared && (
+                  <button type="button" className="q-btn q-btn--small" onClick={() => setRoom(p, p.room === 'cnc' ? null : 'cnc')}>
+                    {p.room === 'cnc' ? 'Workshop room' : 'CNC room'}
                   </button>
                 )}
                 <button type="button" className="q-btn q-btn--small" onClick={() => setShared(p, !p.shared)}>

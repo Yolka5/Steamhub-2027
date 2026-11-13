@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { selectAll, supabase } from './supabase'
 import { useReloadOnReturn } from './useReturn'
+import { updatePart, type Part, type Who } from './mfg'
 
 // CNC plate stock and end mills. Plates have no labels; they're found by size. One row per
 // physical plate, so each can be Available, Partly used (someone cut from it, there may be enough
@@ -121,6 +122,44 @@ export function platesFor(plates: Plate[], size: number[]): Plate[] {
     .filter((p) => p.state !== 'gone' && Math.abs(p.thickness - t) <= 0.2)
     .filter((p) => p.length >= x + m && p.width >= y + m)
     .sort((a, b) => (a.state === b.state ? plateArea(a) - plateArea(b) : a.state === 'partly_used' ? -1 : 1))
+}
+
+/** The plates that fit, with identical plates in the same state shown once and counted. */
+export function fitGroups(plates: Plate[], size: number[], max = 4): { plate: Plate; n: number }[] {
+  const groups = new Map<string, { plate: Plate; n: number }>()
+  for (const pl of platesFor(plates, size)) {
+    const k = `${pl.length}|${pl.width}|${pl.state}`
+    const g = groups.get(k)
+    if (g) g.n++
+    else groups.set(k, { plate: pl, n: 1 })
+  }
+  return [...groups.values()].slice(0, max)
+}
+
+/** Plates of this thickness that aren't gone, fresh from the database. */
+export async function platesAt(thickness: number): Promise<Plate[]> {
+  const { data } = await supabase.from('plates').select('*').neq('state', 'gone').gte('thickness', thickness - 0.2).lte('thickness', thickness + 0.2)
+  return ((data as Plate[] | null) ?? []).map((p) => ({ ...p, thickness: Number(p.thickness), length: Number(p.length), width: Number(p.width) }))
+}
+
+/**
+ * A part was cut from this plate: the plate is now Partly used or Gone, and the part remembers it.
+ * `undo` puts both back.
+ */
+export async function cutFromPlate(part: Part, plate: Plate, state: PlateState, who: Who): Promise<{ part?: Part; error?: string; undo?: () => Promise<Part | undefined> }> {
+  const before = plate.state
+  const res = await setPlateState(plate.id, state, who)
+  if (res.error) return { error: res.error }
+  const r2 = await updatePart(part.id, { plate_id: plate.id })
+  if (r2.error) return { error: r2.error }
+  return {
+    part: r2.data,
+    undo: async () => {
+      await setPlateState(plate.id, before, who)
+      const r3 = await updatePart(part.id, { plate_id: part.plate_id })
+      return r3.data
+    },
+  }
 }
 
 export function useEndMills() {

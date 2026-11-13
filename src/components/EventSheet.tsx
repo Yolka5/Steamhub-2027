@@ -144,6 +144,7 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
         save()
       }}
     >
+      {ev?.source === 'google' && <p className="soft small">From the team’s Google Calendar. Change it there: the next hourly sync puts back edits made here.</p>}
       <label className="ctl">
         <span className="ctl__name">Name</span>
         <input className="field" data-autofocus={!ev || undefined} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'meeting' ? 'Team meeting' : kind === 'competition' ? 'District event #1' : 'Order deadline'} />

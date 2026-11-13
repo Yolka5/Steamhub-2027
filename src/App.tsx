@@ -12,6 +12,7 @@ import { ToastProvider } from './components/ui'
 import { useAuth } from './lib/auth'
 import { switchTheme } from './lib/motion'
 import Home from './pages/Home'
+import CncHome from './pages/CncHome'
 import Stock from './pages/Stock'
 import PiecePage from './pages/Piece'
 import AddStock from './pages/AddStock'
@@ -33,6 +34,7 @@ import Bolts from './pages/mfg/Bolts'
 import Guide from './pages/mfg/Guide'
 import Board, { MfgStart } from './pages/mfg/Board'
 import PersonList from './pages/mfg/PersonList'
+import LabelPage from './pages/mfg/Label'
 import Prototypes from './pages/proto/Prototypes'
 import PrototypePage from './pages/proto/PrototypePage'
 import TestForm from './pages/proto/TestForm'
@@ -50,6 +52,7 @@ import CalendarPage from './pages/cal/Calendar'
 import GroupPage from './pages/cal/GroupPage'
 import UpdatePage from './pages/cal/UpdatePage'
 import CalSummary from './pages/cal/Summary'
+import CalImport from './pages/cal/Import'
 import { refreshPush } from './lib/push'
 import { NoAccess, SignIn } from './components/SignIn'
 import { useNotifications } from './lib/notifications'
@@ -250,6 +253,7 @@ export default function App() {
           <BackButton />
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/cnc" element={<CncHome />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/stock/add" element={<AddStock />} />
             <Route path="/stock/photos" element={<NeedsPhoto />} />
@@ -275,6 +279,7 @@ export default function App() {
             <Route path="/manufacturing/s/:id/bolts" element={<Bolts />} />
             <Route path="/manufacturing/s/:id/guide" element={<Guide />} />
             <Route path="/manufacturing/wishlist" element={<Wishlist />} />
+            <Route path="/manufacturing/label" element={<LabelPage />} />
             <Route path="/prototypes" element={<Prototypes />} />
             <Route path="/prototypes/record" element={<Record />} />
             <Route path="/prototypes/compare" element={<Compare />} />
@@ -292,6 +297,7 @@ export default function App() {
             <Route path="/calendar/g/:id" element={<GroupPage />} />
             <Route path="/calendar/update" element={<UpdatePage />} />
             <Route path="/calendar/summary" element={<CalSummary />} />
+            <Route path="/calendar/import" element={<CalImport />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

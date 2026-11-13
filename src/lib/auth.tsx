@@ -17,12 +17,25 @@ interface Auth {
   canAssign: boolean
   /** The shared workshop PC account. */
   shared: boolean
+  /** The room a shared PC stands in: 'cnc' opens the CNC Home. */
+  room: 'cnc' | null
   banned: boolean
   signIn: () => Promise<string | null>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<Auth | null>(null)
+
+// The room is also kept in the browser, so the CNC PC opens on its own Home at once instead of
+// flashing the usual one while the profile loads.
+const ROOM_KEY = 'steamhub.room'
+const savedRoom = (): 'cnc' | null => {
+  try {
+    return localStorage.getItem(ROOM_KEY) === 'cnc' ? 'cnc' : null
+  } catch {
+    return null
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   // A saved session opens the app at once, without waiting for supabase-js to check or refresh it.
@@ -54,7 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select(PROFILE_COLUMNS)
       .eq('id', uid)
       .maybeSingle()
-      .then(({ data }) => setProfile((data as Profile | null) ?? null))
+      .then(({ data }) => {
+        const p = (data as Profile | null) ?? null
+        setProfile(p)
+        if (!p) return
+        try {
+          if (p.shared && p.room) localStorage.setItem(ROOM_KEY, p.room)
+          else localStorage.removeItem(ROOM_KEY)
+        } catch {
+          // Private mode: the room comes from the profile alone.
+        }
+      })
   }, [uid])
 
   const meta = session?.user.user_metadata ?? {}
@@ -69,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: !!profile?.is_admin,
     canAssign: !!profile?.is_admin || !!profile?.workshop_lead,
     shared: !!profile?.shared,
+    room: profile ? (profile.shared && profile.room ? profile.room : null) : uid ? savedRoom() : null,
     banned: !!profile?.banned,
     async signIn() {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -79,6 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     async signOut() {
       clearSavedData()
+      try {
+        localStorage.removeItem(ROOM_KEY)
+      } catch {
+        // Nothing saved.
+      }
       await supabase.auth.signOut()
     },
   }

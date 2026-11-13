@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { CalTabs, useCalSeason } from '../../components/cal'
+import { Icon } from '../../components/Icon'
 import { EventSheetHost } from '../../components/EventSheet'
 import { TaskSheetHost } from '../../components/TaskSheet'
 import { LoadError } from '../../components/ui'
@@ -69,6 +70,10 @@ export default function CalendarPage() {
           Show done
         </label>
       )}
+      {/* Google Calendar and Monday come in from here. */}
+      <Link to="/calendar/import" className="q-btn q-btn--small cal-filters__import">
+        <Icon name="download" size={16} /> Import
+      </Link>
     </div>
   )
 

@@ -280,6 +280,10 @@ a.tcol__name:hover {
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-float, 0 8px 24px rgba(0, 0, 0, 0.18));
 }
+/* Room under the list so the bar never covers the last card. */
+.page:has(> .tbar) {
+  padding-bottom: 6rem;
+}
 .tbar__count {
   flex: 1;
   padding-left: 0.4rem;

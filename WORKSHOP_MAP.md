@@ -180,9 +180,27 @@ To check:
 - [x] The **Workshop now** card after `<Season />`: a cropped live mini map and one line per machine. Tapping it goes to `/manufacturing?map=1`.
 - [x] Fresh query on open, plus realtime. No caching between pages (speed decisions).
 
-### Phase 6: CNC and 3D print room (next, needs Yoni's input)
-- [ ] Yoni sends a top-view sketch and photos of the second room, like the workshop ones.
-- [ ] Draw it as a cutout room on the same screen, next to the workshop, with the same clay style. The CNC and printers get states, and the side cards go away.
+### Phase 6: CNC room (built 2026-11-13)
+- [x] Yoni sent a sketch, photos and videos. The room is 3 × 4.5 m, with the door in the front wall on the right. It went through five picture drafts.
+- [x] `src/lib/cncRoom.ts` draws it with the shared `src/lib/roomKit.ts`. The workshop room moved onto the same kit.
+  - **Camera:** its own, leaning left more strongly (-0.12), with taller fronts (0.84) and slightly shorter depth (0.86). The left wall stands full height; the right and front walls are cut low.
+  - **Live:** the CNC gets states. The parts organizer opens End mills (`/stock/end-mills`).
+  - **Scenery:** the dust collector with the compressor, the PC with two monitors and the keyboard shelf, the whiteboard, the corkboard, the bin and the stool.
+  - **Removed by Yoni:** the plate stack, the round bin by the door, and the floor cable.
+- [x] The panel shows the workshop and the CNC room side by side at the same scale (widths 780:430), stacked on phones. The 3D printers' room isn't drawn (Yoni: too complicated), so 3D print stays a card. The edge tab has a CNC dot.
+- [x] Soft shading in both rooms: one shared set of gradients (`#wm-<family>-<face>`) injected once into the page, with colours from CSS variables per theme.
+- [x] The CNC PC's own Home (`/cnc`, shown on the shared CNC account) has the live CNC room at the top of its side column. Its tags open the part page.
+
+### Workshop redraw (2026-11-13)
+- [x] Redrawn from Yoni's new photos and entrance video, in the CNC room's detail and style. It uses the same camera as the CNC room, at the same scale (80 px/m), but leans right, because you look in from the entrance on the left.
+  - **Back wall:** maroon stripe, two whiteboards, fire extinguisher, the grey tool cabinet with its punch-card holder, the air reel, and a much more detailed mill.
+  - **Back wall, right side:** a shop vacuum, the green bin with its lid, the saw on its dark cabinet with the orange flag (no guard frame), and the red-legged sander and grinder bench with boxes and blue crates.
+  - **Left wall:** the lathe in more detail, the glass-top table (2.4 × 0.95 m) and the touchscreen.
+  - **Middle:** the big work table with a dark steel top, two red vises and a blue one, and black crates underneath.
+  - **Right wall:** the Beta banner over a cantilever stock rack, running about 2 m to 4.2 m from the back wall.
+  - **Front wall:** the drill-press table with two drill presses, the mini mill and chargers; the wooden drawers; and one long table over the Beta cart and the case shelves, with organizer cases, a blue-bin rack and bit sets on top.
+- [x] Kept clean, by Yoni's call: no robots, carts, boxes or bags.
+- [x] The panel's width ratio is now 820:430, so both rooms stay at the same scale.
 
 ## Not in this plan
 - Sensors, cameras or anything that detects a machine running on its own.

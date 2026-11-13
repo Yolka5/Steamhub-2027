@@ -13,7 +13,7 @@ const IDLE_MS = 3 * 60_000
 
 export default function PersonList({ mine = false }: { mine?: boolean }) {
   const { id: param } = useParams()
-  const { userId } = useAuth()
+  const { userId, room } = useAuth()
   const personId = mine ? userId : (param ?? null)
   const navigate = useNavigate()
   const { tasks, robots, live, people, loading, error, reload, put } = useTasks()
@@ -31,10 +31,12 @@ export default function PersonList({ mine = false }: { mine?: boolean }) {
   // land in someone else's list.
   useEffect(() => {
     if (!rules.shared || mine) return
-    let t = window.setTimeout(() => navigate('/manufacturing/board', { replace: true }), IDLE_MS)
+    // The CNC room's PC goes back to its Home.
+    const back = room === 'cnc' ? '/' : '/manufacturing/board'
+    let t = window.setTimeout(() => navigate(back, { replace: true }), IDLE_MS)
     const poke = () => {
       window.clearTimeout(t)
-      t = window.setTimeout(() => navigate('/manufacturing/board', { replace: true }), IDLE_MS)
+      t = window.setTimeout(() => navigate(back, { replace: true }), IDLE_MS)
     }
     const events = ['pointerdown', 'keydown', 'scroll'] as const
     for (const e of events) window.addEventListener(e, poke, { passive: true })
@@ -42,7 +44,7 @@ export default function PersonList({ mine = false }: { mine?: boolean }) {
       window.clearTimeout(t)
       for (const e of events) window.removeEventListener(e, poke)
     }
-  }, [rules.shared, mine, navigate])
+  }, [rules.shared, mine, navigate, room])
 
   const person = people.find((p) => p.id === personId)
   const name = mine ? 'Your parts' : (person?.name ?? 'Parts')

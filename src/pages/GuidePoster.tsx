@@ -5,10 +5,10 @@ import { Qr } from '../components/Qr'
 // The workshop wall poster: one A4 page, read from about 1.5 m, with a QR code to /guide.
 // The same steps as the guide, cut to a line each. Print it from this page (Ctrl P works too).
 
-const GUIDE_URL = 'https://steamhub2027.vercel.app/guide'
+const GUIDE_URL = 'https://steamhub1577.com/guide'
 
 const STEPS: { title: string; how: ReactNode }[] = [
-  { title: 'Sign in', how: <>steamhub2027.vercel.app → Sign in with Google</> },
+  { title: 'Sign in', how: <>steamhub1577.com → Sign in with Google</> },
   { title: 'Find stock', how: <>Stock → type <code>20x40x1 700</code> → Reserve</> },
   { title: 'Add stock', how: <>Add → shape, sizes, length → Save. Write the ID on the piece</> },
   { title: 'Make a part', how: <>Make → Start → Done. Tap the part for its drawing</> },
@@ -66,7 +66,7 @@ export default function GuidePoster() {
           ))}
         </ol>
 
-        <footer className="poster__foot">steamhub2027.vercel.app/guide</footer>
+        <footer className="poster__foot">steamhub1577.com/guide</footer>
       </article>
     </div>
   )

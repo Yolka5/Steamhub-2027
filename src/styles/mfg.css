@@ -340,6 +340,32 @@
   background: var(--surface-2);
 }
 
+/* Bought parts: Got it and Missing, the lit one says the state. Press it again to go back to Needed. */
+.sp-got {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.sp-got__btn {
+  flex: 1;
+  gap: 0.3rem;
+  padding-inline: 0.6rem;
+}
+
+.sp-got__btn[data-kind='got'][aria-pressed='true'] {
+  color: var(--meaning-b);
+  background: var(--meaning-b-soft);
+}
+
+.sp-got__btn[data-kind='missing'][aria-pressed='true'] {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.sp-got__btn[aria-pressed='false'] svg {
+  display: none;
+}
+
 .sp-row__pick {
   width: 1.15rem;
   height: 1.15rem;
@@ -442,6 +468,19 @@
 
 .mfg-actionbar .q-btn {
   flex: none;
+}
+
+/* Machine and material for every picked part. Narrow, so the bar still fits; it wraps on phones. */
+.mfg-actionbar__pick {
+  width: 8.5rem;
+  min-height: 2.5rem;
+}
+
+@media (max-width: 899px) {
+  .mfg-actionbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 
 @media (min-width: 900px) {
@@ -1132,4 +1171,318 @@
 
 .use-row__bar {
   flex: 1;
+}
+
+/* ---------- Label parts (test set for the classifier) ---------- */
+.label__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.label .chip[aria-pressed='true'] {
+  color: var(--on-main);
+  background: var(--main);
+  border-color: var(--main);
+}
+
+.label__progress {
+  height: 4px;
+  margin: 0.75rem 0 1.25rem;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-pill);
+}
+
+.label__progress span {
+  display: block;
+  height: 100%;
+  background: var(--main);
+  transition: width 0.3s var(--ease-out);
+}
+
+.label__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .label__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.label__pics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.label__pic {
+  aspect-ratio: 1;
+  padding: 0.5rem;
+}
+
+.label__pic svg {
+  height: 100%;
+}
+
+.label__pic--wait {
+  background: var(--surface-1);
+}
+
+.label__side {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.label__side p {
+  margin: 0;
+}
+
+.label__name {
+  margin: 0;
+  font-size: 1.375rem;
+  overflow-wrap: anywhere;
+}
+
+.label__steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.label__step {
+  position: relative;
+  min-height: 3.25rem;
+  padding: 0.4rem 0.6rem 0.4rem 1.9rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.label__step[aria-pressed='true'] {
+  color: var(--on-main);
+  background: var(--main);
+  border-color: var(--main);
+}
+
+.label__key {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.55rem;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.label__order {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.4rem;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.75rem;
+  color: var(--main);
+  background: var(--on-main);
+  border-radius: 50%;
+}
+
+.label__route {
+  min-height: 1.5rem;
+  font-weight: 600;
+}
+
+.label__actions,
+.label__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.label__actions .q-btn--main {
+  flex: 1 1 100%;
+}
+
+.label kbd {
+  margin-left: 0.4rem;
+  font: inherit;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+@media (pointer: coarse) {
+  .label kbd,
+  .label__key {
+    display: none;
+  }
+
+  .label__step {
+    padding-left: 0.75rem;
+  }
+}
+
+.label__check {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+}
+
+.label__check p {
+  margin: 0;
+}
+
+.label__check ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.label__miss {
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ===== Deleting a robot ===== */
+.text-btn--bad {
+  color: var(--meaning-c);
+}
+
+.del-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.del-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* ===== Previous / next part ===== */
+.part-steps {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Urgent on the part page: a toggle, lit while the part jumps the queue. */
+.part-urgent[aria-pressed='true'] {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+/* ===== CNC Home (the CNC room's PC) =====
+   Desktop: the parts to cut on the left, the stock tiles and today's cuts beside them. */
+.cnc__summary {
+  margin: -0.5rem 0 0;
+}
+
+.cnc__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .cnc__grid {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    gap: 2.5rem;
+  }
+  .cnc__side {
+    position: sticky;
+    top: 1.5rem;
+  }
+}
+
+.cnc__section {
+  margin-top: 1.75rem;
+}
+
+.cnc__section > .section__title {
+  margin: 0 0 0.6rem;
+}
+
+.cnc__side .cnc__tiles {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 1.75rem;
+}
+
+.cnc__stock {
+  color: inherit;
+  text-decoration-color: var(--surface-3);
+  text-underline-offset: 3px;
+}
+
+/* The "Which plate?" sheet after Done on a CNC part. */
+.plate-ask {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.plate-ask p {
+  margin: 0;
+}
+
+.plate-ask__list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plate-ask .stock-pick__row {
+  background: var(--surface-1);
+}
+
+.plate-ask__skip {
+  justify-self: start;
+}
+
+/* Cards a step up from the page, as in a person's list. */
+.cnc .task {
+  background: var(--surface-1);
+}
+.cnc .task--done {
+  background: transparent;
+}
+.cnc .task .thumb {
+  background: var(--surface-0);
+}
+
+/* Phones: the group's DXF button is enough, so the part name keeps its room. */
+@media (max-width: 599px) {
+  .cnc .cnc__dxf {
+    display: none;
+  }
+  .cnc .task--big .task__no {
+    min-width: 2.75rem;
+  }
+  .cnc .task--big .task__act {
+    min-width: 4.5rem;
+  }
 }

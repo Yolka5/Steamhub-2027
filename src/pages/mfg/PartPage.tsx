@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { PartStatusTag, UrgentTag } from '../../components/mfg'
 import { PartStock } from '../../components/PartStock'
+import { PartSteps } from '../../components/PartSteps'
 import { cutPiece } from '../../lib/actions'
 import { useStore } from '../../lib/store'
 import { Copy, LoadError, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
 import { useClaimAs, usePickPerson } from '../../components/WhoPicker'
+import { usePlateAsk } from '../../components/PlateAsk'
 import { NOTE, useNames, useTaskRules } from '../../lib/useTasks'
 import { useNote } from '../../components/NoteSheet'
 import { canDraw, partDrawing, saveDxf, savePdf, saveStep, type Ctx } from '../../lib/drawing'
@@ -149,6 +151,7 @@ export default function PartPage() {
   const [cut, setCut] = useState<{ id: string; leftover: number } | null>(null)
   const { byId, upsertLocal } = useStore()
   const { pick: pickMaker, picker } = useClaimAs()
+  const plateAsk = usePlateAsk()
   const { ask, sheet: personSheet } = usePickPerson()
   const rules = useTaskRules()
   const nameOf = useNames()
@@ -228,8 +231,8 @@ export default function PartPage() {
     return true
   }
 
-  /** Runs one action at a time; a second tap while saving does nothing. True when it saved. */
-  const act = async (fn: () => Promise<{ data?: Part | Part[]; error?: string }>, msg: string) => {
+  /** Runs one action at a time; a second tap while saving does nothing. The saved part (or true) when it saved. */
+  const act = async (fn: () => Promise<{ data?: Part | Part[]; error?: string }>, msg: string): Promise<Part | boolean> => {
     if (busyRef.current) return false
     busyRef.current = true
     setBusy('saving')
@@ -242,7 +245,7 @@ export default function PartPage() {
       const row = Array.isArray(res.data) ? res.data[0] : res.data
       if (row) setPart(row)
       toast(msg)
-      return true
+      return row ?? true
     } finally {
       busyRef.current = false
       setBusy(null)
@@ -269,6 +272,7 @@ export default function PartPage() {
     if (!who) return
     const ok = await act(() => setStatus(part, s, who), msg)
     if (!ok) return
+    if (typeof ok === 'object') plateAsk.after(ok, setPart)
     // Done with stock reserved for it: cut the piece, leftover goes back to stock under the same ID.
     // Only after the part really saved as done, so a failed or repeated tap never cuts the stock.
     const piece = s === 'done' && part.piece_id ? byId(part.piece_id) : undefined
@@ -319,7 +323,10 @@ export default function PartPage() {
     const note = await write(NOTE[kind](part))
     if (!note) return
     if (kind === 'ask') act(() => askFirst(part, note, who, by), 'Question sent. You get a notification with the answer.')
-    if (kind === 'doneNote') act(() => doneWithNote(part, note, who), 'Done, note sent')
+    if (kind === 'doneNote') {
+      const ok = await act(() => doneWithNote(part, note, who), 'Done, note sent')
+      if (typeof ok === 'object') plateAsk.after(ok, setPart)
+    }
     if (kind === 'reject') act(() => rejectPart(part, note, who), 'Sent back to design')
   }
   if (part.released_at && !bought && rules.canWork(part) && part.status === 'todo') others.push({ label: 'Ask first…', run: () => pushback('ask') })
@@ -354,6 +361,7 @@ export default function PartPage() {
 
   return (
     <div className="page part">
+      <PartSteps partId={part.id} subId={part.subsystem_id} />
       <div className="part__head">
         <div className="part__title">
           <h1 className="piece__id num">
@@ -540,10 +548,14 @@ export default function PartPage() {
               <>
                 <dt>Urgent</dt>
                 <dd>
-                  <label className="check">
-                    <input type="checkbox" checked={part.urgent} onChange={(e) => save({ urgent: e.target.checked }, e.target.checked ? 'urgent' : 'not_urgent')} />
-                    {part.urgent ? 'Yes, make it first' : 'No'}
-                  </label>
+                  <button
+                    type="button"
+                    className="q-btn q-btn--small part-urgent"
+                    aria-pressed={part.urgent}
+                    onClick={() => save({ urgent: !part.urgent }, part.urgent ? 'not_urgent' : 'urgent')}
+                  >
+                    <Icon name="flag" size={16} /> {part.urgent ? 'Urgent, made first' : 'Make it urgent'}
+                  </button>
                 </dd>
               </>
             )}
@@ -597,6 +609,7 @@ export default function PartPage() {
         </section>
       )}
       {picker}
+      {plateAsk.sheet}
       {personSheet}
       {noteSheet}
     </div>

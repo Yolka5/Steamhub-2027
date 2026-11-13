@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useAuth } from '../../lib/auth'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { isPickClick, pickClick } from '../../lib/pick'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { MfgTabs } from '../../components/mfg'
@@ -40,6 +42,7 @@ export default function Board() {
   const [menu, setMenu] = useState<Part | null>(null)
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  const anchor = useRef<string | null>(null)
   const [tab, setTab] = useState<string | null>(null)
   // Done parts drop off 12 hours after Done, so the board re-checks the time now and then.
   const [now, setNow] = useState(() => Date.now())
@@ -75,13 +78,31 @@ export default function Board() {
   const current = columns.find((c) => c.id === tab) ?? columns[0]
 
   // ----- Select mode (leads) -----
-  const toggle = (id: string) =>
-    setPicked((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
+  const toggle = (id: string, shift = false, order: string[] = []) => {
+    // Read the anchor now: React runs the update later, after it has moved on to this card.
+    const from = anchor.current
+    setPicked((s) => pickClick(s, id, shift, order, from))
+    anchor.current = id
+  }
+  // Ctrl or Shift on a card picks it, and starts handing out if it hasn't started. Shift takes the
+  // cards between the last one clicked and this one, in the same column.
+  const onCardClick = (e: MouseEvent, p: Part, c: Column) => {
+    if (!rules.canAssign || p.status === 'done' || (e.target as HTMLElement).closest('.task__more')) return
+    const order = c.open.map((x) => x.id)
+    if (isPickClick(e)) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!selecting) {
+        setSelecting(true)
+        anchor.current = null
+      }
+      toggle(p.id, e.shiftKey, order)
+    } else if (selecting) {
+      e.preventDefault()
+      e.stopPropagation()
+      toggle(p.id, false, order)
+    }
+  }
   const pickedParts = tasks.filter((p) => picked.has(p.id))
   const stopSelecting = () => {
     setSelecting(false)
@@ -145,7 +166,14 @@ export default function Board() {
     ) : undefined
 
   const card = (p: Part, c: Column) => (
-    <li key={p.id} data-open-card={p.status !== 'done' ? p.id : undefined} className={drag?.part.id === p.id ? 'is-dragging' : undefined}>
+    <li
+      key={p.id}
+      data-open-card={p.status !== 'done' ? p.id : undefined}
+      className={drag?.part.id === p.id ? 'is-dragging' : undefined}
+      onClickCapture={(e) => onCardClick(e, p, c)}
+      // Shift-click would otherwise select the card's text.
+      onMouseDown={(e) => e.shiftKey && rules.canAssign && e.preventDefault()}
+    >
       <TaskCard
         part={p}
         sub={subText(p)}
@@ -265,7 +293,7 @@ export default function Board() {
           <Icon name="people" /> Hand out
         </button>
       )}
-      {selecting && <p className="soft small">Tick parts, or All on a column, then pick who makes them.</p>}
+      {selecting && <p className="soft small">Tick parts, Shift-click for a run of them, or All on a column. Then pick who makes them.</p>}
 
       {error && !tasks.length ? (
         <LoadError onRetry={reload} />
@@ -368,13 +396,15 @@ export function YourPartsLink({ tasks }: { tasks: Part[] }) {
 }
 
 /**
- * Where Make and the Manufacturing rail item open: the board on the shared workshop PC, your own
+ * Where Make and the Manufacturing rail item open: CNC parts on the CNC room's PC, the board on the shared workshop PC, your own
  * list on a phone when you have parts, the workshop list otherwise.
  */
 export function MfgStart() {
   const { userId, shared } = useTaskRules()
+  const { room } = useAuth()
   const phone = usePhone()
-  const [to, setTo] = useState<string | null>(shared ? '/manufacturing/board' : phone ? null : '/manufacturing')
+  // The CNC room's PC: the workshop list, filtered to CNC.
+  const [to, setTo] = useState<string | null>(room === 'cnc' ? '/manufacturing?m=CNC' : shared ? '/manufacturing/board' : phone ? null : '/manufacturing')
   useEffect(() => {
     if (to || !userId) return
     supabase

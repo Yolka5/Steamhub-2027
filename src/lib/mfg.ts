@@ -57,7 +57,7 @@ export const MATERIALS = [
 ]
 
 /** What everyone may read about an account. Emails are for the admin only (admin_people). */
-export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, workshop_lead, created_at'
+export const PROFILE_COLUMNS = 'id, name, avatar, is_admin, banned, shared, room, workshop_lead, created_at'
 
 export interface Profile {
   id: string
@@ -69,6 +69,8 @@ export interface Profile {
   banned: boolean
   /** The shared workshop PC account: Start asks who's making the part. */
   shared?: boolean
+  /** Where a shared PC stands. 'cnc' gets the CNC Home; null is the workshop. */
+  room?: 'cnc' | null
   /** Hands out parts on the board (WORKSHOP_TASKS.md). Admins can too. */
   workshop_lead?: boolean
   created_at: string
@@ -83,6 +85,8 @@ export interface Robot {
   archived: boolean
   /** 1 for V1, 2 for V2… of its season. Test and practice robots have none. */
   version: number | null
+  /** An off-season project: its year, but never the season's robot. Missing until the migration runs. */
+  offseason?: boolean
 }
 
 export interface Subsystem {
@@ -222,21 +226,27 @@ export const isDefaultName = (name: string) => /^\s*(part|body|solid)[\s_-]*\d+\
  * the workshop list never shows six different "Part 1"s. The stored name stays as it came from the
  * STEP, because a re-upload matches parts by that name.
  */
-export function partName(p: Pick<Part, 'name' | 'cls' | 'size'>): string {
+export function partName(p: Pick<Part, 'name' | 'cls' | 'size'> & { part_no?: number; machine?: Machine }): string {
+  // "3035 - Wheels Shaft" numbered 3035 shows as "Wheels Shaft": the number is already beside it.
+  if (p.part_no != null) {
+    const m = /^\s*(\d{3,5})\s*[-–_. ]\s*(\S.*)$/.exec(p.name)
+    if (m && Number(m[1]) === p.part_no) return m[2].trim()
+  }
   if (!isDefaultName(p.name) || !p.size?.length) return p.name
   const s = p.size.map(Number).sort((a, b) => b - a)
   const { length, section } = barDims(s)
   const [w, h] = section
+  // Steamhub: the CNC cuts everything from plate or block, so a long CNC part reads as a plate, as
+  // its drawing does (drawing.ts).
+  const cls = p.machine === 'CNC' && p.cls !== 'print' ? 'plate' : p.cls
   // Hex first: a short hex spacer is classed as a block by its proportions.
-  const hex = p.cls !== 'plate' && p.cls !== 'print' ? hexDims(s) : null
+  const hex = cls !== 'plate' && cls !== 'print' ? hexDims(s) : null
   if (hex) return `Hex ${fmtMm(hex.flats)}, ${fmtMm(hex.length)} long`
-  switch (p.cls) {
+  switch (cls) {
     case 'plate': {
       // Over 12 mm it's cut from a block, as the material guess says.
       if (s[2] > 12) return `Block ${sizeText(s)}`
-      // The thickness the team stocks (6.35, not 6.4), like the material guess.
-      const t = PLATE_THICKNESS.reduce((a, b) => (Math.abs(b - s[2]) < Math.abs(a - s[2]) ? b : a))
-      return `Plate ${Math.abs(t - s[2]) <= 0.2 ? t : fmtMm(s[2])} mm, ${fmtMm(s[0])} × ${fmtMm(s[1])}`
+      return `Plate ${fmtMm(plateThickness(s))} mm, ${fmtMm(s[0])} × ${fmtMm(s[1])}`
     }
     case 'tube':
       return `Tube ${fmtMm(w)} × ${fmtMm(h)}, ${fmtMm(length)} long`
@@ -262,6 +272,16 @@ export const stockLength = (p: Pick<Part, 'size' | 'qty'>) => {
 /** Tom's methods to Steamhub's machines. */
 export const fromMethod = (m: string): Machine =>
   (({ CNC: 'CNC', Milling: 'Mill', Lathe: 'Lathe', '3D print': '3D print', Bought: 'Bought' }) as Record<string, Machine>)[m] ?? 'Mill'
+
+/**
+ * The plate a part is cut from: its thinnest side, snapped to a thickness the team stocks (6.35,
+ * not 6.4) when it's within 0.2 mm, like the material guess.
+ */
+export function plateThickness(size: number[]): number {
+  const t = Math.min(...size.map(Number))
+  const near = PLATE_THICKNESS.reduce((a, b) => (Math.abs(b - t) < Math.abs(a - t) ? b : a))
+  return Math.abs(near - t) <= 0.2 ? near : Math.round(t * 100) / 100
+}
 
 /** Plate thicknesses in the team's stock sheet (mm). */
 export const PLATE_THICKNESS = [0.5, 1, 1.2, 1.5, 1.524, 2, 3, 4, 5, 6, 6.35, 8, 10]
@@ -391,9 +411,15 @@ export async function createRobot(
   copyFrom?: string,
   /** Subsystems typed in at setup, used when nothing is copied. */
   subsystems?: { number: number; name: string; lead_id: string | null }[],
+  offseason = false,
 ): Promise<Res<Robot>> {
-  const version = versionIn(name)
-  const { data, error } = await supabase.from('robots').insert({ name, season, version, created_by: who.userId }).select().single()
+  // An off-season project never counts as a V robot, even with "v2" in its name.
+  const version = offseason ? null : versionIn(name)
+  const { data, error } = await supabase
+    .from('robots')
+    .insert({ name, season, version, created_by: who.userId, ...(offseason ? { offseason } : {}) })
+    .select()
+    .single()
   if (error) return { error: error.code === '23505' ? `This season already has a V${version}. Someone may have just made it.` : error.message }
   let subs = subsystems ?? []
   if (copyFrom) {
@@ -702,4 +728,73 @@ export async function doneWithNote(p: Part, note: string, who: Who): Promise<Res
 export async function partRequests(partId: string) {
   const { data } = await supabase.from('part_requests').select('*').eq('part_id', partId).order('created_at', { ascending: false })
   return (data as PartRequest[] | null) ?? []
+}
+
+// ----- Deleting a robot -----
+
+/** What deleting a robot takes with it, for the confirm sheet. */
+export async function robotFootprint(robotId: string) {
+  const { data: subs } = await supabase.from('subsystems').select('id').eq('robot_id', robotId)
+  const ids = (subs ?? []).map((s) => s.id as string)
+  const none = ['00000000-0000-0000-0000-000000000000']
+  const of = ids.length ? ids : none
+  const [parts, worked, stock, phases] = await Promise.all([
+    supabase.from('parts').select('id', { count: 'exact', head: true }).in('subsystem_id', of),
+    // Released or made: real work, so the sheet asks for the robot's name.
+    supabase.from('parts').select('id', { count: 'exact', head: true }).in('subsystem_id', of).or('released_at.not.is.null,status.eq.done'),
+    supabase.from('pieces').select('id', { count: 'exact', head: true }).in('subsystem_id', of).eq('status', 'reserved'),
+    supabase.from('cal_phases').select('id', { count: 'exact', head: true }).eq('robot_id', robotId),
+  ])
+  return { subs: ids.length, parts: parts.count ?? 0, worked: worked.count ?? 0, stock: stock.count ?? 0, phases: phases.count ?? 0 }
+}
+
+/** Every file under a folder of a bucket, walking into subfolders. */
+async function filesUnder(bucket: string, dir: string): Promise<string[]> {
+  const { data } = await supabase.storage.from(bucket).list(dir, { limit: 1000 })
+  const out: string[] = []
+  for (const f of data ?? []) {
+    const p = `${dir}/${f.name}`
+    // Folders come back without an id.
+    if (f.id) out.push(p)
+    else out.push(...(await filesUnder(bucket, p)))
+  }
+  return out
+}
+
+/**
+ * Deletes a robot with its subsystems, parts and their history (the database cascades those).
+ * Before that: reserved stock goes back on the shelf, open wishlist items for its parts go, and its
+ * files leave storage, except geometry the part-label test set still scores the guesser with.
+ */
+export async function deleteRobot(robotId: string): Promise<{ error?: string }> {
+  const { data: subs, error } = await supabase.from('subsystems').select('id').eq('robot_id', robotId)
+  if (error) return { error: error.message }
+  const ids = (subs ?? []).map((s) => s.id as string)
+  if (ids.length) {
+    const free = await supabase
+      .from('pieces')
+      .update({ status: 'available', reserved_by: null, reserved_by_name: null, reserved_for: null, planned_length: null, reserved_at: null, subsystem_id: null })
+      .in('subsystem_id', ids)
+      .eq('status', 'reserved')
+    if (free.error) return { error: free.error.message }
+    const wish = await supabase.from('wishlist').delete().in('subsystem_id', ids).eq('status', 'open')
+    if (wish.error) return { error: wish.error.message }
+  }
+  // Files first, while the parts still say which geometry the labels need.
+  const { data: parts } = ids.length ? await supabase.from('parts').select('id').in('subsystem_id', ids) : { data: [] }
+  const partIds = (parts ?? []).map((p) => p.id as string)
+  const keep = new Set<string>()
+  for (let i = 0; i < partIds.length; i += 200) {
+    const { data } = await supabase.from('part_labels').select('geometry_path').in('part_id', partIds.slice(i, i + 200))
+    for (const l of data ?? []) if (l.geometry_path) keep.add(l.geometry_path as string)
+  }
+  for (const sub of ids) {
+    for (const bucket of ['parts', 'step']) {
+      const files = (await filesUnder(bucket, sub)).filter((p) => !keep.has(p))
+      for (let i = 0; i < files.length; i += 100) await supabase.storage.from(bucket).remove(files.slice(i, i + 100))
+    }
+  }
+  const del = await supabase.from('robots').delete().eq('id', robotId)
+  if (del.error) return { error: del.error.message }
+  return {}
 }

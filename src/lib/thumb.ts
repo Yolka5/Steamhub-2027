@@ -1,5 +1,6 @@
 import { classifyPart, isoView, projectView } from './step/engine'
 import { loadGeometry } from './drawing'
+import { supabase } from './supabase'
 
 // Small line-art pictures of parts for lists, so a row says which part it is without opening it.
 // One iso view from the part's geometry file, no title block or dimensions. Geometry paths are
@@ -64,6 +65,42 @@ function keep(path: string, svg: string) {
   }
 }
 
+// ----- Shared with everyone -----
+// A picture is drawn once, by whichever device needs it first (usually the uploader's subsystem
+// page, right after the upload), and saved in
+// part_thumbs, so every other phone and the workshop PC just reads it. Asks made in the same moment
+// are sent as one request: a list of 37 parts reads its 37 pictures in one round trip.
+const asked = new Map<string, (svg: string | null) => void>()
+let flushing = false
+function fromTable(path: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    asked.set(path, resolve)
+    if (flushing) return
+    flushing = true
+    queueMicrotask(async () => {
+      flushing = false
+      const batch = new Map(asked)
+      asked.clear()
+      const paths = [...batch.keys()]
+      const found = new Map<string, string>()
+      try {
+        for (let i = 0; i < paths.length; i += 100) {
+          const { data } = await supabase.from('part_thumbs').select('geometry_path, svg').in('geometry_path', paths.slice(i, i + 100))
+          for (const r of data ?? []) found.set(r.geometry_path as string, r.svg as string)
+        }
+      } catch {
+        /* offline or no table yet: draw them here */
+      }
+      for (const [p, done] of batch) done(found.get(p) ?? null)
+    })
+  })
+}
+
+function share(path: string, svg: string) {
+  // Someone else may have saved it a moment ago; either copy is the same picture.
+  void Promise.resolve(supabase.from('part_thumbs').upsert({ geometry_path: path, svg }, { onConflict: 'geometry_path', ignoreDuplicates: true })).catch(() => {})
+}
+
 export function partThumb(path: string, name = ''): Promise<string | null> {
   let p = memory.get(path)
   if (p) return p
@@ -77,13 +114,22 @@ export function partThumb(path: string, name = ''): Promise<string | null> {
   } catch {
     /* no storage, build it */
   }
-  p = slot(() => build(path, name)).then(
-    (svg) => {
-      if (svg) keep(path, svg)
+  p = fromTable(path).then(async (saved) => {
+    if (saved) {
+      keep(path, saved)
+      return saved
+    }
+    try {
+      const svg = await slot(() => build(path, name))
+      if (svg) {
+        keep(path, svg)
+        share(path, svg)
+      }
       return svg
-    },
-    () => null,
-  )
+    } catch {
+      return null
+    }
+  })
   memory.set(path, p)
   return p
 }

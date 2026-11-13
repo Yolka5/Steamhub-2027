@@ -13,6 +13,9 @@ export interface WorkerPart {
   custom: boolean
   bad: boolean
   method: string
+  /** Machines in order, e.g. Lathe then Mill, and why (classify.js). */
+  route: string[]
+  why: string
   material: string
   cls: string | null
   geometry: string | null
@@ -105,6 +108,8 @@ async function partsOf(text: string, single: boolean, progress: (t: string) => v
       custom: it.custom,
       bad: !!it.bad,
       method: it.method,
+      route: (it as { route?: string[] }).route ?? [],
+      why: (it as { why?: string }).why ?? '',
       material: it.material ?? '',
       cls: it.info?.cls ?? null,
       geometry: G ? JSON.stringify({ edges: G.edges, faces: G.faces, size: G.size }, round) : null,

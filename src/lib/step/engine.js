@@ -1,7 +1,9 @@
 // Tom's STEP -> BOM + Drawings engine (1577), ported from the claude.ai artifact.
 // Source: Creations/Tom's Stuff/1577 STEP -> BOM + Drawings (Copy).html, lines 104-1901.
 // Kept close to Tom's code on purpose so his later changes are easy to bring over.
-// Changes from his copy: unreadable-part note kept, note 3 says STEP, items carry pd/solids, ESM exports.
+// Changes from his copy: unreadable-part note kept, note 3 says STEP, items carry pd/solids, ESM exports,
+// made/bought and machines guessed by classify.js.
+import { guessRoute, nameSays, roundAxis } from './classify.js';
 // ---------- STEP parser (AP203/214/242), lazy argument parsing ----------
 function stepParseArgs(s) {
   let pos = 0;
@@ -593,6 +595,9 @@ function classifyPart(G, name) {
     if (Math.abs(others[0] - 2 * f.r) < 0.05 && Math.abs(others[1] - 2 * f.r) < 0.05 && Math.abs(f.hmax - f.hmin - G.size[k]) < 0.05)
       return { cls: 'round', axis: k };
   }
+  // Steamhub: stepped shafts and spacers are round too (classify.js), so they get diameters drawn.
+  const ra = roundAxis(G);
+  if (ra != null) return { cls: 'round', axis: ra };
   if (/tube/i.test(name) || isTube(G)) return { cls: 'tube' };
   if (X > 2.5 * Y) return { cls: 'long' };
   if (Z < 0.3 * Y) return { cls: 'plate' };
@@ -699,7 +704,7 @@ function viewDims(G, info, pv, kind) {
       let t;
       if (b) { const bs = r.segs.find(q => bearingFor(q.dia)) || main; t = 'Ø' + fmt(bs.dia) + ' check bearing (' + b + ')';
         for (const q of r.segs) if (q !== bs && q.dia > bs.dia) { const front = Math.abs(q.z1 - r.zHi) < 0.02; t += ' / Ø' + fmt(q.dia) + ' depth ' + fmt(q.len) + (front ? ' front' : ' back'); } }
-      else t = 'Ø' + fmt(main.dia) + ' THRU';
+      else continue; // Steamhub: the CNC cuts plain holes from the file; only bearing seats get a note
       const ex = leaders.find(l => l.text === t || l.text.startsWith(t + '  x'));
       if (ex) { ex.n = (ex.n || 1) + 1; ex.text = t + '  x' + ex.n; } else leaders.push({ c: g.c, r: main.dia / 2, text: t });
     }
@@ -725,8 +730,37 @@ function viewDims(G, info, pv, kind) {
     if (yv.length <= maxBaseline) for (const y of yv) dims.push({ t: 'v', a: y0, b: y, ref: refX(y), side: 'left', text: fmt(y - y0) });
     else for (const y of yv) ordY.push({ v: y, ref: refX(y), text: fmt(y - y0) });
   };
+  // Steamhub: turned sections on lathe parts (shaft ends, necks). Each outer cylinder along the view's
+  // horizontal axis that is smaller than the stock gets its diameter and its length from the nearer end.
+  const turnedSteps = () => {
+    const A = vw.u;
+    const outs = G.faces.filter(f => f.kind === 'cyl' && f.outward && f.r > 0 && Math.abs(V.dot(f.axis, A)) > 0.9999);
+    if (!outs.length) return;
+    const stockR = H / 2; // the stock seen side-on: diameter on round, across corners on hex
+    const seen = [];
+    for (const f of outs.sort((a, b) => a.r - b.r)) {
+      if (f.r > stockR - 0.01) continue;
+      const pa = V.dot(V.add(f.o, V.mul(f.axis, f.hmin)), A), pb = V.dot(V.add(f.o, V.mul(f.axis, f.hmax)), A);
+      const ua = Math.min(pa, pb), ub = Math.max(pa, pb), vc = V.dot(f.o, vw.v);
+      if (ub - ua < 0.05 || seen.some(q => Math.abs(q.ua - ua) < 0.02 && Math.abs(q.ub - ub) < 0.02)) continue;
+      seen.push({ ua, ub });
+      const atStart = ua - x0 < 0.05, atEnd = x1 - ub < 0.05, dia = 'Ø' + fmt(2 * f.r);
+      if (atStart || atEnd) {
+        dims.push({ t: 'v', a: vc - f.r, b: vc + f.r, ref: atEnd ? x1 : x0, side: atEnd ? 'right' : 'left', text: dia });
+        // a section running the full length has no step to measure
+        if (!(atStart && atEnd)) dims.push(atEnd ? { t: 'h', a: ua, b: x1, ref: vc - f.r, side: 'bottom', text: fmt(ub - ua) }
+          : { t: 'h', a: x0, b: ub, ref: vc - f.r, side: 'bottom', text: fmt(ub - ua) });
+      } else {
+        // a neck or groove in the middle: where it starts, how long, and its diameter
+        dims.push({ t: 'h', a: x0, b: ua, ref: vc - f.r, side: 'bottom', text: fmt(ua - x0) });
+        dims.push({ t: 'h', a: ua, b: ub, ref: vc - f.r, side: 'bottom', text: fmt(ub - ua) });
+        leaders.push({ c: [(ua + ub) / 2, vc + f.r], r: 0, text: dia });
+      }
+    }
+  };
   if (kind === 'full') { addOverall(); groupLabels(); positions(); }
-  else if (kind === 'plateMain') { addOverall(); plateCallouts(); }
+  // Steamhub: CNC plates are cut from the file, so the drawing only checks scale (the width) and bearing fits
+  else if (kind === 'plateMain') { addOverall(true, false); plateCallouts(); }
   else if (kind === 'printMain') {
     addOverall();
     const g = holes.slice().sort((a, b) => Math.hypot(a.c[0] - (x0 + x1) / 2, a.c[1] - (y0 + y1) / 2) - Math.hypot(b.c[0] - (x0 + x1) / 2, b.c[1] - (y0 + y1) / 2))[0];
@@ -748,9 +782,16 @@ function viewDims(G, info, pv, kind) {
     }
   } else if (kind === 'roundSide') {
     dims.push({ t: 'h', a: x0, b: x1, ref: y1, side: 'top', text: fmt(W) });
+    if (info.cls === 'round') turnedSteps();
   } else if (kind === 'longFace') {
     dims.push({ t: 'h', a: x0, b: x1, ref: y1, side: 'top', text: fmt(W) });
     groupLabels(); positions(3);
+    if (info.cls === 'long' && vw.d[2] !== 0) {
+      turnedSteps();
+      // a cross hole on the shaft's centre line needs no height
+      const mid = (y0 + y1) / 2;
+      for (let i = dims.length - 1; i >= 0; i--) if (dims[i].t === 'v' && dims[i].side === 'left' && Math.abs(dims[i].b - mid) < 0.05 && !/^Ø/.test(dims[i].text)) dims.splice(i, 1);
+    }
     // blind axial holes visible as hidden lines (shaft ends): dimension their depth
   } else if (kind === 'longEnd' || kind === 'tubeEnd') {
     addOverall();
@@ -1006,20 +1047,32 @@ function renderView(svg, pv, D, s, ox, oy, hiddenOn) {
 // section view of a shaft cut along its axis: hatched material, open bores
 function drawSection(svg, sec, T, s) {
   const [ax, ay] = T([sec.x0, sec.y0]), [bx, by] = T([sec.x1, sec.y1]);
+  // Steamhub: the cut follows the real profile (turned ends are narrower than the stock), not the box.
+  const rects = (sec.rects && sec.rects.length ? sec.rects : [{ x0: sec.x0, x1: sec.x1, y0: sec.y0, y1: sec.y1 }])
+    .map(r => { const p0 = T([r.x0, r.y0]), p1 = T([r.x1, r.y1]); return [p0[0], p0[1], p1[0], p1[1]]; });
   const bores = sec.bores.map(b => { const p0 = T([b.x0, b.yc - b.dia / 2]), p1 = T([b.x1, b.yc + b.dia / 2]); return [Math.max(ax, p0[0]), p0[1], Math.min(bx, p1[0]), p1[1]]; });
-  // hatch: 45 deg lines every 2.5 mm, clipped to the outline minus bores
+  // hatch: 45 deg lines every 2.5 mm, clipped to each piece of the profile minus bores
   const sp = 2.5;
   for (let c = ax - (by - ay); c < bx; c += sp) {
     // line: x = c + t, y = ay + t
     const clip = (r) => { // returns [t0,t1] of the line inside rect r=[x0,y0,x1,y1]
       const t0 = Math.max(r[0] - c, r[1] - ay), t1 = Math.min(r[2] - c, r[3] - ay); return t1 > t0 ? [t0, t1] : null; };
-    const main = clip([ax, ay, bx, by]); if (!main) continue;
-    let segs = [main];
-    for (const r of bores) { const cut = clip(r); if (!cut) continue; segs = segs.flatMap(([a, b]) => { const out = []; if (cut[0] > a) out.push([a, Math.min(b, cut[0])]); if (cut[1] < b) out.push([Math.max(a, cut[1]), b]); return out.filter(q => q[1] - q[0] > 0.05); }); }
-    for (const [t0, t1] of segs) svg.line(c + t0, ay + t0, c + t1, ay + t1, 0.13);
+    for (const R of rects) {
+      const main = clip(R); if (!main) continue;
+      let segs = [main];
+      for (const r of bores) { const cut = clip(r); if (!cut) continue; segs = segs.flatMap(([a, b]) => { const out = []; if (cut[0] > a) out.push([a, Math.min(b, cut[0])]); if (cut[1] < b) out.push([Math.max(a, cut[1]), b]); return out.filter(q => q[1] - q[0] > 0.05); }); }
+      for (const [t0, t1] of segs) svg.line(c + t0, ay + t0, c + t1, ay + t1, 0.13);
+    }
   }
-  // outline
-  svg.poly([[ax, ay], [bx, ay], [bx, by], [ax, by], [ax, ay]], 0.35);
+  // outline: top and bottom edges of each piece, and the shoulders between pieces
+  rects.sort((p, q) => p[0] - q[0]);
+  rects.forEach((r, i) => {
+    svg.line(r[0], r[1], r[2], r[1], 0.35); svg.line(r[0], r[3], r[2], r[3], 0.35);
+    const prev = rects[i - 1];
+    if (!prev) svg.line(r[0], r[1], r[0], r[3], 0.35);
+    else { svg.line(r[0], Math.min(r[1], prev[1]), r[0], Math.max(r[1], prev[1]), 0.35); svg.line(r[0], Math.min(r[3], prev[3]), r[0], Math.max(r[3], prev[3]), 0.35); }
+    if (i === rects.length - 1) svg.line(r[2], r[1], r[2], r[3], 0.35);
+  });
   // bores: long edges and bottom ends
   for (const r of bores) {
     svg.line(r[0], r[1], r[2], r[1], 0.35); svg.line(r[0], r[3], r[2], r[3], 0.35);
@@ -1029,6 +1082,23 @@ function drawSection(svg, sec, T, s) {
   // centre line
   const cy = (bores.length ? (bores[0][1] + bores[0][3]) / 2 : (ay + by) / 2);
   svg.line(ax - 2, cy, bx + 2, cy, 0.13, 'stroke-dasharray="4,1,0.6,1"');
+}
+/** The side profile of a shaft along X, seen from the front: full stock height, or a turned diameter. */
+function shaftProfile(G, bb) {
+  const [bx0, by0, bx1, by1] = bb; const H = by1 - by0;
+  const turned = G.faces.filter(f => f.kind === 'cyl' && f.outward && Math.abs(f.axis[0]) > 0.9999 && f.r < H / 2 - 0.01).map(f => {
+    const a = f.o[0] + f.axis[0] * f.hmin, b = f.o[0] + f.axis[0] * f.hmax;
+    return { x0: Math.min(a, b), x1: Math.max(a, b), yc: f.o[1], r: f.r };
+  });
+  const xs = [...new Set([bx0, bx1, ...turned.flatMap(t => [t.x0, t.x1])].map(x => Math.round(x * 1000) / 1000))].filter(x => x >= bx0 - 1e-6 && x <= bx1 + 1e-6).sort((a, b) => a - b);
+  const rects = [];
+  for (let i = 0; i < xs.length - 1; i++) {
+    const a = xs[i], b = xs[i + 1]; if (b - a < 0.02) continue;
+    const m = (a + b) / 2;
+    const t = turned.filter(q => q.x0 <= m && q.x1 >= m).sort((p, q) => q.r - p.r)[0];
+    rects.push(t ? { x0: a, x1: b, y0: t.yc - t.r, y1: t.yc + t.r } : { x0: a, x1: b, y0: by0, y1: by1 });
+  }
+  return rects;
 }
 function holeMarks(pv, D) { return pv.holeMarks || []; }
 
@@ -1097,7 +1167,7 @@ function computeViews(G, info) {
     // shafts: blind axial bores -> depth dim on side view
     if ((info.cls === 'long' || info.cls === 'round') && (v.dims === 'longFace' || v.dims === 'roundSide') && v.key === 'front') {
       const bores = axialBores(G);
-      if (info.cls === 'long' && bores.length) { const [bx0, by0, bx1, by1] = pv.bb; pv.section = { x0: bx0, x1: bx1, y0: by0, y1: by1, bores }; }
+      if (info.cls === 'long' && bores.length) { const [bx0, by0, bx1, by1] = pv.bb; pv.section = { x0: bx0, x1: bx1, y0: by0, y1: by1, bores, rects: shaftProfile(G, pv.bb) }; }
       for (const b of bores) {
         const len = b.x1 - b.x0;
         if (len < G.size[0] - 0.05) {
@@ -1106,6 +1176,9 @@ function computeViews(G, info) {
         }
       }
     }
+    // Steamhub: one length, one dimension. A bore as deep as the turned end it sits in used to be
+    // measured twice (once as the end's length, once as the bore depth) on the same span.
+    D.dims = D.dims.filter((d, i) => !D.dims.slice(0, i).some(e => e.t === d.t && Math.abs(Math.min(e.a, e.b) - Math.min(d.a, d.b)) < 0.05 && Math.abs(Math.max(e.a, e.b) - Math.max(d.a, d.b)) < 0.05));
     return { ...v, pv, D, m: viewMargins(D) };
   });
   // drop optional views that add nothing (no holes/dims beyond length)
@@ -1188,6 +1261,8 @@ async function buildPDFz(pages, title) {
   const out = new Uint8Array(len); let p = 0; for (const c of chunks) { out.set(c, p); p += c.length; } return out;
 }
 // ---------- BOM: merge parts, custom vs bought, numbering ----------
+// Made or bought and the machines are guessed in classify.js (guessRoute); isCustomName and
+// autoMethod are Tom's first version, kept for reference.
 const BOUGHT_RE = /bearing|belt|pulley|gear|wheel|sprocket|chain|screw|bolt|\bnut\b|washer|rivet|kraken|falcon|neo\b|vortex|motor|encoder|cancoder|pigeon|spark ?max|talon|maxplanetary|versaplanetary|planetary|collar|insert|bushing|swerve|mk4|mk5|battery|limelight|camera|\bWCP-\d|\bREV-\d|\bam-\d|\bTTB-|\bSDS|thunderhex|spring|clamp|hinge|sensor|switch|canivore|roborio|\bpdh\b|\bradio\b|\bled\b|standoff/i;
 function isCustomName(name) {
   if (/custom/i.test(name)) return true;          // team-generated COTS-like parts (printed pulleys etc.)
@@ -1199,6 +1274,7 @@ function isCustomName(name) {
   return !BOUGHT_RE.test(words);
 }
 const METHODS = ['CNC', 'Milling', 'Lathe', '3D print', 'Bought'];
+const ROUTE_METHOD = { CNC: 'CNC', Mill: 'Milling', Lathe: 'Lathe', '3D print': '3D print', Bought: 'Bought' };
 const CLS_METHOD = { plate: 'CNC', tube: 'Milling', block: 'Milling', long: 'Lathe', round: 'Lathe', print: '3D print' };
 const STATUS = ['todo', 'doing', 'done']; // red / yellow / green ; bought = grey
 
@@ -1220,12 +1296,16 @@ async function buildProject(S, opts = {}, onProgress = () => {}) {
     const ex = items.find(it => it.sig === sig || (/belt/i.test(p.name) && it.name === p.name));
     if (ex) { ex.qty += p.qty; sigByPd.set(p.pd, ex.sig); continue; }
     sigByPd.set(p.pd, sig);
-    items.push({ sig, name: p.name, qty: p.qty, size, g, custom: isCustomName(p.name), pd: p.pd, solids: p.solids });
+    items.push({ sig, name: p.name, qty: p.qty, size, g, custom: nameSays(p.name) !== 'bought', pd: p.pd, solids: p.solids });
   }
   const saved = opts.saved || {};
   for (const it of items) {
     if (it.custom) prepareCustom(it);
-    it.method = it.custom ? autoMethod(it) : 'Bought';
+    // Machines in order (classify.js); the part list keeps the first, the rest go in the notes.
+    const guess = it.custom ? guessRoute(it.G, it.name) : { route: ['Bought'], why: 'bought part name' };
+    it.route = guess.route; it.why = guess.why;
+    it.method = ROUTE_METHOD[guess.route[0]] || 'Milling';
+    it.custom = it.method !== 'Bought';
     it.status = 'todo'; it.notes = it.bad ? 'geometry could not be read' : '';
     const sv = saved[it.sig];
     if (sv) { for (const k of ['method', 'status', 'notes', 'material', 'maker']) if (sv[k] != null) it[k] = sv[k]; }
@@ -1265,6 +1345,8 @@ function numberParts(items, firstNo) {
 }
 function itemDrawing(it, tb) {
   prepareCustom(it);
+  // Steamhub: CNC parts all get the plate drawing (width and bearing checks), see drawing.ts
+  if (it.method === 'CNC' && it.info.cls !== 'plate') { it.info = { cls: 'plate' }; it.pre = null; }
   if (!it.pre) it.pre = computeViews(it.G, it.info);
   return makeDrawing(it.G, it.info, Object.assign({}, tb, { name: it.name, partNo: it.partNo, qty: it.qty, material: it.material, maker: it.maker || '' }), it.pre);
 }

@@ -6,7 +6,7 @@ import { reservePiece } from '../lib/actions'
 import { useWho } from '../lib/auth'
 import { loadGeometry } from '../lib/drawing'
 import { barDims, hexDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
-import { plateArea, platesFor, setPlateState, STATE_WORD, tText, usePlates, type Plate, type PlateState } from '../lib/plates'
+import { cutFromPlate, fitGroups, plateArea, STATE_WORD, tText, usePlates, type PlateState } from '../lib/plates'
 import { tubeWall } from '../lib/step/engine'
 import { findMatches, sizeLabel, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
@@ -49,40 +49,25 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
   const { plates, setPlates } = usePlates()
   const who = useWho()
   const toast = useToast()
-  // Identical plates in the same state show once, with a count.
-  const fits = useMemo(() => {
-    const groups = new Map<string, { plate: Plate; n: number }>()
-    for (const pl of platesFor(plates, part.size.map(Number))) {
-      const k = `${pl.length}|${pl.width}|${pl.state}`
-      const g = groups.get(k)
-      if (g) g.n++
-      else groups.set(k, { plate: pl, n: 1 })
-    }
-    return [...groups.values()].slice(0, 4)
-  }, [plates, part.size])
+  const fits = useMemo(() => fitGroups(plates, part.size.map(Number)), [plates, part.size])
   const used = plates.find((p) => p.id === part.plate_id)
   const thick = Math.round(Math.min(...part.size.map(Number)) * 100) / 100
   const [busy, run] = useBusy()
 
   const cutFrom = (plateId: string, state: PlateState) =>
     run(async () => {
-      if (!who) return
-      const before = plates.find((x) => x.id === plateId)?.state
-      const res = await setPlateState(plateId, state, who)
+      const plate = plates.find((x) => x.id === plateId)
+      if (!who || !plate) return
+      const res = await cutFromPlate(part, plate, state, who)
       if (res.error) return toast(res.error)
       setPlates((cur) => cur.map((x) => (x.id === plateId ? { ...x, state } : x)))
-      const r2 = await updatePart(part.id, { plate_id: plateId })
-      if (r2.error) return toast(r2.error)
-      onPart(r2.data!)
+      onPart(res.part!)
       toast(state === 'gone' ? 'Plate marked gone' : 'Plate marked partly used', {
-        undo: before
-          ? async () => {
-              await setPlateState(plateId, before, who)
-              setPlates((cur) => cur.map((x) => (x.id === plateId ? { ...x, state: before } : x)))
-              const r3 = await updatePart(part.id, { plate_id: part.plate_id })
-              if (r3.data) onPart(r3.data)
-            }
-          : undefined,
+        undo: async () => {
+          const back = await res.undo!()
+          setPlates((cur) => cur.map((x) => (x.id === plateId ? { ...x, state: plate.state } : x)))
+          if (back) onPart(back)
+        },
       })
     })
 

@@ -44,6 +44,8 @@ export function TaskCard({
   select,
   big = false,
   maker,
+  tag,
+  extra,
 }: {
   part: Part
   sub: string
@@ -56,6 +58,10 @@ export function TaskCard({
   big?: boolean
   /** "In progress · Dana" for a typed-in maker in Unassigned. */
   maker?: string | null
+  /** One more tag, like the CNC Home's "No plate fits". */
+  tag?: ReactNode
+  /** A button before Start / Done, like the CNC Home's DXF. */
+  extra?: ReactNode
 }) {
   const done = part.status === 'done'
   const meta = [part.machine, `×${part.qty}`, sub].filter(Boolean).join(' · ')
@@ -76,6 +82,7 @@ export function TaskCard({
           {part.status === 'doing' && <span className="tag tag--reserved">In progress</span>}
           {part.made_differently && done && <span className="tag tag--warn">Made differently</span>}
           {done && <span className="tag tag--ok">Done</span>}
+          {tag}
         </span>
       </span>
     </>
@@ -95,6 +102,7 @@ export function TaskCard({
       <Link to={`/manufacturing/p/${part.id}`} className="task__link">
         {body}
       </Link>
+      {extra}
       <TaskButton part={part} actions={actions} rules={rules} big={big} />
       {onMenu && (rules.canAssign || rules.canGiveBack(part) || rules.canWork(part)) && !done && (
         <button type="button" className="icon-btn task__more" aria-label={`More for ${part.part_no}`} onClick={() => onMenu(part)}>

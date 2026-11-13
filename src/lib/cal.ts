@@ -4,7 +4,8 @@ import { supabase } from './supabase'
 // Calendar model: groups, phases, tasks, daily updates and events. See CALENDAR.md.
 
 export type Team = 'mechanics' | 'electronics' | 'programming'
-export type GroupKind = 'team' | 'cnc' | 'workshop' | 'subsystem'
+/** 'project': a subsystem of an off-season project, one group each, after the season's subsystems. */
+export type GroupKind = 'team' | 'cnc' | 'workshop' | 'subsystem' | 'project'
 export type PhaseKind = 'prototypes' | 'cad' | 'manufacturing' | 'custom'
 export type TaskStatus = 'todo' | 'doing' | 'done'
 export type Priority = 'low' | 'normal' | 'high'
@@ -30,6 +31,8 @@ export interface CalGroup {
   team: Team
   kind: GroupKind
   subsystem_number: number | null
+  /** The off-season project subsystem a 'project' group follows. */
+  subsystem_id?: string | null
   name: string
   lead_id: string | null
   sort: number
@@ -109,6 +112,8 @@ export interface CalEvent {
   /** Minutes before the start. */
   reminders: number[]
   notes: string
+  /** 'google' when it comes from the linked Google Calendar. Missing before the import migration. */
+  source?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

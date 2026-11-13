@@ -99,6 +99,26 @@
   background: var(--surface-0);
 }
 
+/* A team's card holds its groups, one tone step in: Mechanics > CNC, Workshop, subsystems, projects. */
+.cal-group--host > .cal-group__head .cal-group__name {
+  font-size: 1.25rem;
+}
+
+.cal-group__kids {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.cal-group__kids > .cal-group {
+  margin-bottom: 0;
+  background: var(--surface-0);
+}
+
+.cal-group__kids .cal-group .cal-row {
+  background: var(--surface-1);
+}
+
 .cal-row {
   display: flex;
   align-items: center;
@@ -1854,4 +1874,323 @@
 
 .cal-today__edit {
   margin-left: auto;
+}
+
+/* ===== Board cards: phases, parts ===== */
+.cal-group__phases {
+  margin: 0.25rem 0 0;
+}
+
+.cal-group__kids .cal-group__phases li {
+  background: var(--surface-1);
+}
+
+.cal-group__phases a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.cal-group__none {
+  margin: 0.25rem 0.5rem;
+}
+
+.cal-parts-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+
+.cal-part {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cal-part .thumb {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+}
+
+/* ===== Import ===== */
+.cal-filters__import {
+  margin-left: auto;
+  text-decoration: none;
+}
+
+.imp {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.imp__status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.imp__status-main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.imp__bad {
+  color: var(--meaning-c);
+}
+
+.imp__form {
+  gap: 0.75rem;
+}
+
+.imp__form .q-btn {
+  justify-self: start;
+}
+
+.imp__map {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.imp__h {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.imp__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.imp__map .row {
+  background: var(--surface-0);
+}
+
+.imp__group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.imp__group .field--inline {
+  width: 15rem;
+  max-width: 50%;
+}
+
+.imp__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* ===== Board, easier to read =====
+   Teams are the big cards and hold their groups. Each group's title line says who leads it and how
+   much is open; counts only show when there is something to count. Colour only says status. */
+.cal-jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.cal-jump__fold {
+  margin-left: auto;
+}
+
+.cal-group--host {
+  padding: 0.5rem 0.75rem 0.85rem;
+}
+
+.cal-group--host > .cal-group__head .cal-group__name {
+  font-family: var(--font-voice);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.cal-group__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--ink);
+}
+
+.cal-group__name svg {
+  color: var(--ink-soft);
+}
+
+.cal-group__name:hover svg {
+  color: var(--ink);
+}
+
+.cal-group__lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+}
+
+.cal-group__lead .avatar {
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.7rem;
+}
+
+.cal-group__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* A task line typed in from the title line takes the whole width. */
+.cal-group__end .cal-quick {
+  flex-basis: 100%;
+}
+
+.cal-group__head:has(.cal-quick) .cal-group__end {
+  flex-basis: 100%;
+}
+
+.cal-count {
+  color: var(--ink-soft);
+}
+
+.cal-count[data-late] {
+  font-weight: 600;
+  color: var(--meaning-c);
+}
+
+.cal-group__body {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+}
+
+.cal-group__body .cal-add-btn {
+  justify-self: start;
+}
+
+.cal-group__kids {
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.cal-group__sub {
+  margin: 0.5rem 0.25rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.cal-group__kids > .cal-group {
+  padding: 0.35rem 0.6rem 0.75rem;
+}
+
+/* Phases, one per line: done ones green with a tick, the current one marked on the left. */
+.cal-phases {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-phases li {
+  display: grid;
+  grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+
+.cal-phases li[data-state='now'] {
+  box-shadow: inset 3px 0 0 var(--ink);
+}
+
+.cal-phases__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.cal-phases li[data-state='next'] .cal-phases__name {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.cal-phases li[data-state='done'] .cal-phases__name {
+  color: var(--meaning-b);
+}
+
+.cal-phases__mid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  min-width: 0;
+}
+
+.cal-phases__when {
+  white-space: nowrap;
+}
+
+@media (max-width: 599px) {
+  .cal-phases li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cal-phases__mid {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+/* CNC and Workshop: the number of parts waiting leads the line. */
+.cal-parts-line {
+  align-items: center;
+  margin: 0;
+}
+
+.cal-parts-line__n {
+  font-family: var(--font-voice);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.cal-parts-line svg {
+  margin-left: auto;
+  color: var(--ink-soft);
+}
+
+.cal-group__kids .cal-parts-line {
+  background: var(--surface-1);
+}
+
+/* Due this week reads as check this. */
+.cal-due[data-soon] {
+  font-weight: 600;
+  color: var(--warn);
 }

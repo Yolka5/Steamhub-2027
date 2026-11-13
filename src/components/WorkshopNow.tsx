@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { partName } from '../lib/mfg'
+import { Link, useNavigate } from 'react-router-dom'
+import { CNC_ROOM } from '../lib/cncRoom'
+import { partName, type Part } from '../lib/mfg'
 import { useParts, useRobots } from '../lib/useMfg'
 import { machineView, MAP_MACHINES, span, startedAt, STATE_WORD } from '../lib/workshopMap'
 import { WorkshopMap } from './WorkshopMap'
@@ -51,5 +52,25 @@ export function WorkshopNow() {
         </ul>
       </div>
     </Link>
+  )
+}
+
+/** The CNC room, live, for the CNC PC's own Home. Its tags open the part page (Done is there). */
+export function CncRoomNow({ parts }: { parts: Part[] }) {
+  const navigate = useNavigate()
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 30000)
+    return () => window.clearInterval(t)
+  }, [])
+  const open = (p: Part) => navigate(`/manufacturing/p/${p.id}`)
+  return (
+    <section className="cnc__section cnc-room">
+      <h2 className="section__title">The room</h2>
+      <WorkshopMap room={CNC_ROOM} parts={parts} lastUsed={{}} now={now} onShow={open} onDone={open} />
+      <Link to="/manufacturing?map=1" className="soft small">
+        Both rooms and history →
+      </Link>
+    </section>
   )
 }

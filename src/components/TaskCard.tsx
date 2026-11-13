@@ -72,7 +72,9 @@ export function TaskCard({
         <span className="task__tags">
           {part.changed && !done && <span className="tag tag--reserved">Changed</span>}
           {part.urgent && !done && <UrgentTag />}
+          {part.asking && !done && <span className="tag tag--warn">Waiting for an answer</span>}
           {part.status === 'doing' && <span className="tag tag--reserved">In progress</span>}
+          {part.made_differently && done && <span className="tag tag--warn">Made differently</span>}
           {done && <span className="tag tag--ok">Done</span>}
         </span>
       </span>
@@ -94,7 +96,7 @@ export function TaskCard({
         {body}
       </Link>
       <TaskButton part={part} actions={actions} rules={rules} big={big} />
-      {onMenu && (rules.canAssign || rules.canGiveBack(part)) && !done && (
+      {onMenu && (rules.canAssign || rules.canGiveBack(part) || rules.canWork(part)) && !done && (
         <button type="button" className="icon-btn task__more" aria-label={`More for ${part.part_no}`} onClick={() => onMenu(part)}>
           <Icon name="more" />
         </button>
@@ -103,7 +105,7 @@ export function TaskCard({
   )
 }
 
-/** The card's menu: the lead's moves, or Give back for the person it's assigned to. */
+/** The card's menu: the lead's moves and Reject, Ask first / Done with a note, and Give back. */
 export function TaskMenu({ part, actions, rules, onClose }: { part: Part | null; actions: Actions; rules: Rules; onClose: () => void }) {
   const run = (fn: () => unknown) => () => {
     onClose()
@@ -141,6 +143,21 @@ export function TaskMenu({ part, actions, rules, onClose }: { part: Part | null;
           {rules.canAssign && (
             <button type="button" className="q-btn" onClick={run(() => actions.toggleUrgent(part))}>
               <Icon name="flag" /> {part.urgent ? 'Not urgent' : 'Urgent'}
+            </button>
+          )}
+          {rules.canWork(part) && part.status === 'todo' && (
+            <button type="button" className="q-btn" onClick={run(() => actions.askAbout(part))}>
+              Ask first…
+            </button>
+          )}
+          {rules.canWork(part) && part.status === 'doing' && (
+            <button type="button" className="q-btn" onClick={run(() => actions.doneNote(part))}>
+              <Icon name="check" /> Done, with a note…
+            </button>
+          )}
+          {rules.canAssign && part.status === 'todo' && (
+            <button type="button" className="q-btn" onClick={run(() => actions.reject(part))}>
+              Reject…
             </button>
           )}
           {rules.canGiveBack(part) && (

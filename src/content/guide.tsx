@@ -383,6 +383,19 @@ export const CHAPTERS: Chapter[] = [
         tip: 'You can only start and finish your own parts and unassigned ones.',
       },
       {
+        title: 'Ask first, or done with a note',
+        body: 'Want to make a part differently from the drawing? Ask before you start. Already made it differently? Say so when you finish.',
+        how: [
+          <>
+            Before starting: press <B>⋯</B> on the part, then <B>Ask first…</B>, and write your question. Whoever released it and the subsystem lead get it. Wait for <B>Go ahead</B> before you start.
+          </>,
+          <>
+            When finishing: press <B>⋯</B>, then <B>Done, with a note…</B>, and write what was different. The part is done and marked Made differently, so assembly knows.
+          </>,
+          <>Got a question about your part? It’s under Waiting for your answer on Home. Open it and press Go ahead or No, make it as drawn.</>,
+        ],
+      },
+      {
         title: 'The board',
         body: 'Board shows Unassigned first, then a column for everyone who has parts. Done parts stay faded for 12 hours.',
         how: [
@@ -409,7 +422,7 @@ export const CHAPTERS: Chapter[] = [
             On a phone, use <B>⋯</B> on a card: Move to the top, Up one, Down one, Give to someone else, Unassign.
           </>,
         ],
-        tip: 'You get a notification when parts are released, when someone gives one back, and when someone has nothing left.',
+        tip: 'Something wrong with a part, like no stock or a bad drawing? Press ⋯ and Reject… with the reason. It goes back to design, and whoever released it gets your note. You get a notification when parts are released, when someone gives one back, and when someone has nothing left.',
       },
       {
         title: 'On the workshop PC',
@@ -681,6 +694,19 @@ export const CHAPTERS: Chapter[] = [
     title: 'Calendar',
     intro: 'Tasks for every team and subsystem, their phases, and the leads’ daily updates. It replaces the Monday board.',
     steps: [
+      {
+        title: 'Ask first, or done with a note',
+        body: 'Want to make a part differently from the drawing? Ask before you start. Already made it differently? Say so when you finish.',
+        how: [
+          <>
+            Before starting: press <B>⋯</B> on the part, then <B>Ask first…</B>, and write your question. Whoever released it and the subsystem lead get it. Wait for <B>Go ahead</B> before you start.
+          </>,
+          <>
+            When finishing: press <B>⋯</B>, then <B>Done, with a note…</B>, and write what was different. The part is done and marked Made differently, so assembly knows.
+          </>,
+          <>Got a question about your part? It’s under Waiting for your answer on Home. Open it and press Go ahead or No, make it as drawn.</>,
+        ],
+      },
       {
         title: 'The board',
         body: (

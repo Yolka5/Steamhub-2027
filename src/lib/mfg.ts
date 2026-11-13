@@ -134,6 +134,14 @@ export interface Part {
   queue_pos: number | null
   /** When it was finished, kept by the database. The board keeps done parts for 12 hours. */
   done_at: string | null
+  /** The workshop lead sent it back before making it: why, who, when. Release clears it. */
+  rejected_note: string | null
+  rejected_by: string | null
+  rejected_at: string | null
+  /** An "Ask first" question is waiting for an answer. */
+  asking: boolean
+  /** "Done, with a note": what was made differently, for assembly. */
+  made_differently: string | null
   created_at: string
   updated_at: string
 }
@@ -315,7 +323,8 @@ export async function releaseParts(parts: Part[], who: Who) {
   const fresh = parts.filter((p) => !p.released_at)
   const ids = fresh.map((p) => p.id)
   if (!ids.length) return { data: [] as Part[] }
-  const res = await updateParts(ids, { released_at: new Date().toISOString(), released_by: who.userId })
+  // Releasing again clears a rejection: the responsible person fixed it.
+  const res = await updateParts(ids, { released_at: new Date().toISOString(), released_by: who.userId, rejected_note: null, rejected_by: null, rejected_at: null })
   if (!res.error) {
     await logPart(ids, 'released', who)
     // The workshop lead hears there's something to hand out (bought parts aren't handed out).
@@ -589,4 +598,108 @@ export async function giveBack(p: Part, who: Who): Promise<Res<Part>> {
   await notify(await workshopLeads(), 'gave_back', `${firstName(name)} gave back ${p.part_no} ${partName(p)}`, '/manufacturing/board', who.userId)
   if (owner) await tellIfEmpty(owner, who)
   return res
+}
+
+// ---------- Pushback: reject, ask first, done with a note (WORKSHOP_TASKS.md) ----------
+
+export type RequestKind = 'ask' | 'done_note' | 'reject'
+export type RequestStatus = 'open' | 'approved' | 'denied' | 'info'
+
+export interface PartRequest {
+  id: string
+  part_id: string
+  kind: RequestKind
+  note: string
+  by_id: string | null
+  by_name: string
+  /** The person it's really from, when the shared PC asks for them. */
+  for_id: string | null
+  status: RequestStatus
+  answer: string | null
+  answered_by: string | null
+  answered_by_name: string | null
+  answered_at: string | null
+  created_at: string
+}
+
+/** Who a part's notes go to: whoever released it, and the subsystem lead if that's someone else. */
+export async function responsibleFor(p: Pick<Part, 'released_by' | 'subsystem_id'>) {
+  const { data } = await supabase.from('subsystems').select('lead_id').eq('id', p.subsystem_id).maybeSingle()
+  return [...new Set([p.released_by, (data?.lead_id as string | null | undefined) ?? null].filter((x): x is string => !!x))]
+}
+
+async function addRequest(p: Part, kind: RequestKind, note: string, by: { id: string | null; name: string }, who: Who, status: RequestStatus) {
+  const { error } = await supabase
+    .from('part_requests')
+    .insert({ part_id: p.id, kind, note, by_id: who.userId, by_name: by.name, for_id: by.id, status })
+  return error?.message
+}
+
+const label = (p: Part) => `${p.part_no} ${partName(p)}`
+
+/**
+ * The workshop lead sends a part back before it's made: off the workshop list, back to In design
+ * on its subsystem page with the note, until it's released again.
+ */
+export async function rejectPart(p: Part, note: string, who: Who): Promise<Res<Part>> {
+  const to = await responsibleFor(p)
+  const res = await updatePart(
+    p.id,
+    { released_at: null, rejected_note: note, rejected_by: who.userId, rejected_at: new Date().toISOString(), assignee_id: null, assigned_at: null, assigned_by: null, queue_pos: null, asking: false },
+    { status: 'todo' },
+  )
+  if (res.error) return res
+  await addRequest(p, 'reject', note, { id: who.userId, name: who.name }, who, 'info')
+  await logPart(p.id, 'rejected', who, { note })
+  await notify(to, 'part_rejected', `${firstName(who.name)} rejected ${label(p)}: ${note}`, `/manufacturing/p/${p.id}`, who.userId)
+  if (p.assignee_id) await notify([p.assignee_id], 'unassigned', `${label(p)} was sent back to design: ${note}`, `/manufacturing/p/${p.id}`, who.userId)
+  return res
+}
+
+/** "Can I make it this way?": a question to the responsible people before starting. */
+export async function askFirst(p: Part, note: string, who: Who, by?: Maker): Promise<Res<Part>> {
+  const asker = by ?? { id: who.userId, name: who.name }
+  const err = await addRequest(p, 'ask', note, asker, who, 'open')
+  if (err) return { error: err }
+  const res = await updatePart(p.id, { asking: true })
+  if (res.error) return res
+  await logPart(p.id, 'asked', who, by ? { for: by.name, note } : { note })
+  await notify(await responsibleFor(p), 'part_ask', `${firstName(asker.name)} asks about ${label(p)}: ${note}`, `/manufacturing/p/${p.id}`, who.userId)
+  return res
+}
+
+/** Go ahead, or make it as drawn. The asker hears back. */
+export async function answerAsk(p: Part, r: PartRequest, ok: boolean, answer: string, who: Who): Promise<Res<Part>> {
+  const { error } = await supabase
+    .from('part_requests')
+    .update({ status: ok ? 'approved' : 'denied', answer: answer || null, answered_by: who.userId, answered_by_name: who.name, answered_at: new Date().toISOString() })
+    .eq('id', r.id)
+    .eq('status', 'open')
+  if (error) return { error: error.message }
+  // Still asking if someone else has another open question on this part.
+  const { count } = await supabase.from('part_requests').select('id', { count: 'exact', head: true }).eq('part_id', p.id).eq('status', 'open')
+  const res = await updatePart(p.id, { asking: !!count })
+  if (res.error) return res
+  await logPart(p.id, ok ? 'ask_approved' : 'ask_denied', who, answer ? { note: answer } : undefined)
+  const text = ok ? `Go ahead with ${label(p)} your way` : `Make ${label(p)} as drawn`
+  await notify([r.for_id ?? r.by_id], 'part_answer', `${firstName(who.name)}: ${text}${answer ? `. ${answer}` : ''}`, `/manufacturing/p/${p.id}`, who.userId)
+  return res
+}
+
+/** Finished, but not quite as drawn: done, flagged for assembly, and the responsible people told. */
+export async function doneWithNote(p: Part, note: string, who: Who): Promise<Res<Part>> {
+  const res = await setStatus(p, 'done', who)
+  if (res.error || !res.data) return res
+  const flagged = await updatePart(p.id, { made_differently: note })
+  if (flagged.error) return flagged
+  const maker = res.data.maker_name ?? who.name
+  await addRequest(p, 'done_note', note, { id: res.data.maker_id, name: maker }, who, 'info')
+  await notify(await responsibleFor(p), 'part_done_note', `${firstName(maker)} made ${label(p)} differently: ${note}`, `/manufacturing/p/${p.id}`, who.userId)
+  return flagged
+}
+
+/** A part's questions and notes, newest first. */
+export async function partRequests(partId: string) {
+  const { data } = await supabase.from('part_requests').select('*').eq('part_id', partId).order('created_at', { ascending: false })
+  return (data as PartRequest[] | null) ?? []
 }

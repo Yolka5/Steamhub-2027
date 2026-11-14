@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CNC_ROOM } from '../lib/cncRoom'
-import { useTall } from '../lib/usePhone'
+import { usePhone } from '../lib/usePhone'
 import { ROOM } from '../lib/workshopRoom'
 import { partName, type Machine, type Part } from '../lib/mfg'
 import { useParts, useRobots } from '../lib/useMfg'
@@ -36,8 +36,16 @@ function MachineList({ machines, live, now }: { machines: Machine[]; live: Part[
   )
 }
 
+/** A room's machines. 3D print has no drawn room; it sits with the CNC, so it lists there. */
+function roomMachines(room: typeof ROOM): Machine[] {
+  const own = room.machines.map((m) => m.machine)
+  if (room !== CNC_ROOM) return own
+  const drawn = new Set([...ROOM.machines, ...CNC_ROOM.machines].map((m) => m.machine))
+  return [...own, ...MAP_MACHINES.filter((m) => !drawn.has(m))]
+}
+
 export function WorkshopNow() {
-  const tall = useTall()
+  const phone = usePhone()
   const { parts } = useParts({ released: true })
   const { robots, subs } = useRobots()
   const [now, setNow] = useState(Date.now())
@@ -54,8 +62,8 @@ export function WorkshopNow() {
   // Nothing released yet (between seasons): no card.
   if (!live.length) return null
 
-  // The TV has room for both rooms, side by side, each with its own machines.
-  if (tall)
+  // PC and TV have room for both rooms, side by side, each with its own machines.
+  if (!phone)
     return (
       <Link to="/manufacturing?map=1" className="wnow wnow--rooms" aria-label="Workshop now. Open the workshop map">
         <h2 className="wnow__title">Workshop now</h2>
@@ -65,7 +73,7 @@ export function WorkshopNow() {
               <WorkshopMap room={room} parts={live} lastUsed={{}} now={now} compact />
               <span className="wnow__name">{room.name}</span>
             </div>
-            <MachineList machines={room.machines.map((m) => m.machine)} live={live} now={now} />
+            <MachineList machines={roomMachines(room)} live={live} now={now} />
           </div>
         ))}
       </Link>

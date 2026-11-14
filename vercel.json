@@ -1,4 +1,12 @@
 {
+  "redirects": [
+    {
+      "source": "/((?!sw\\.js$).*)",
+      "has": [{ "type": "host", "value": "steamhub2027.vercel.app" }],
+      "destination": "https://steamhub1577.com/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/|fonts/|.*\\.).*)",

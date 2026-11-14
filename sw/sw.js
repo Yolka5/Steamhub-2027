@@ -19,11 +19,33 @@ const DATA_TIMEOUT = 4000
 /** Big downloads (STEP files, videos) aren't kept offline. */
 const MAX_DATA_BYTES = 2 * 1024 * 1024
 
+/* The old address. Apps installed from it before it redirected (2026-11-13) can't fetch updates
+   through a redirect, so vercel.json serves this file there unredirected. On that address the
+   worker saves nothing: it takes over at once, deletes the old saved copy, sends every open
+   window to the same page on the real address and removes itself. */
+const OLD_HOST = 'steamhub2027.vercel.app'
+const HOME = 'https://steamhub1577.com'
+const moved = self.location.hostname === OLD_HOST
+
+async function moveHome() {
+  for (const k of await caches.keys()) await caches.delete(k)
+  await self.clients.claim()
+  for (const w of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) {
+    const from = new URL(w.url)
+    const to = new URL(from.pathname + from.search + from.hash, HOME)
+    to.searchParams.set('moved', '1')
+    await w.navigate(to.href).catch(() => {})
+  }
+  await self.registration.unregister()
+}
+
 self.addEventListener('install', (event) => {
+  if (moved) return self.skipWaiting()
   event.waitUntil(caches.open(SHELL).then((c) => c.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' })))))
 })
 
 self.addEventListener('activate', (event) => {
+  if (moved) return event.waitUntil(moveHome())
   event.waitUntil(
     caches
       .keys()
@@ -40,7 +62,7 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request
-  if (req.method !== 'GET') return
+  if (moved || req.method !== 'GET') return
   const url = new URL(req.url)
 
   if (url.origin === self.location.origin) {

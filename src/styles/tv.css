@@ -161,54 +161,9 @@
   display: none;
 }
 
-/* Workshop now: the workshop and the CNC room side by side. */
-/* Columns in the ratio of the two small maps (820 × 360 and 400 × 420), so both are as tall. */
-.wnow--rooms {
-  grid-template-columns: minmax(0, 2.28fr) minmax(0, 0.95fr);
-  align-items: start;
-  gap: 0.75rem 0.9rem;
+/* Workshop now: the grid's gap spaces it, not its own margin. */
+:root.tall .home > .wnow--rooms {
   margin: 0;
-  padding: 1rem 1rem 1.1rem;
-}
-
-.wnow--rooms .wnow__title {
-  grid-column: 1 / -1;
-  margin: 0 0.25rem;
-}
-
-.wnow__room {
-  display: grid;
-  gap: 0.7rem;
-  min-width: 0;
-}
-
-.wnow__map {
-  position: relative;
-}
-
-.wnow__name {
-  position: absolute;
-  top: 0.6rem;
-  left: 0.6rem;
-  padding: 0.15rem 0.6rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--surface-0);
-  background: var(--ink);
-  border-radius: var(--radius-pill);
-}
-
-.wnow--rooms .wnow__list {
-  padding: 0 0.25rem;
-  font-size: 0.875rem;
-}
-
-.wnow--rooms .wnow__list li {
-  align-items: baseline;
-}
-
-.wnow--rooms .wnow__list b {
-  flex: none;
 }
 
 /* ===== Calendar ===== */

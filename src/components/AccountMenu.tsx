@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { OS_BUDGET, useOsAccounts } from '../lib/onshape'
+import { ConnectOnshape } from './Onshape'
 
 /**
  * Your name opens a small menu; signing out is a deliberate second click, never a side effect
@@ -9,6 +11,8 @@ import { useAuth } from '../lib/auth'
 export function AccountMenu({ placement, compact = false }: { placement: 'up' | 'down'; compact?: boolean }) {
   const { session, name, signOut, isAdmin, seesAll } = useAuth()
   const [open, setOpen] = useState(false)
+  const [onshape, setOnshape] = useState(false)
+  const os = useOsAccounts()
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -55,6 +59,20 @@ export function AccountMenu({ placement, compact = false }: { placement: 'up' | 
           <button
             type="button"
             role="menuitem"
+            className="pick"
+            onClick={() => {
+              setOpen(false)
+              setOnshape(true)
+            }}
+          >
+            <span>
+              {os.has(session.user.id) ? 'Onshape' : 'Connect Onshape'}
+              <small className="num">{os.has(session.user.id) ? `Connected · ${os.used(session.user.id).toLocaleString('en')} of ${OS_BUDGET.toLocaleString('en')} calls used` : 'Sync with your own Onshape account'}</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
             className="pick account__out"
             onClick={() => {
               setOpen(false)
@@ -65,6 +83,7 @@ export function AccountMenu({ placement, compact = false }: { placement: 'up' | 
           </button>
         </div>
       )}
+      <ConnectOnshape open={onshape} onClose={() => setOnshape(false)} />
     </div>
   )
 }

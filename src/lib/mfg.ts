@@ -127,6 +127,17 @@ export interface Part {
   geometry_path: string | null
   step_path: string | null
   own_pdf_path: string | null
+  /** From the last Onshape sync (ONSHAPE.md). Missing until the migration runs or the part is matched. */
+  os_part_id?: string | null
+  os_href?: string | null
+  os_material?: string | null
+  os_mass_g?: number | null
+  /** Onshape says it's bought: standard content, or a parts library. */
+  os_bought?: 'standard' | 'library' | null
+  /** Someone said to keep it as made, so a sync stops suggesting Bought. */
+  os_keep?: boolean
+  /** Where the material came from: the upload's guess, Onshape, or a person in Steamhub. */
+  material_by?: 'guess' | 'onshape' | 'person'
   /** The plate a CNC part was cut from. */
   plate_id: string | null
   /** The stock piece reserved for a tube, rod or hex part; cut when the part is done. */

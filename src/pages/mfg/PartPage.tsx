@@ -41,6 +41,7 @@ import {
   type Robot,
   type Subsystem,
 } from '../../lib/mfg'
+import { massText } from '../../lib/onshape'
 import { supabase } from '../../lib/supabase'
 import { Combo, Select } from '../../components/Select'
 
@@ -512,7 +513,27 @@ export default function PartPage() {
               <>
                 <dt>Material</dt>
                 <dd>
-                  <Combo className="field--inline" label="Material" value={part.material} options={MATERIALS} onCommit={(v) => save({ material: v }, 'edited', { material: v })} />
+                  <Combo className="field--inline" label="Material" value={part.material} options={MATERIALS} onCommit={(v) => v !== part.material && save({ material: v, material_by: 'person' }, 'edited', { material: v })} />
+                  {part.material_by === 'onshape' && <span className="soft small"> from Onshape</span>}
+                </dd>
+              </>
+            )}
+            {part.os_mass_g != null && part.machine !== '3D print' && (
+              <>
+                <dt>CAD weight</dt>
+                <dd>
+                  {massText(part.os_mass_g)}
+                  {part.qty > 1 && <span className="soft"> each</span>}
+                </dd>
+              </>
+            )}
+            {part.os_href && (
+              <>
+                <dt>Onshape</dt>
+                <dd>
+                  <a href={part.os_href} target="_blank" rel="noreferrer">
+                    Open in Onshape
+                  </a>
                 </dd>
               </>
             )}

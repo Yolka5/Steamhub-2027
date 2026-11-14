@@ -35,6 +35,8 @@ import { useParts, usePeople, useSubsystem } from '../../lib/useMfg'
 import { Combo, Select } from '../../components/Select'
 import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
 import { SubsystemCalendar } from '../../components/SubsystemCalendar'
+import { OnshapePanel } from '../../components/Onshape'
+import { massText } from '../../lib/onshape'
 
 // Where CAD works: drop the STEP, check machine and material, release parts to the workshop.
 
@@ -129,7 +131,7 @@ export default function SubsystemPage() {
     run(async () => {
       const ids = pickedParts.filter((p) => p.machine !== 'Bought').map((p) => p.id)
       if (!ids.length) return toast('Bought parts have no material')
-      const res = await updateParts(ids, { material })
+      const res = await updateParts(ids, { material, material_by: 'person' })
       if (res.error) return toast(res.error)
       put(res.data!)
       toast(`${ids.length} set to ${material}`)
@@ -218,6 +220,20 @@ export default function SubsystemPage() {
       {!robot.offseason && <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} />}
       {robot.version != null && <SubsystemCalendar season={robot.season} number={sub.number} />}
       {robot.offseason && <SubsystemCalendar season={robot.season} number={sub.number} projectSub={sub.id} />}
+
+      <OnshapePanel
+        sub={sub}
+        onSynced={reloadParts}
+        onStep={async (file, progress) => {
+          // The same path as a dropped file, so numbers, change warnings and drawings behave the same.
+          if (!who) return toast('Sign in first')
+          const res = await uploadStep([file], sub, parts, who, progress)
+          await Promise.all([reload(), reloadParts()])
+          if (res.error) return toast(res.error)
+          const u = res.summary
+          toast(u ? [u.added && `${u.added} new`, u.changed && `${u.changed} changed`, u.gone && `${u.gone} gone`, u.same && `${u.same} unchanged`].filter(Boolean).join(', ') || 'STEP read' : 'STEP read')
+        }}
+      />
 
       <Drop
         onFile={async (files, progress) => {
@@ -549,6 +565,7 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         <span>{partName(part)}</span>
         <span className="soft small num">
           {sizeText(part.size)} mm · ×{part.qty}
+          {part.os_mass_g != null && part.machine !== '3D print' && <> · {massText(part.os_mass_g * part.qty)}</>}
           {/* More than one machine, as guessed at upload ("Route: Lathe → Mill (why)" in the notes). */}
           {route && part.machine !== 'Bought' && <> · {route}</>}
         </span>
@@ -561,7 +578,8 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         value={part.machine}
         label="Machine"
         options={MACHINES.map((m) => ({ value: m, label: m }))}
-        onChange={(v) => save(machinePatch(part, v as Machine))}
+        // Taking a part Onshape calls bought back to a machine is a decision; a sync leaves it alone after.
+        onChange={(v) => save({ ...machinePatch(part, v as Machine), ...(part.os_bought && v !== 'Bought' ? { os_keep: true } : {}) })}
       />
       {part.machine === 'Bought' ? (
         <span className="sp-row__mat sp-got" role="group" aria-label="Collected">
@@ -573,10 +591,11 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
           </button>
         </span>
       ) : (
-        <Combo className="field--inline sp-row__mat" label="Material" value={part.material} options={MATERIALS} onCommit={(v) => save({ material: v })} />
+        <Combo className="field--inline sp-row__mat" label="Material" value={part.material} options={MATERIALS} onCommit={(v) => v !== part.material && save({ material: v, material_by: 'person' })} />
       )}
       <span className="sp-row__tags">
         {part.bad && <span className="tag tag--bad">Unreadable</span>}
+        {part.os_part_id && !part.os_material && !part.os_bought && part.machine !== 'Bought' && part.machine !== '3D print' && <span className="tag tag--warn">No material in Onshape</span>}
         {part.changed && <span className="tag tag--reserved">Changed</span>}
         {part.rejected_note && !part.released_at && <span className="tag tag--bad">Rejected</span>}
         {part.asking && part.status !== 'done' && <span className="tag tag--warn">Waiting for an answer</span>}
@@ -586,6 +605,19 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         {/* Bought parts show their state on the Got it and Missing buttons. */}
         {part.released_at && part.machine !== 'Bought' && <PartStatusTag part={part} />}
       </span>
+      {/* Onshape says a released part is bought. In design it would have moved by itself; here a person decides. */}
+      {part.os_bought && part.machine !== 'Bought' && !part.os_keep && (
+        <span className="small sp-row__why sp-row__why--os sp-row__os">
+          Onshape says it's bought: it comes from {part.os_bought === 'standard' ? "Onshape's standard parts" : 'a parts library'}.{' '}
+          <button type="button" className="text-btn" onClick={() => save({ machine: 'Bought', material: '' })}>
+            Make it bought
+          </button>
+          {' · '}
+          <button type="button" className="text-btn" onClick={() => save({ os_keep: true })}>
+            Keep as made
+          </button>
+        </span>
+      )}
     </li>
   )
 }

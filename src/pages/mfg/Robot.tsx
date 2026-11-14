@@ -9,6 +9,7 @@ import { createSubsystem, deleteRobot, robotFootprint, versionIn, type Robot, ty
 import { supabase } from '../../lib/supabase'
 import { usePeople, useRobots } from '../../lib/useMfg'
 import { Select } from '../../components/Select'
+import { RobotWeight } from '../../components/Onshape'
 
 // One robot: a card per subsystem with its lead and how far its parts are.
 
@@ -86,6 +87,7 @@ export default function RobotPage() {
           )}
         </p>
       )}
+      <RobotWeight robot={robot} subs={mine} />
       <div className="mfg-bar-head">
         <h2 className="section__title">Subsystems</h2>
         <button type="button" className="q-btn q-btn--main" onClick={() => setAdding(true)}>

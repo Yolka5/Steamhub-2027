@@ -170,6 +170,7 @@ Tom keeps improving his artifact in claude.ai (he's connecting Claude to it and 
 - Re-run `scratchpad`-style checks on `Creations/Test STEP/Full Season Flow test/Intake 2026 Season/1577-2026-3000.step`: parse, joints, steps, drawings.
 
 ### Phase 6: Onshape API (on hold until Tom's updates are in)
+> 2026-11-14: the full plan lives in [ONSHAPE.md](ONSHAPE.md). Phases 0 to 3 are built and tested on live (see its Built section). It didn't wait for Tom's updates, and keys are per person, not one team key.
 - [ ] Everyone has their own Onshape account on the Education plan, which includes API access. Decide between one team API key in a Supabase secret and each person signing in to Onshape (OAuth).
 - [ ] A subsystem stores its Onshape document and assembly link. **Re-sync** fetches the STEP and runs the same upload path.
 - [ ] Read each part's material and mass from Onshape, so drawings show the real material and subsystems show CAD weight.

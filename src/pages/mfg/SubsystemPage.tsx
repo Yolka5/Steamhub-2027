@@ -37,6 +37,7 @@ import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
 import { SubsystemCalendar } from '../../components/SubsystemCalendar'
 import { OnshapePanel } from '../../components/Onshape'
 import { massText } from '../../lib/onshape'
+import { needsReview, openFindings, reviewParts, usePartReviews, useRejectReports, type PartReview } from '../../lib/claude'
 
 // Where CAD works: drop the STEP, check machine and material, release parts to the workshop.
 
@@ -54,6 +55,9 @@ export default function SubsystemPage() {
   const [renaming, setRenaming] = useState(false)
   const [busy, run] = useBusy()
   const { pieces, densities } = useStore()
+  const { reviews, reload: reloadReviews, dismiss } = usePartReviews(id)
+  const { reports, close: closeReport } = useRejectReports(id)
+  const [checking, setChecking] = useState<string | null>(null)
 
   if (!sub || !robot)
     return (
@@ -164,6 +168,24 @@ export default function SubsystemPage() {
     toast('Lead saved')
   }
 
+  /**
+   * Claude looks at the drawing and route of every part still in design that it hasn't seen in
+   * this shape (ONSHAPE.md phase 4). Runs by itself after an upload, so only new and changed parts cost anything.
+   */
+  const checkDrawings = async () => {
+    if (checking) return toast('Claude is still checking')
+    // Straight from the database: right after an upload the list on screen isn't the new one yet.
+    const { data } = await supabase.from('parts').select('*').eq('subsystem_id', sub.id)
+    const todo = needsReview((data as Part[]) ?? [], reviews)
+    if (!todo.length) return
+    setChecking(`Claude is checking the drawings 0/${todo.length}`)
+    const res = await reviewParts(todo, { robot, sub }, (done, total) => setChecking(`Claude is checking the drawings ${done}/${total}`))
+    setChecking(null)
+    await reloadReviews()
+    if (res.error) toast(res.error)
+  }
+  const unchecked = needsReview(parts, reviews).length
+
   const last = uploads[0]
   const analyzed = uploads.some((u) => u.analysis_path)
 
@@ -230,6 +252,7 @@ export default function SubsystemPage() {
           const res = await uploadStep([file], sub, parts, who, progress)
           await Promise.all([reload(), reloadParts()])
           if (res.error) return toast(res.error)
+          checkDrawings()
           const u = res.summary
           toast(u ? [u.added && `${u.added} new`, u.changed && `${u.changed} changed`, u.gone && `${u.gone} gone`, u.same && `${u.same} unchanged`].filter(Boolean).join(', ') || 'STEP read' : 'STEP read')
         }}
@@ -244,10 +267,71 @@ export default function SubsystemPage() {
           const res = await uploadStep(files, sub, parts, who, progress)
           await Promise.all([reload(), reloadParts()])
           if (res.error) toast(res.error)
+          else checkDrawings()
           return res.summary ?? null
         }}
         last={last ? `Last upload: ${last.filename}, ${last.uploaded_by_name ?? 'someone'}, ${ago(last.uploaded_at)}` : null}
       />
+
+      {checking ? (
+        <p className="mfg-note num os-note">{checking}</p>
+      ) : (
+        unchecked > 0 && (
+          <p className="soft small ai-pending">
+            Claude hasn't looked at {unchecked} {unchecked === 1 ? 'drawing' : 'drawings'} yet.{' '}
+            <button type="button" className="text-btn" onClick={checkDrawings}>
+              Check {unchecked === 1 ? 'it' : 'them'}
+            </button>
+          </p>
+        )
+      )}
+
+      {reports.map((r) => (
+        <section key={r.id} className="os rj" aria-label="Sent back by the workshop">
+          <div className="os__head">
+            <span className="os__title">Sent back by the workshop</span>
+            <button type="button" className="q-btn q-btn--small" onClick={() => closeReport(r.id, who?.userId ?? null)}>
+              Done with this
+            </button>
+          </div>
+          <p>{r.headline}</p>
+          <ul className="os-flags">
+            {r.items.map((it) => (
+              <li key={it.part_id}>
+                <span className="os-flags__text">
+                  <Link to={`/manufacturing/p/${it.part_id}`} className="strong num">
+                    {it.part_no}
+                  </Link>{' '}
+                  <span className="strong">{it.name}</span>
+                  {it.why && (
+                    <>
+                      <br />
+                      {it.why}
+                    </>
+                  )}
+                  {it.fix && (
+                    <>
+                      <br />
+                      <span className="strong">Try:</span> {it.fix}
+                    </>
+                  )}
+                  {it.stock && (
+                    <>
+                      <br />
+                      <span className="strong">Stock:</span> {it.stock}
+                    </>
+                  )}
+                  <br />
+                  <span className="soft small">
+                    {it.by} wrote: “{it.note}”
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="soft small num">Written by Claude {ago(r.created_at)}. The workshop lead's own words are quoted under each part.</p>
+        </section>
+      ))}
 
       {partsError && !parts.length ? (
         <LoadError onRetry={reloadParts} />
@@ -270,6 +354,8 @@ export default function SubsystemPage() {
             picked={picked}
             toggle={toggle}
             put={put}
+            reviews={reviews}
+            dismiss={dismiss}
             action={
               design.length > 0 && (
                 <button type="button" className="q-btn q-btn--small" disabled={busy} onClick={() => release(design)}>
@@ -485,6 +571,8 @@ function PartList({
   toggle,
   put,
   action,
+  reviews,
+  dismiss,
 }: {
   title: string
   hint: string
@@ -493,6 +581,8 @@ function PartList({
   toggle: (id: string, shift?: boolean) => void
   put: (p: Part) => void
   action?: ReactNode
+  reviews?: Map<string, PartReview>
+  dismiss?: (r: PartReview, text: string) => void
 }) {
   if (!parts.length) return null
   return (
@@ -506,14 +596,28 @@ function PartList({
       <p className="soft small sp-hint">{hint}</p>
       <ul className="sp-list">
         {parts.map((p) => (
-          <SubPartRow key={p.id} part={p} picked={picked.has(p.id)} toggle={(shift) => toggle(p.id, shift)} put={put} />
+          <SubPartRow key={p.id} part={p} picked={picked.has(p.id)} toggle={(shift) => toggle(p.id, shift)} put={put} review={reviews?.get(p.id)} dismiss={dismiss} />
         ))}
       </ul>
     </section>
   )
 }
 
-function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean; toggle: (shift: boolean) => void; put: (p: Part) => void }) {
+function SubPartRow({
+  part,
+  picked,
+  toggle,
+  put,
+  review,
+  dismiss,
+}: {
+  part: Part
+  picked: boolean
+  toggle: (shift: boolean) => void
+  put: (p: Part) => void
+  review?: PartReview
+  dismiss?: (r: PartReview, text: string) => void
+}) {
   const toast = useToast()
   const who = useWho()
   const save = async (patch: Partial<Part>) => {
@@ -605,6 +709,15 @@ function SubPartRow({ part, picked, toggle, put }: { part: Part; picked: boolean
         {/* Bought parts show their state on the Got it and Missing buttons. */}
         {part.released_at && part.machine !== 'Bought' && <PartStatusTag part={part} />}
       </span>
+      {/* What Claude noticed on the drawing or the route, before the part is released. */}
+      {openFindings(part, review).map((f) => (
+        <span key={f.text} className="small sp-row__why sp-row__why--os sp-row__os">
+          Worth a look: {f.text}{' '}
+          <button type="button" className="text-btn" onClick={() => review && dismiss?.(review, f.text)}>
+            Dismiss
+          </button>
+        </span>
+      ))}
       {/* Onshape says a released part is bought. In design it would have moved by itself; here a person decides. */}
       {part.os_bought && part.machine !== 'Bought' && !part.os_keep && (
         <span className="small sp-row__why sp-row__why--os sp-row__os">

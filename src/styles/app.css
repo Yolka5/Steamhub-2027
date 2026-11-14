@@ -1757,3 +1757,22 @@ dialog {
     top: 1rem;
   }
 }
+
+/* ===== Sign-in: ask to join ===== */
+.gate__ask {
+  display: grid;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.gate__ask p {
+  margin: 0;
+}
+
+.gate__sent {
+  font-weight: 600;
+}
+
+.gate__new {
+  margin: 0.25rem 0 0;
+}

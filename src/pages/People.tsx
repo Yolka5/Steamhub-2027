@@ -142,6 +142,58 @@ function Admin({ userId, edits }: { userId: string | null; edits: boolean }) {
   )
 }
 
+/** People who asked to join from the sign-in screen (request_join). Approving adds their email to the list. */
+function JoinRequests({ edits, onApproved }: { edits: boolean; onApproved: () => void }) {
+  const toast = useToast()
+  const [rows, setRows] = useState<{ id: number; shown_email: string; name: string; note: string | null; created_at: string }[]>([])
+  const load = async () => {
+    const { data } = await supabase.from('join_requests').select('id, shown_email, name, note, created_at').eq('status', 'pending').order('created_at')
+    setRows(data ?? [])
+  }
+  useEffect(() => {
+    load()
+  }, [])
+  const decide = async (id: number, ok: boolean, name: string) => {
+    const { error } = await supabase.rpc('decide_join', { p_id: id, p_ok: ok })
+    if (error) return toast(error.message)
+    await load()
+    if (ok) onApproved()
+    toast(ok ? `${name} can sign in now` : `Declined ${name}`)
+  }
+  if (!rows.length) return null
+  return (
+    <section className="section">
+      <h2 className="section__title">
+        Asked to join <span className="soft num">{rows.length}</span>
+      </h2>
+      <p className="soft small">Sent from the sign-in screen. Approving adds the email to the list below; tell them they can sign in.</p>
+      <ul className="rows">
+        {rows.map((r) => (
+          <li key={r.id} className="row">
+            <span className="row__main">
+              <span className="strong">{r.name}</span>
+              <span className="soft small">
+                {r.shown_email} · {ago(r.created_at)}
+                {r.note ? ` · “${r.note}”` : ''}
+              </span>
+            </span>
+            {edits && (
+              <span className="row__end">
+                <button type="button" className="q-btn q-btn--small q-btn--main" onClick={() => decide(r.id, true, r.name)}>
+                  Approve
+                </button>
+                <button type="button" className="q-btn q-btn--small" onClick={() => decide(r.id, false, r.name)}>
+                  Decline
+                </button>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 /**
  * Emails that may make a new account. Accounts that already exist sign in as before; anyone else
  * gets "not on the list" (handle_new_user in the database refuses them).
@@ -157,6 +209,8 @@ function WhoCanJoin({ userId, edits }: { userId: string | null; edits: boolean }
   useEffect(() => {
     load()
   }, [])
+
+  const requests = <JoinRequests edits={edits} onApproved={load} />
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -185,6 +239,8 @@ function WhoCanJoin({ userId, edits }: { userId: string | null; edits: boolean }
   }
 
   return (
+    <>
+    {requests}
     <section className="section">
       <h2 className="section__title">Who can join</h2>
       <p className="soft small">Only these emails can make a new account. Everyone above already has one and keeps it. Removing an email here doesn't remove an account; use Ban for that.</p>
@@ -218,6 +274,7 @@ function WhoCanJoin({ userId, edits }: { userId: string | null; edits: boolean }
         </ul>
       )}
     </section>
+    </>
   )
 }
 

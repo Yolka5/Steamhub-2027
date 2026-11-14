@@ -28,28 +28,26 @@ export const BOUGHT_WORD: Record<PartStatus, string> = {
 
 export const statusWord = (p: Pick<Part, 'machine' | 'status'>) => (p.machine === 'Bought' ? BOUGHT_WORD : STATUS_WORD)[p.status]
 
-/** Common materials, as the team writes them. The field takes anything. */
+/** The aluminum alloys the team buys. 6061 is the everyday one and Steamhub's guess. */
+export const ALLOYS = ['6061', '5052', '7075']
+const ALU_MM = [1, 1.5, 2, 3, 4, 5, 6, 6.35, 8, 10]
+
+/**
+ * Common materials. A plate reads "material · thickness mm" with its alloy, the same way a sync
+ * from Onshape writes it ("Aluminum 6061 · 5 mm"). The field takes anything.
+ */
 export const MATERIALS = [
-  'Aluminum 1',
-  'Aluminum 1.5',
-  'Aluminum 2',
-  'Aluminum 3',
-  'Aluminum 4',
-  'Aluminum 5',
-  'Aluminum 6',
-  'Aluminum 6.35',
-  'Aluminum 8',
-  'Aluminum 10',
+  ...ALLOYS.flatMap((a) => ALU_MM.map((t) => `Aluminum ${a} · ${t} mm`)),
   'Aluminum block',
   'Aluminum tube',
   'Aluminum profile',
-  'Polycarb 2',
-  'Polycarb 3',
-  'Polycarb 5',
+  'Polycarb · 2 mm',
+  'Polycarb · 3 mm',
+  'Polycarb · 5 mm',
   'Steel',
   'Delrin',
   'HDPE',
-  'Wood 18',
+  'Wood · 18 mm',
   'PLA',
   'PETG',
   'PA-CF',
@@ -315,7 +313,7 @@ export function guessMaterial(machine: Machine, cls: string | null, size: number
     // Snap to a thickness the team actually stocks; otherwise say the real one.
     const near = PLATE_THICKNESS.reduce((a, b) => (Math.abs(b - thin) < Math.abs(a - thin) ? b : a))
     const t = Math.abs(near - thin) <= 0.2 ? near : thin
-    return `${poly ? 'Polycarb' : 'Aluminum'} ${t === 1.524 ? '1.524' : t === 6.35 ? '6.35' : fmtMm(t)}`
+    return `${poly ? 'Polycarb' : 'Aluminum 6061'} · ${t === 1.524 ? '1.524' : t === 6.35 ? '6.35' : fmtMm(t)} mm`
   }
   if (cls === 'tube') return /profile|extrusion/i.test(name) ? 'Aluminum profile' : 'Aluminum tube'
   if (cls === 'block') return 'Aluminum block'
@@ -683,7 +681,6 @@ const label = (p: Part) => `${p.part_no} ${partName(p)}`
  * on its subsystem page with the note, until it's released again.
  */
 export async function rejectPart(p: Part, note: string, who: Who): Promise<Res<Part>> {
-  const to = await responsibleFor(p)
   const res = await updatePart(
     p.id,
     { released_at: null, rejected_note: note, rejected_by: who.userId, rejected_at: new Date().toISOString(), assignee_id: null, assigned_at: null, assigned_by: null, queue_pos: null, asking: false },
@@ -692,7 +689,9 @@ export async function rejectPart(p: Part, note: string, who: Who): Promise<Res<P
   if (res.error) return res
   await addRequest(p, 'reject', note, { id: who.userId, name: who.name }, who, 'info')
   await logPart(p.id, 'rejected', who, { note })
-  await notify(to, 'part_rejected', `${firstName(who.name)} rejected ${label(p)}: ${note}`, `/manufacturing/p/${p.id}`, who.userId)
+  // The releaser and the subsystem lead hear about it about ten minutes later, in one report per
+  // subsystem that Claude writes (the claude edge function, reject_reports): why, what to try, and
+  // the note quoted. If Claude doesn't answer, the same report goes out with the notes alone.
   if (p.assignee_id) await notify([p.assignee_id], 'unassigned', `${label(p)} was sent back to design: ${note}`, `/manufacturing/p/${p.id}`, who.userId)
   return res
 }

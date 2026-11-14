@@ -302,6 +302,24 @@ Not built or not checked yet:
 - A screen for an admin to flip a document between team and library (the function action exists).
 - Ask Claude in SteamLab and the rest of phase 4.
 
+## Phase 4 built (2026-11-15)
+
+The Claude work, through one gateway. Database and function are live; the app code is local and not committed.
+
+- **Gateway:** `supabase/functions/claude` (deployed, verify_jwt off), with the key in the secret `ANTHROPIC_API_KEY`. The prompts live on the server. Every call lands in `ai_calls` with tokens and cost. Daily caps per person: 600 drawing checks, 40 questions. Model `claude-opus-5-5` with the server-side fallback. Migration `20261118_claude.sql`.
+- **Claude checks parts at upload:** after a STEP upload (dropped or from Onshape), every made part still in design that Claude hasn't seen in this shape gets its drawing and route checked. Findings show as "Worth a look" under the part's row, with Dismiss. A line above the lists offers to check older parts. About $0.015 a part: the 48 test parts cost $0.71.
+- **Reject reports:** the instant raw-note push is gone. Every 5 minutes `claude_rejects_run()` looks for rejects older than 10 minutes and writes one report per subsystem: a headline for the push, then why, what to try and a stock check per part, with the workshop lead's words quoted. It shows on the subsystem page as "Sent back by the workshop" until someone presses Done. If Claude doesn't answer, the report still goes out with the notes alone. About $0.04 a report.
+- **Ask Claude in SteamLab:** a card under the recap. The answer comes from a snapshot of robots, subsystems, parts and the last Onshape syncs, and lists the figures it used. About $0.08 a question.
+
+What the test on the 48 intake parts showed:
+- The first prompt flagged 42 of 48 parts, nearly all for text overlapping in the title block. Steamhub prints the title block, so that's not the designer's to fix, and the prompt now ignores it (and the old CAD number at the start of a name).
+- With the second prompt, 6 of 14 re-checked parts were flagged, all real: turned steps and a cross hole with no dimensions, slots with no size, two diameter labels pointing at the wrong circles, and a 1 mm sheet set as the material of a lathe part.
+- **These point at the drawing generator as much as at the designer.** Steamhub draws the drawings, so "add the diameter" really means a note on the part or an uploaded drawing. The swapped diameter labels and the overlapping title-block text (with a long robot name) are generator bugs worth fixing.
+
+Not done:
+- CAD lines in the nightly SteamLab recap. It means redeploying the working recap function, so it waits for a moment when the next night's recap can be watched.
+- The lead's own pictures and demo round for these screens. They were built straight from the Q&A answers.
+
 ## Later, not planned
 
 - Writing Steamhub's part numbers back into Onshape (needs write permission on the key).

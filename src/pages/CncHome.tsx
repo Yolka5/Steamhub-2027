@@ -25,8 +25,8 @@ interface Group {
   urgent: number
 }
 
-/** "Aluminum 5.5" and "Aluminum block" both read as "Aluminum". */
-const baseMaterial = (m: string | null) => (m ?? '').replace(/\bblock\b/gi, '').replace(/\d+(\.\d+)?\s*(mm)?/g, '').trim() || 'Plate'
+/** "Aluminum · 5 mm", "Aluminum 6061 · 5 mm", the older "Aluminum 5.5" and "Aluminum block" all read as "Aluminum". */
+const baseMaterial = (m: string | null) => (m ?? '').split('·')[0].replace(/\bblock\b/gi, '').replace(/\d+(\.\d+)?\s*(mm)?/g, '').trim() || 'Plate'
 
 function groupOf(p: Part): Omit<Group, 'parts' | 'urgent'> {
   const t = plateThickness(p.size ?? [])

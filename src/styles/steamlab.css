@@ -654,3 +654,58 @@ button.sl-feed__item {
     transition: none;
   }
 }
+
+/* ===== Ask Claude ===== */
+.sl-ask__form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sl-ask__form .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.sl-ask__answer {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.sl-ask__answer p,
+.sl-ask__ideas {
+  margin: 0;
+}
+
+.sl-ask__ideas {
+  margin-top: 0.75rem;
+}
+
+.sl-ask__nums {
+  display: grid;
+  margin: 0.25rem 0 0;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.sl-ask__nums > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.sl-ask__nums > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.sl-ask__nums dt {
+  color: var(--ink-soft);
+}
+
+.sl-ask__nums dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}

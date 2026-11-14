@@ -1745,3 +1745,12 @@
   font-weight: 400;
   color: var(--ink-soft);
 }
+
+/* ===== Claude: drawings not checked yet, and the report on parts sent back ===== */
+.ai-pending {
+  margin: 0 0 1rem;
+}
+
+.rj .os-flags__text {
+  line-height: 1.5;
+}

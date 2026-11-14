@@ -1,3 +1,4 @@
+import { AskClaude } from '../components/AskClaude'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useCalSeason } from '../components/cal'
@@ -360,6 +361,9 @@ function Lab() {
                 )
               }}
             />
+          </section>
+          <section className="sl-card sl-ask">
+            <AskClaude />
           </section>
           <section className="sl-card sl-feed">
             <h2 className="section__title">{live ? 'What happened today' : `What happened by ${hhmm(T)}`}</h2>

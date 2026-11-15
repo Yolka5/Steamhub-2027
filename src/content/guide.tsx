@@ -310,7 +310,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Weight per mechanism',
         how: [
           <>
-            <A to="/stock/mechanisms">Mechanisms</A> lists the stock each subsystem reserved and what it weighs, using the planned length when there is one.
+            <A to="/stock/mechanisms">Mechanisms</A> shows each subsystem's CAD weight from its last Onshape sync, with the heaviest parts, then the raw stock each one reserved.
           </>,
         ],
         tip: (

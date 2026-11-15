@@ -450,7 +450,7 @@ function TapLookup({ text, setText, matches }: { text: string; setText: (s: stri
           <span className="ctl__name">Thread</span>
           <input
             className="field field--big num"
-            placeholder="10-32, M5, 1/4-20"
+            placeholder="M5, M3, 10-32"
             value={text}
             autoFocus={window.matchMedia('(pointer: fine)').matches}
             onChange={(e) => {
@@ -569,13 +569,6 @@ export function SheetTab() {
       <TapLookup text={text} setText={setText} matches={matches} />
       <div className="sheet-threads">
       <SheetTable
-        title="Imperial screws"
-        head={head}
-        rows={THREADS.filter((t) => t.system === 'imperial').map(threadRow)}
-        highlight={highlight}
-        note="Drill size in brackets. Tap drills for 75% thread, clearance from the machinist chart. #10-32 and 1/4-20 are most of what goes on the robot."
-      />
-      <SheetTable
         title="Metric screws"
         head={head}
         rows={THREADS.filter((t) => t.system === 'metric').map(threadRow)}
@@ -586,6 +579,16 @@ export function SheetTab() {
       <div className="sheet-grid">
       <SheetTable title="Bearings" head={['Bearing', 'ID (mm)', 'OD (mm)', 'Width (mm)']} rows={BEARINGS} note="R6 and R8 widths are for sealed bearings (open ones are thinner). Flanged versions add a flange, so check the vendor drawing for the flange size before cutting a pocket." />
       <SheetTable title="Hex shaft" head={['Shaft', 'Across flats (mm)', 'Across corners (mm)', 'Hex bearing OD (mm)']} rows={HEX} note="Hex bearing ODs are 7/8 in and 1.125 in (same as R8). Width changes by vendor, so check the drawing." />
+      </div>
+      {/* Last on purpose: the team rarely uses imperial screws. */}
+      <div className="sheet-threads">
+      <SheetTable
+        title="Imperial screws"
+        head={head}
+        rows={THREADS.filter((t) => t.system === 'imperial').map(threadRow)}
+        highlight={highlight}
+        note="Drill size in brackets. Tap drills for 75% thread, clearance from the machinist chart."
+      />
       </div>
     </>
   )

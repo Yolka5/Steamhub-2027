@@ -22,7 +22,7 @@ export const OUR_TOOLS: Tool[] = [
   { name: 'Swerve ratios', what: 'Compare the three drive ratios: top speed, acceleration and current.', icon: 'wheel', to: '/calculators?tab=swerve', keywords: 'drive drivetrain sds mk5n סוורב' },
   { name: 'Motor curves', what: 'Torque, current, power and efficiency at every speed, for one mechanism or one motor.', icon: 'chart', to: '/calculators?tab=curves', keywords: 'dyno torque power efficiency voltage' },
   { name: 'Cut list', what: 'Every length a mechanism needs, matched to the fewest pieces of stock.', icon: 'cut', to: '/stock/cut', keywords: 'stock cut lengths saw מלאי חיתוך' },
-  { name: 'Weight per mechanism', what: 'What each mechanism has reserved from stock, and what it weighs.', icon: 'scale', to: '/stock/mechanisms', keywords: 'weight mass משקל' },
+  { name: 'Weight per mechanism', what: 'Each subsystem’s CAD weight from Onshape, plus the raw stock it reserved.', icon: 'scale', to: '/stock/mechanisms', keywords: 'weight mass onshape cad משקל' },
 ]
 
 export const OUTSIDE_TOOLS: Tool[] = [

@@ -376,7 +376,7 @@ export const CHAPTERS: Chapter[] = [
           </>,
           <>Start the top one first. Urgent parts are always on top.</>,
           <>
-            Can’t make one? Press <B>⋯</B> on it and <B>Give back</B>. It goes back to the lead.
+            Can’t make one? Press <B>⋯</B> on it and <B>Give back</B>. It goes back to the lead. For a few at once, pick <B>Give back several…</B> and tick them.
           </>,
           <>Nothing in your list? Start any part from Unassigned on the board and it becomes yours.</>,
         ],

@@ -114,7 +114,20 @@ export function TaskCard({
 }
 
 /** The card's menu: the lead's moves and Reject, Ask first / Done with a note, and Give back. */
-export function TaskMenu({ part, actions, rules, onClose }: { part: Part | null; actions: Actions; rules: Rules; onClose: () => void }) {
+export function TaskMenu({
+  part,
+  actions,
+  rules,
+  onClose,
+  onGiveBackSeveral,
+}: {
+  part: Part | null
+  actions: Actions
+  rules: Rules
+  onClose: () => void
+  /** Your own list with more than one to give back: tick several, starting with this one. */
+  onGiveBackSeveral?: (p: Part) => void
+}) {
   const run = (fn: () => unknown) => () => {
     onClose()
     fn()
@@ -171,6 +184,11 @@ export function TaskMenu({ part, actions, rules, onClose }: { part: Part | null;
           {rules.canGiveBack(part) && (
             <button type="button" className="q-btn" onClick={run(() => actions.handBack(part))}>
               Give back
+            </button>
+          )}
+          {rules.canGiveBack(part) && onGiveBackSeveral && (
+            <button type="button" className="q-btn" onClick={run(() => onGiveBackSeveral(part))}>
+              Give back several…
             </button>
           )}
           {rules.canGiveBack(part) && <p className="soft small">Give back returns it to the workshop lead to hand to someone else.</p>}

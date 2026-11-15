@@ -10,6 +10,7 @@ import {
   rejectPart,
   doneRecently,
   giveBack,
+  giveBackMany,
   isOpen,
   isTask,
   moveInQueue,
@@ -183,6 +184,19 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
       toast(`${p.part_no} is back with the workshop lead`)
     })
 
+  /** Gives back several of your parts at once. True when it worked. */
+  const handBackMany = async (parts: Part[]) => {
+    if (!who || !parts.length) return false
+    const res = await giveBackMany(parts, who)
+    if (res.data?.length) put(res.data)
+    if (res.error) {
+      toast(res.error)
+      return false
+    }
+    toast(parts.length === 1 ? `${parts[0].part_no} is back with the workshop lead` : `${parts.length} parts are back with the workshop lead`)
+    return true
+  }
+
   /** Hands parts to someone picked from the list. */
   const assignTo = async (parts: Part[]) => {
     if (!who || !parts.length) return false
@@ -294,7 +308,7 @@ export function useTaskActions(put: (rows: Part | Part[]) => void, tasks: Part[]
     await logPart(p.id, p.urgent ? 'not_urgent' : 'urgent', who)
   }
 
-  return { start, done, handBack, assignTo, assign, unassign, move, drop, toggleUrgent, reject, askAbout, doneNote, held, sheets: (
+  return { start, done, handBack, handBackMany, assignTo, assign, unassign, move, drop, toggleUrgent, reject, askAbout, doneNote, held, sheets: (
       <>
         {picker}
         {sheet}

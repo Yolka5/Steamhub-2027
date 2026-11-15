@@ -20,6 +20,9 @@ export default function PersonList({ mine = false }: { mine?: boolean }) {
   const rules = useTaskRules()
   const actions = useTaskActions(put, tasks)
   const [menu, setMenu] = useState<Part | null>(null)
+  // Ticking several to give back at once.
+  const [picked, setPicked] = useState<Set<string> | null>(null)
+  const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -51,6 +54,21 @@ export default function PersonList({ mine = false }: { mine?: boolean }) {
   const { open, done } = listOf(tasks, personId)
   const recent = done.filter((p) => now - Date.parse(p.done_at!) < 12 * 3600_000)
   const multi = new Set([...live.values()].map((s) => s.robot_id)).size > 1
+  const givable = open.filter(rules.canGiveBack)
+  const pickedParts = picked ? givable.filter((p) => picked.has(p.id)) : []
+  const toggle = (id: string) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const giveBackPicked = async () => {
+    if (busy || !pickedParts.length) return
+    setBusy(true)
+    if (await actions.handBackMany(pickedParts)) setPicked(null)
+    setBusy(false)
+  }
   const subText = (p: Part) => {
     const s = live.get(p.subsystem_id)
     return subLabel(s, robots.find((r) => r.id === s?.robot_id), multi)
@@ -82,12 +100,20 @@ export default function PersonList({ mine = false }: { mine?: boolean }) {
           ) : (
             <>
               <p className="soft small num">
-                {open.length} open · top one first
+                {picked ? 'Tick the parts to give back. They go to the workshop lead to hand to someone else.' : `${open.length} open · top one first`}
               </p>
               <ul className="tlist__list">
                 {open.map((p) => (
                   <li key={p.id}>
-                    <TaskCard part={p} sub={subText(p)} actions={actions} rules={rules} onMenu={setMenu} big />
+                    <TaskCard
+                      part={p}
+                      sub={subText(p)}
+                      actions={actions}
+                      rules={rules}
+                      onMenu={setMenu}
+                      select={picked && rules.canGiveBack(p) ? { on: picked.has(p.id), toggle: () => toggle(p.id) } : undefined}
+                      big
+                    />
                   </li>
                 ))}
               </ul>
@@ -107,7 +133,33 @@ export default function PersonList({ mine = false }: { mine?: boolean }) {
           )}
         </>
       )}
-      <TaskMenu part={menu} actions={actions} rules={rules} onClose={() => setMenu(null)} />
+      {picked && (
+        <div className="tbar" role="region" aria-label="Give back">
+          <span className="num tbar__count">
+            {pickedParts.length} {pickedParts.length === 1 ? 'part' : 'parts'}
+          </span>
+          <button type="button" className="q-btn q-btn--main" onClick={giveBackPicked} disabled={busy}>
+            {busy ? 'Giving back' : pickedParts.length ? `Give back ${pickedParts.length}` : 'Tick parts first'}
+          </button>
+          <button
+            type="button"
+            className="q-btn"
+            onClick={() => setPicked(pickedParts.length === givable.length ? new Set() : new Set(givable.map((p) => p.id)))}
+          >
+            {pickedParts.length === givable.length ? 'None' : 'All'}
+          </button>
+          <button type="button" className="q-btn" onClick={() => setPicked(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
+      <TaskMenu
+        part={menu}
+        actions={actions}
+        rules={rules}
+        onClose={() => setMenu(null)}
+        onGiveBackSeveral={givable.length > 1 ? (p) => setPicked(new Set([p.id])) : undefined}
+      />
       {actions.sheets}
     </div>
   )

@@ -639,6 +639,25 @@ export async function giveBack(p: Part, who: Who): Promise<Res<Part>> {
   return res
 }
 
+/** Several at once: one write, one note to the leads, and "nothing left" checked once per person. */
+export async function giveBackMany(parts: Part[], who: Who): Promise<Res<Part[]>> {
+  if (parts.length === 1) {
+    const one = await giveBack(parts[0], who)
+    return one.error ? { error: one.error } : { data: one.data ? [one.data] : [] }
+  }
+  const ids = parts.map((p) => p.id)
+  const res = await updateParts(ids, { assignee_id: null, assigned_at: null, assigned_by: null, queue_pos: null, status: 'todo', maker_id: null, maker_name: null })
+  if (res.error) return res
+  await logPart(ids, 'gave_back', who)
+  const owners = [...new Set(parts.map((p) => p.assignee_id).filter((x): x is string => !!x))]
+  const name = owners.length === 1 ? ((await personName(owners[0])) ?? who.name) : who.name
+  const nos = parts.map((p) => p.part_no)
+  const list = nos.length > 4 ? `${nos.slice(0, 4).join(', ')} and ${nos.length - 4} more` : nos.join(', ')
+  await notify(await workshopLeads(), 'gave_back', `${firstName(name)} gave back ${parts.length} parts: ${list}`, '/manufacturing/board', who.userId)
+  for (const o of owners) await tellIfEmpty(o, who)
+  return res
+}
+
 // ---------- Pushback: reject, ask first, done with a note (WORKSHOP_TASKS.md) ----------
 
 export type RequestKind = 'ask' | 'done_note' | 'reject'

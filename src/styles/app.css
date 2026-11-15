@@ -46,6 +46,29 @@
   letter-spacing: 0.02em;
 }
 
+/* Narrow phones (320-370 px): the name and four buttons don't fit side by side, so the
+   name shrinks and then goes, the logo stays as the way home. */
+@media (max-width: 380px) {
+  .topbar {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .topbar__end {
+    gap: 0;
+  }
+
+  .topbar .brand__name {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .topbar .brand__name {
+    display: none;
+  }
+}
+
 .main {
   min-width: 0;
   overflow-x: clip;
@@ -809,7 +832,7 @@
 
 .facts {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.45rem 1.25rem;
   margin: 0.5rem 0;
   padding: 1rem 1.1rem;
@@ -822,7 +845,13 @@
 }
 
 .facts dd {
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.facts dd > * {
+  max-width: 100%;
 }
 
 .piece__actions {

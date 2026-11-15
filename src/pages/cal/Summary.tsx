@@ -7,6 +7,7 @@ import { addDays, firstName, groupOrder, longDay, TEAMS, TEAM_WORD, todayIso } f
 import { useCal } from '../../lib/useCal'
 import { usePhone } from '../../lib/usePhone'
 import { usePeople } from '../../lib/useMfg'
+import { copyText } from '../../lib/copy'
 
 // One day's updates from every group, by team, on one screen. Leads who haven't sent theirs show
 // as "Not sent yet". Copy turns the whole day into text for the team chat.
@@ -40,10 +41,7 @@ export default function Summary() {
       lines.push('', `*${TEAM_WORD[t]}*`)
       for (const r of mine) lines.push(`${r.g.name} (${firstName(nameOf(r.u!.author_id))}): ${r.u!.text}`)
     }
-    navigator.clipboard?.writeText(lines.join('\n')).then(
-      () => toast('Copied. Paste it in the team chat.'),
-      () => toast("Couldn't copy here. Select the text instead."),
-    )
+    copyText(lines.join('\n')).then((ok) => toast(ok ? 'Copied. Paste it in the team chat.' : "Couldn't copy here. Select the text instead."))
   }
 
   return (

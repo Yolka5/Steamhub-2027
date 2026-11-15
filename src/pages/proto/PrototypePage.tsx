@@ -32,6 +32,7 @@ import {
 import { usePeople } from '../../lib/useMfg'
 import { Blocks } from './Blocks'
 import { ParamsPanel } from './Params'
+import { copyText } from '../../lib/copy'
 
 // One prototype: what it is, every test as video + parameters + result, and its blocks.
 
@@ -334,8 +335,8 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
       if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], text }).catch(() => {})
       else {
         saveFile(name, out)
-        navigator.clipboard?.writeText(text)
-        toast('Video saved. The parameters are copied too.')
+        const copied = await copyText(text)
+        toast(copied ? 'Video saved. The parameters are copied too.' : 'Video saved.')
       }
     } catch (e) {
       toast(e instanceof Error ? e.message : String(e))

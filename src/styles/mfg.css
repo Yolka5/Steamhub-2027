@@ -369,6 +369,8 @@
 /* Bought parts: Got it and Missing, the lit one says the state. Press it again to go back to Needed. */
 .sp-got {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   gap: 0.3rem;
 }
 
@@ -597,11 +599,13 @@
 
 .part__drawing {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
 }
 
 .part__side {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
 }
 

@@ -88,6 +88,7 @@ Tick a phase here when it's done and checked in the browser.
 - [x] A checkbox on each parameter moves it between the subsystem set and this prototype.
 
 ### Phase 3: compare and choose (built 2026-11-07)
+- [x] `/prototypes/:id/compare?n=2,3` (added 2026-11-15): tests of one prototype side by side, where most of the tuning happens. Defaults to the last two tests; chips pick 2 to 4. Videos two to a row on a phone and Play together, then a table with result, score, measured, every parameter any of them has, note and who; rows that differ marked, best in bold, "Only what's different" to hide the rest, parameter names stay put while scrolling sideways. Reached from "Compare tests" next to Tests and "vs test N" on each test card. A test card with no parameters says so and links to Edit.
 - [x] `/prototypes/compare?ids=…`: each column shows its best test (pick another per column), rows that differ marked, best result, score and measured in bold, videos side by side with Play together, chips to add or remove prototypes (2 to 4).
 - [x] Parameter chart block: a number parameter against result, score or the measured number, points labelled with the test number.
 - [x] Chosen / Dropped ask for one line of why. The Manufacturing subsystem page has a Prototypes section: chosen first with its key parameters, then the others.

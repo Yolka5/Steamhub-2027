@@ -123,7 +123,14 @@ export default function PrototypePage() {
       <div className="pt-layout">
         <div className="pt-main">
           <section>
-            <h2 className="section__title">Tests</h2>
+            <div className="pt-tests__head">
+              <h2 className="section__title">Tests</h2>
+              {newest.length >= 2 && (
+                <Link to={`/prototypes/${proto.id}/compare`} className="q-btn q-btn--small">
+                  <Icon name="compare" size={18} /> Compare tests
+                </Link>
+              )}
+            </div>
             {newest.length === 0 ? (
               <div className="mfg-empty">
                 <p>Film the prototype running. The parameters you set are saved with the video, so you can compare tries later.</p>
@@ -316,6 +323,7 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
   const changes = changedSince(test, tests, params)
   const changedIds = new Set(changes.map((c) => c.def.id))
   const filled = params.filter((d) => test.values[d.id] !== undefined && test.values[d.id] !== null && test.values[d.id] !== '')
+  const prev = tests.filter((t) => t.n < test.n).sort((a, b) => b.n - a.n)[0]
   const clips = clipsOf(test)
   const [pick, setPick] = useState(0)
   const clip = clips[Math.min(pick, clips.length - 1)]
@@ -390,6 +398,12 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
           {test.note}
         </p>
       )}
+      {filled.length === 0 && params.length > 0 && (
+        <p className="soft small">
+          No parameters filled in.{' '}
+          <Link to={`/prototypes/${proto.id}/test/${test.id}`}>Add what this test ran with</Link>
+        </p>
+      )}
       {filled.length > 0 && (
         <dl className="pt-values num">
           {filled.map((d) => (
@@ -407,6 +421,11 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
         <Link to={`/prototypes/${proto.id}/test/${test.id}`} className="q-btn q-btn--small">
           <Icon name="edit" size={18} /> Edit
         </Link>
+        {prev && (
+          <Link to={`/prototypes/${proto.id}/compare?n=${prev.n},${test.n}`} className="q-btn q-btn--small">
+            <Icon name="compare" size={18} /> vs test {prev.n}
+          </Link>
+        )}
         {clip?.path && (
           <button type="button" className="q-btn q-btn--small" onClick={share}>
             <Icon name="share" size={18} /> {sharing != null ? `Making the video ${Math.round(sharing * 100)}%` : 'Share with parameters'}

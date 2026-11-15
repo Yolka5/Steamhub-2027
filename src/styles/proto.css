@@ -1147,3 +1147,72 @@
   flex: 1;
   min-width: 0;
 }
+
+/* ===== Comparing tests of one prototype ===== */
+.pt-tests__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pt-compare__only {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.pt-tests__head {
+  margin-bottom: 0.9rem;
+}
+
+.pt-tests__head .section__title {
+  margin: 0;
+}
+
+/* Tests side by side on a phone: two videos to a row instead of a full-width stack, and the
+   parameters stay in the table (they come back on the video in fullscreen). */
+.pt-compare--tests .pt-compare__videos {
+  grid-template-columns: repeat(min(var(--cols, 2), 2), minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (min-width: 48rem) {
+  .pt-compare--tests .pt-compare__videos {
+    grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  }
+}
+
+.pt-compare--tests .pt-video:not([data-full]) .pt-overlay {
+  display: none;
+}
+
+.pt-compare--tests .pt-table {
+  min-width: calc(6.5rem + var(--cols, 2) * 5.5rem);
+}
+
+/* The parameter names stay put while the tests scroll sideways. */
+.pt-table tbody th,
+.pt-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface-0);
+}
+
+.pt-compare--tests .pt-table tbody th {
+  min-width: 6.5rem;
+  max-width: 9rem;
+  white-space: normal;
+}
+
+.pt-compare--tests .pt-table th,
+.pt-compare--tests .pt-table td {
+  padding: 0.5rem 0.6rem;
+}
+
+.pt-compare--tests .pt-table__note {
+  min-width: 0;
+}

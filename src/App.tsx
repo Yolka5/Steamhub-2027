@@ -40,6 +40,7 @@ import Prototypes from './pages/proto/Prototypes'
 import PrototypePage from './pages/proto/PrototypePage'
 import TestForm from './pages/proto/TestForm'
 import Compare from './pages/proto/Compare'
+import TestCompare from './pages/proto/TestCompare'
 import Record from './pages/proto/Record'
 import Summary from './pages/proto/Summary'
 import Library from './pages/proto/Library'
@@ -382,6 +383,7 @@ export default function App() {
             <Route path="/prototypes/summary" element={<Summary />} />
             <Route path="/prototypes/library" element={<Library />} />
             <Route path="/prototypes/:id" element={<PrototypePage />} />
+            <Route path="/prototypes/:id/compare" element={<TestCompare />} />
             <Route path="/prototypes/:id/test" element={<TestForm key="new" />} />
             <Route path="/prototypes/:id/test/:testId" element={<TestForm />} />
             <Route path="/stock/plates" element={<Plates />} />

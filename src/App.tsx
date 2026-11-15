@@ -7,6 +7,7 @@ import { Icon, type IconName } from './components/Icon'
 import { AccountMenu } from './components/AccountMenu'
 import { BackButton } from './components/BackButton'
 import { Indicator } from './components/Indicator'
+import { MoreSheet, MoreTab } from './components/MoreMenu'
 import { Palette } from './components/Palette'
 import { ToastProvider } from './components/ui'
 import { useAuth } from './lib/auth'
@@ -84,14 +85,16 @@ const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, CAL, TOOLS, HANDBOOK]
 const linkTo = (n: NavItem) => (n === MFG ? '/manufacturing/start' : n.to)
 /**
  * Phones: the workshop needs Make in reach and leads use the Calendar daily, so those two sit on the
- * right. Tools (with the Handbook inside) is a tile on Home there, and search finds every tool.
- * Add sits in the middle.
+ * right. Add sits in the middle. Everything else is behind More, the last tab.
  */
 const TABS_LEFT: NavItem[] = [HOME, STOCK]
 const TABS_RIGHT: { item: NavItem; label: string }[] = [
   { item: MFG, label: 'Make' },
   { item: CAL, label: 'Calendar' },
 ]
+const PEOPLE: NavItem = { to: '/people', label: 'People', icon: 'people' }
+/** Behind More on phones. SteamLab and People join for those who can open them. */
+const MORE: NavItem[] = [PROTO, TOOLS, HANDBOOK]
 /**
  * The portrait TV in the CAD room: every section in the bottom bar, Calculator on its own because
  * it's one of the three pages used there most. Add moves up to the top bar.
@@ -215,7 +218,9 @@ export default function App() {
     setPaletteAnim(true)
     setPaletteOpen(true)
   }, [])
-  const { session, ready, banned, userId, room } = useAuth()
+  const { session, ready, banned, userId, room, seesAll } = useAuth()
+  const [moreOpen, setMoreOpen] = useState(false)
+  const closeMore = useCallback(() => setMoreOpen(false), [])
   // The CNC room's PC: Home is the CNC Home, so it says so.
   const navLabel = (n: NavItem) => (n === HOME && room === 'cnc' ? 'CNC' : n.label)
   const steamlab = useSteamlabAccess(userId)
@@ -248,7 +253,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  useEffect(() => setPaletteOpen(false), [location.pathname, location.search])
+  useEffect(() => {
+    setPaletteOpen(false)
+    setMoreOpen(false)
+  }, [location.pathname, location.search])
+  const more = [...MORE, ...(steamlab ? [STEAMLAB] : []), ...(seesAll ? [PEOPLE] : [])].map((n) => ({
+    to: linkTo(n),
+    label: n.label,
+    icon: n.icon,
+    active: isActive(n, location.pathname, true),
+  }))
 
   // A phone with notifications on keeps them pointed at whoever is signed in.
   useEffect(() => {
@@ -416,8 +430,10 @@ export default function App() {
               {label}
             </Link>
           ))}
+          <MoreTab open={moreOpen} active={more.some((m) => m.active)} onToggle={() => setMoreOpen((o) => !o)} />
         </nav>
         )}
+        {!tall && <MoreSheet open={moreOpen} items={more} onClose={closeMore} />}
       </div>
       <Palette open={paletteOpen} animated={paletteAnim} initial={paletteText} onClose={() => setPaletteOpen(false)} />
     </ToastProvider>

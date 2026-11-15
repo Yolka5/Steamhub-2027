@@ -15,7 +15,7 @@ interface Auth {
   isAdmin: boolean
   /** The team captain: sees everything an admin sees (People, SteamLab). Fixed in the database. */
   isCaptain: boolean
-  /** Admin or captain: may open the admin's pages to look. */
+  /** Admin, captain or mentor: may open the admin's pages to look. Only the admin gets the buttons. */
   seesAll: boolean
   /** Workshop leads and admins hand out parts (WORKSHOP_TASKS.md). */
   canAssign: boolean
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     isAdmin: !!profile?.is_admin,
     isCaptain: !!profile?.captain && !profile?.banned,
-    seesAll: !!profile?.is_admin || (!!profile?.captain && !profile?.banned),
+    seesAll: !!profile?.is_admin || ((!!profile?.captain || !!profile?.mentor) && !profile?.banned),
     canAssign: !!profile?.is_admin || !!profile?.workshop_lead,
     shared: !!profile?.shared,
     room: profile ? (profile.shared && profile.room ? profile.room : null) : uid ? savedRoom() : null,

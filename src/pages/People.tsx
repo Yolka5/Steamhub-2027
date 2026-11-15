@@ -7,7 +7,7 @@ import { selectAll, supabase } from '../lib/supabase'
 
 // The admin's page: everyone who has signed in, who else may join (new accounts are refused
 // unless their email is on that list), how much each section is used, and a backup of everything.
-// A ban takes effect on their next page load. The captain sees it all too, without the buttons.
+// A ban takes effect on their next page load. The captain and mentors see it all too, without the buttons.
 
 export default function People() {
   const { isAdmin, seesAll, userId, profile } = useAuth()

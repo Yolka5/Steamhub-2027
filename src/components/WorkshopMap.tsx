@@ -87,29 +87,58 @@ export function WorkshopMap({ room = ROOM, parts, lastUsed, now, onDone, onShow,
     const m = s.getScreenCTM()
     if (!m) return
     const r = w.getBoundingClientRect()
+    // Tags stay inside what's on screen, not just inside the map: on a phone the map is wider than
+    // the panel that crops it, and the Mill's open tag ended up half off the right edge.
+    let lo = Math.max(0, -r.left)
+    let hi = Math.min(w.clientWidth, window.innerWidth - r.left)
+    let top = -r.top
+    for (let a = w.parentElement; a; a = a.parentElement) {
+      const cs = getComputedStyle(a)
+      const c = a.getBoundingClientRect()
+      if (cs.overflowX !== 'visible') {
+        lo = Math.max(lo, c.left - r.left)
+        hi = Math.min(hi, c.right - r.left)
+      }
+      if (cs.overflowY !== 'visible') top = Math.max(top, c.top - r.top)
+    }
+    const fit = (x: number, width: number) => Math.min(Math.max(lo + 4, x), hi - width - 4)
     const at = (spot: Spot) => {
       const p = s.createSVGPoint()
       ;[p.x, p.y] = room.anchors[spot] ?? [0, 0]
       const q = p.matrixTransform(m)
       return [q.x - r.left, q.y - r.top] as const
     }
-    w.querySelectorAll<HTMLElement>('[data-anchor]').forEach((el) => {
-      const [x, y] = at(el.dataset.anchor as Spot)
+    // Tags first, so each lead line knows whether its tag flipped below the machine.
+    const below = new Set<string>()
+    const els = [...w.querySelectorAll<HTMLElement>('[data-anchor]')]
+    els.sort((a, b) => Number(a.classList.contains('wmap-lead')) - Number(b.classList.contains('wmap-lead')))
+    els.forEach((el) => {
+      const spot = el.dataset.anchor as Spot
+      const [x, y] = at(spot)
       if (el.classList.contains('wmap-lead')) {
         el.style.left = `${x - 0.75}px`
-        el.style.top = `${y - 52}px`
+        el.style.top = `${below.has(spot) ? y : y - 52}px`
         return
       }
       if (el.classList.contains('wmap-stock')) {
-        el.style.left = `${Math.min(x, w.clientWidth - el.offsetWidth / 2 - 4)}px`
+        el.style.left = `${fit(x - el.offsetWidth / 2, el.offsetWidth) + el.offsetWidth / 2}px`
         el.style.top = `${y - 10}px`
         return
       }
-      const left = Math.min(Math.max(4, x - 28), w.clientWidth - el.offsetWidth - 4)
+      const left = fit(x - 28, el.offsetWidth)
       el.style.left = `${left}px`
-      el.style.top = `${y - 52}px`
+      // Its full height once open, not mid-animation: the details unfold over 160 ms.
+      const body = el.querySelector<HTMLElement>('.wmap-tag__body')
+      const inner = body?.firstElementChild as HTMLElement | null
+      const height = el.offsetHeight - (body?.offsetHeight ?? 0) + (el.classList.contains('is-open') ? (inner?.scrollHeight ?? 0) : 0)
+      // No room above the machine (it's near the top of what's on screen): open below it instead.
+      const flip = y - 52 - height < top + 4
+      el.classList.toggle('is-below', flip)
+      if (flip) below.add(spot)
+      el.style.top = `${flip ? y + 52 : y - 52}px`
       const ptr = el.querySelector<HTMLElement>('.wmap-tag__ptr')
-      if (ptr) ptr.style.left = `${x - left - 7}px`
+      // The pointer still points at the machine, but never past the tag's rounded corners.
+      if (ptr) ptr.style.left = `${Math.min(Math.max(6, x - left - 7), el.offsetWidth - 20)}px`
     })
   }
   useLayoutEffect(place)
@@ -123,7 +152,24 @@ export function WorkshopMap({ room = ROOM, parts, lastUsed, now, onDone, onShow,
     if (!w) return
     const ro = new ResizeObserver(() => placeRef.current())
     ro.observe(w)
-    return () => ro.disconnect()
+    // Phones swipe the map sideways; the tags follow what's on screen while it scrolls.
+    let frame = 0
+    const onScroll = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => placeRef.current())
+    }
+    const scrollers: HTMLElement[] = []
+    for (let a = w.parentElement; a; a = a.parentElement) {
+      if (/auto|scroll/.test(getComputedStyle(a).overflowX)) {
+        a.addEventListener('scroll', onScroll, { passive: true })
+        scrollers.push(a)
+      }
+    }
+    return () => {
+      ro.disconnect()
+      cancelAnimationFrame(frame)
+      scrollers.forEach((a) => a.removeEventListener('scroll', onScroll))
+    }
   }, [])
 
   const spotClass = (spot: Spot) => {

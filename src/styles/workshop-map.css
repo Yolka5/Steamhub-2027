@@ -171,6 +171,16 @@
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
+/* Flipped below its machine when there's no room above: grows down, pointer on top. */
+.wmap-tag.is-below {
+  transform: none;
+}
+.wmap-tag.is-below .wmap-tag__ptr {
+  top: -7px;
+  bottom: auto;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
 .wmap-tag__head {
   display: flex;
   gap: 0.6rem;

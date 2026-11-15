@@ -48,7 +48,7 @@ export const THREADS: Thread[] = [
 ]
 
 /** The order people see first: the FRC regulars, then everything else by size. */
-export const COMMON_ORDER = ['#10-32', '1/4-20', 'M3', 'M4', 'M5', 'M6']
+export const COMMON_ORDER = ['M3', 'M4', 'M5', 'M6', '#10-32', '1/4-20']
 
 /** Full-strength thread depth in aluminum: 1.5 x the screw's diameter. */
 export const threadDepth = (t: Thread) => 1.5 * t.dia

@@ -2,28 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import handbook from '../content/handbook.json'
+import { blockId, makeHandbookSearch, type HbLink as Link, type HbSection as Section } from '../lib/handbookSearch'
+import { highlightHtml, highlightText } from '../lib/smartSearch'
 
 // The handbook, in Hebrew: the design book and the FRC sources, each its own page. Read mode in
 // the same calm language as the rest of Steamhub: a plain title, one reading column, a contents
 // rail that follows you, and colour only where it means something (pros and cons).
-
-interface Link {
-  title: string
-  href: string
-  note: string
-}
-interface Block {
-  title: string
-  tags: string[]
-  html: string
-  checklist?: string[]
-  links?: Link[]
-}
-interface Section {
-  id: string
-  title: string
-  blocks: Block[]
-}
 
 interface Group {
   name: string
@@ -89,7 +73,6 @@ export const sectionsOf = (pid: PartId) => PARTS[pid].groups.flatMap((g) => g.id
 
 const CHECK_KEY = 'handbook-checklist'
 
-const plain = (html: string) => html.replace(/<[^>]+>/g, ' ')
 const host = (url: string) => {
   try {
     return new URL(url).hostname.replace(/^www\./, '')
@@ -101,25 +84,28 @@ const host = (url: string) => {
 /** The last chapter is too short to reach the top of the screen, so the bottom of the page selects it. */
 const atBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4
 
-/** For Ctrl K: each chapter with the words it should be found by (tags, link names, topic). */
-export function handbookIndex() {
-  return ALL.filter((s) => PART_OF.has(s.id)).map((s) => {
-    const part = PARTS[PART_OF.get(s.id)!]
-    return {
-      id: s.id,
-      title: s.title,
-      path: part.path,
-      part: part.title,
-      words: [part.title, GROUP_OF.get(s.id)?.name ?? '', ...s.blocks.flatMap((b) => [b.title, ...b.tags, ...(b.links ?? []).map((l) => l.title)])]
-        .join(' ')
-        .toLowerCase(),
-    }
-  })
+let searchAll: ReturnType<typeof makeHandbookSearch> | null = null
+
+/** For Ctrl K: the chapters a search finds, best first, with the same smart search as the page. */
+export function findChapters(text: string) {
+  searchAll ??= makeHandbookSearch(ALL.filter((s) => PART_OF.has(s.id)))
+  const best = new Map<string, number>()
+  for (const [id, score] of searchAll(text).scores) {
+    const sid = id.split(':')[0]
+    best.set(sid, Math.max(best.get(sid) ?? 0, score))
+  }
+  return [...best.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => {
+      const part = PARTS[PART_OF.get(id)!]
+      return { id, title: byId.get(id)!.title, path: part.path, part: part.title }
+    })
 }
 
 // ---------- Parts ----------
 
-function Checklist({ items }: { items: string[] }) {
+/** `marked` is the same items with search hits highlighted; ticks are saved by position. */
+function Checklist({ items, marked = items }: { items: string[]; marked?: string[] }) {
   const [done, setDone] = useState<boolean[]>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(CHECK_KEY) ?? '[]') as boolean[]
@@ -158,7 +144,7 @@ function Checklist({ items }: { items: string[] }) {
           <li key={i}>
             <label className={done[i] ? 'is-done' : ''}>
               <input type="checkbox" checked={done[i]} onChange={(e) => setDone((d) => d.map((v, j) => (j === i ? e.target.checked : v)))} />
-              <span dangerouslySetInnerHTML={{ __html: html }} />
+              <span dangerouslySetInnerHTML={{ __html: marked[i] ?? html }} />
             </label>
           </li>
         ))}
@@ -197,18 +183,16 @@ export default function Handbook({ part: pid }: { part: PartId }) {
   const [active, setActive] = useState(SECTIONS[0]?.id)
   const { hash } = useLocation()
 
-  const query = q.trim().toLowerCase()
+  const search = useMemo(() => makeHandbookSearch(SECTIONS), [SECTIONS])
+  const result = useMemo(() => (q.trim() ? search(q) : null), [q, search])
+  // Searching: only the blocks that match, chapters best match first. Blocks stay in book order.
   const visible = useMemo(() => {
-    if (!query) return SECTIONS
-    return SECTIONS.map((s) => ({
-      ...s,
-      blocks: s.blocks.filter((b) =>
-        [s.title, b.title, ...b.tags, plain(b.html), ...(b.checklist ?? []).map(plain), ...(b.links ?? []).map((l) => `${l.title} ${l.note}`)].some((t) =>
-          t.toLowerCase().includes(query),
-        ),
-      ),
-    })).filter((s) => s.blocks.length > 0)
-  }, [query, SECTIONS])
+    if (!result) return SECTIONS
+    const score = (s: Section) => Math.max(0, ...s.blocks.map((_, i) => result.scores.get(blockId(s, i)) ?? 0))
+    return SECTIONS.filter((s) => score(s) > 0)
+      .sort((a, b) => score(b) - score(a))
+      .map((s) => ({ ...s, blocks: s.blocks.filter((_, i) => result.scores.has(blockId(s, i))) }))
+  }, [result, SECTIONS])
 
   // The contents rail follows the chapter being read.
   useEffect(() => {
@@ -247,6 +231,16 @@ export default function Handbook({ part: pid }: { part: PartId }) {
           </a>
         </p>
         <input className="field field--big hb-search" type="search" placeholder="חיפוש: מילה, נושא או שנה" value={q} onChange={(e) => setQ(e.target.value)} aria-label={part.searchLabel} />
+        {result && result.notes.length > 0 && visible.length > 0 && (
+          <p className="hb-hint soft" aria-live="polite">
+            {result.notes.map((n, i) => (
+              <span key={i}>
+                {i > 0 && ' · '}
+                מציג תוצאות עבור <b>{n.shown.join(', ')}</b> (חיפשת: {n.typed})
+              </span>
+            ))}
+          </p>
+        )}
         <div className="chips">
           {part.chips.map((t) => (
             <button key={t} type="button" className="chip" aria-pressed={q === t} onClick={() => setQ(q === t ? '' : t)}>
@@ -262,7 +256,8 @@ export default function Handbook({ part: pid }: { part: PartId }) {
             <Indicator selector='[aria-current="true"]' />
             {visible.map((s, i) => {
               const group = GROUP_OF.get(s.id)
-              const newGroup = i === 0 || GROUP_OF.get(visible[i - 1].id) !== group
+              // While searching, chapters are in order of match, so group names would repeat.
+              const newGroup = !result && (i === 0 || GROUP_OF.get(visible[i - 1].id) !== group)
               return (
                 <div key={s.id} className="hb-toc__item">
                   {newGroup && <span className="hb-toc__group">{group?.name}</span>}
@@ -280,11 +275,11 @@ export default function Handbook({ part: pid }: { part: PartId }) {
           {visible.map((s) => (
             <section key={s.id} id={s.id} className="hb-sec">
               <h2 className="hb-sec__title">{s.title}</h2>
-              {s.blocks.map((b, i) => (
-                <div key={i} className="hb-block">
-                  {b.title !== s.title && <h3 className="hb-block__title">{b.title}</h3>}
-                  {b.html && <div className="hb-prose" dangerouslySetInnerHTML={{ __html: b.html }} />}
-                  {b.checklist && <Checklist items={b.checklist} />}
+              {s.blocks.map((b) => (
+                <div key={b.title} className="hb-block">
+                  {b.title !== s.title && <h3 className="hb-block__title" dangerouslySetInnerHTML={{ __html: highlightText(b.title, result) }} />}
+                  {b.html && <div className="hb-prose" dangerouslySetInnerHTML={{ __html: highlightHtml(b.html, result) }} />}
+                  {b.checklist && <Checklist items={b.checklist} marked={b.checklist.map((c) => highlightHtml(c, result))} />}
                   {b.links && <Links links={b.links} />}
                 </div>
               ))}

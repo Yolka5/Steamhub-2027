@@ -42,6 +42,24 @@
   text-underline-offset: 3px;
 }
 
+/* What the smart search searched instead ("showing results for חוט, you typed חבל"). */
+.hb-hint {
+  margin: -0.25rem 0 0;
+  font-size: 0.9375rem;
+}
+
+.hb-hint b {
+  color: var(--ink);
+}
+
+/* Words the search found. */
+.hb mark {
+  color: inherit;
+  background: color-mix(in srgb, var(--brand) 26%, transparent);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 .hb .chip[aria-pressed='true'] {
   background: var(--surface-2);
   border-color: var(--ink-soft);

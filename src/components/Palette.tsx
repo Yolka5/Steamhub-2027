@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { findMatches, parseQuery, queryIsEmpty, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { findThreads, looksLikeThread } from '../lib/threads'
-import { handbookIndex } from '../pages/Handbook'
+import { findChapters } from '../pages/Handbook'
 import { OUR_TOOLS, OUTSIDE_TOOLS } from '../pages/Tools'
 import { selectAll, supabase } from '../lib/supabase'
 import { partName, type Part } from '../lib/mfg'
@@ -140,8 +140,8 @@ export function Palette({ open, animated, initial = '', onClose }: { open: boole
             to: `/tools/tap-drills?t=${encodeURIComponent(th.name)}`,
           }))
       : []
-    const chapters: Item[] = handbookIndex()
-      .filter((c) => c.title.toLowerCase().includes(t) || c.words.includes(t))
+    const chapters: Item[] = findChapters(text)
+      .slice(0, 6)
       .map((c) => ({ key: `h-${c.id}`, label: c.title, hint: c.part, to: `${c.path}#${c.id}` }))
     const q = parseQuery(text)
     const stock: Item[] = []

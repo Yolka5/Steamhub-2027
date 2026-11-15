@@ -62,6 +62,15 @@
   flex: none;
 }
 
+/* Phones: every tab in view. Sideways scrolling hid half of them with nothing to say so. */
+@media (max-width: 899px) {
+  .calc-tabs {
+    flex-wrap: wrap;
+    width: 100%;
+    overflow: visible;
+  }
+}
+
 .calc-section {
   margin-bottom: 2.25rem;
 }
@@ -191,7 +200,7 @@
 
 .fields .num-field__box,
 .fields .field {
-  background: var(--surface-0);
+  background-color: var(--surface-0);
 }
 
 .fields__title {
@@ -435,7 +444,7 @@ input.mech__name:focus {
 
 .mech .fields .num-field__box,
 .mech .fields .field {
-  background: var(--surface-0);
+  background-color: var(--surface-0);
 }
 
 .mech__grid {
@@ -523,6 +532,9 @@ input.mech__name:focus {
 
 /* ----- Tables ----- */
 .table-wrap {
+  /* Holds the hidden absolute labels in its cells; without it they escape the scroll box and
+     widen the whole page on phones. */
+  position: relative;
   max-width: 100%;
   margin-bottom: 1rem;
   overflow-x: auto;
@@ -1027,4 +1039,8 @@ input.mech__name:focus {
 
 .budget-fold .budget {
   margin-bottom: 0;
+}
+
+.calc-robot > .budget-fold {
+  margin-bottom: 1.5rem;
 }

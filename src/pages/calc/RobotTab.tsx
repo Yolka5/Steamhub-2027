@@ -48,8 +48,21 @@ export function RobotTab({ robot, update }: { robot: Robot; update: Update }) {
 
   return (
     <div className="calc-robot">
-      {/* Phones open on the ratios; the battery budget folds into one line under them. */}
+      {/* Phones: the battery budget folds into one line on top, so it's seen without scrolling past
+          every mechanism's editor. Tap it for the sets. */}
       {!phone && budget}
+      {phone && (
+        <details className="calc-section budget-fold">
+          <summary>
+            <span className="budget-fold__title">Battery budget</span>
+            <span className={`num ${over ? 'is-bad' : 'soft'}`}>
+              {f(res.biggestSet)} of {robot.maxDraw} A · {res.totalMotors} of {robot.maxMotors} motors
+              {over ? ' · over' : ''}
+            </span>
+          </summary>
+          {budget}
+        </details>
+      )}
 
       <section className="calc-section">
         <h2 className="section__title">Mechanisms</h2>
@@ -119,18 +132,6 @@ export function RobotTab({ robot, update }: { robot: Robot; update: Update }) {
         </div>
       </section>
 
-      {phone && (
-        <details className="calc-section budget-fold">
-          <summary>
-            <span className="budget-fold__title">Battery budget</span>
-            <span className={`num ${over ? 'is-bad' : 'soft'}`}>
-              {f(res.biggestSet)} of {robot.maxDraw} A · {res.totalMotors} of {robot.maxMotors} motors
-              {over ? ' · over' : ''}
-            </span>
-          </summary>
-          {budget}
-        </details>
-      )}
     </div>
   )
 }

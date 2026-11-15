@@ -85,7 +85,7 @@ function NotesField({ value, placeholder, onSave }: { value: string; placeholder
       <textarea
         className="field part__notes"
         rows={3}
-        value={text}
+        value={text ?? ''}
         placeholder={placeholder}
         onChange={(e) => {
           const v = e.target.value

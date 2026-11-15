@@ -124,6 +124,32 @@
   overflow-wrap: anywhere;
 }
 
+/* Phones: thumbnail, number, name, tags and a button don't fit on one line, and the name got
+   squeezed to a word a line. The tags go under the name instead. */
+@media (max-width: 599px) {
+  .mfg-row:not(.mfg-row--act),
+  .mfg-row__link {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    column-gap: 0.6rem;
+    row-gap: 0.3rem;
+  }
+
+  .mfg-row:not(.mfg-row--act) > :is(.thumb, .mfg-row__no),
+  .mfg-row__link > :is(.thumb, .mfg-row__no) {
+    grid-row: span 2;
+  }
+
+  .mfg-row .mfg-row__tags {
+    grid-column: 3;
+    justify-content: flex-start;
+  }
+
+  .mfg-row .mfg-row__tags:empty {
+    display: none;
+  }
+}
+
 .mfg-row__tags,
 .sp-row__tags {
   display: flex;
@@ -1532,7 +1558,7 @@
 
 .os__link .field {
   flex: 1 1 16rem;
-  background: var(--surface-0);
+  background-color: var(--surface-0);
 }
 
 .os-note {

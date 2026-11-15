@@ -110,6 +110,12 @@
   margin-bottom: 2rem;
 }
 
+/* A grid item grows to fit its table unless told otherwise, so on phones the tables were cut
+   off instead of scrolling. */
+.sheet-threads > * {
+  min-width: 0;
+}
+
 .sheet-threads .ctable td:first-child {
   white-space: nowrap;
 }

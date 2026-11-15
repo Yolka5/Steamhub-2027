@@ -531,7 +531,7 @@
 }
 
 .pt-block .field {
-  background: var(--surface-0);
+  background-color: var(--surface-0);
 }
 
 .pt-block .row {

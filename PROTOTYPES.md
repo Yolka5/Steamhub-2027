@@ -8,7 +8,7 @@ Today prototype videos live in WhatsApp. A week later nobody remembers which vid
 
 So the rules are:
 
-- **The test is the unit.** A test is one video plus the parameter values it ran with, plus how it went. That's exactly what Tomer asked for.
+- **The test is the unit.** A test is its videos (one or more: two angles, a slow-mo) plus the parameter values it ran with, plus how it went. That's exactly what Tomer asked for.
 - **Logging a test takes seconds on a phone.** Film, and the parameters are already filled from the last test. Change only the one you changed, tap how it went, save. The upload runs in the background.
 - **Parameters line up.** Prototypes of the same subsystem share their parameter names, so any two can be compared side by side.
 - **Modular, but not empty.** A prototype page is built from blocks anyone can add, remove and reorder. Every new prototype starts from a sensible set, so nobody faces a blank page.
@@ -59,7 +59,7 @@ New Supabase tables (all in `supabase/migrations/20261107_prototypes.sql`, appli
 | `prototypes` | id, season, subsystem_number (nullable), name, concept, status (idea/building/testing/chosen/dropped), status_note, owner_id, cover_path, created_by, timestamps. Block order lives on the blocks. |
 | `prototype_members` | prototype_id, user_id. No longer used since 2026-11-12 (People list removed). |
 | `param_defs` | id, season, subsystem_number (null = this prototype only), prototype_id (null = subsystem set), name, unit, kind (number/text/choice/bool), options (text[]), key (bool), position |
-| `prototype_tests` | id, prototype_id, n (1, 2, 3… per prototype), values (jsonb: param_def id → value), result (worked/partly/failed), score, measure_name, measure_value, note, video_path, poster_path, video_link, duration_s, by_id, by_name, at |
+| `prototype_tests` | id, prototype_id, n (1, 2, 3… per prototype), values (jsonb: param_def id → value), result (worked/partly/failed), score, measure_name, measure_value, note, video_path, poster_path, video_link, duration_s (the first video), more_videos (jsonb: every video after the first, `{path, poster, link, duration_s, size}`; added in `20261120_test_clips.sql`), by_id, by_name, at |
 | `prototype_blocks` | id, prototype_id, kind, title, data (jsonb), position, collapsed, updated_by, updated_at |
 | `subsystem_layouts` | season, subsystem_number, layout (jsonb), the default blocks for new prototypes |
 
@@ -79,7 +79,7 @@ Tick a phase here when it's done and checked in the browser.
 - [x] `/prototypes`: grouped by subsystem, cards with cover, status, last result and key parameters. Season, subsystem, status and Show dropped filters in the URL.
 - [x] New prototype: name, subsystem (Manufacturing's list for the season, or none yet), concept.
 - [x] `/prototypes/:id`: status picker, parameters panel (shared and own, key toggle, one-tap common parameters), tests feed with the key parameters on the video and a fullscreen button that keeps them on, all values, "12 mm → 15 mm" for what changed, result, score, measured, note.
-- [x] `/prototypes/:id/test`: Film (opens the camera on phones), Choose file, or a YouTube/Drive link; values copied from the last test with Changed tags; result, score, measured, note. Edit at `/prototypes/:id/test/:testId`; a new video replaces the old files and the cover.
+- [x] `/prototypes/:id/test`: Film (opens the camera on phones), Choose file, or a YouTube/Drive link; values copied from the last test with Changed tags; result, score, measured, note. Edit at `/prototypes/:id/test/:testId`. A test takes several videos and links (added 2026-11-15): Film another / Add files (picks several at once) / another link, each one removable before saving; editing adds new ones next to the old and Remove takes one off (its files go on save). Clips upload one after another, each appended to the row as it is then. The test card shows a Video 1 / 2 / 3 switcher; Share uses the one shown. Compare, the summary and the cover use the first.
 - [x] Rail item, a card on Tools (phones), "Record a test" on Home (`/prototypes/record` picks the prototype), realtime on every list.
 
 ### Phase 2: blocks (built 2026-11-07)

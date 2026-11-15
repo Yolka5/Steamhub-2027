@@ -1098,3 +1098,52 @@
 .pt-table thead th {
   white-space: nowrap;
 }
+
+/* ===== Several videos on one test ===== */
+.pt-clips {
+  margin-inline: 0.25rem;
+}
+
+.pt-clip-list {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pt-clip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.pt-clip-row[data-off] .pt-poster,
+.pt-clip-row[data-off] .pt-clip-row__name {
+  opacity: 0.45;
+}
+
+.pt-clip-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pt-picked {
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.pt-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pt-link-row .field {
+  flex: 1;
+  min-width: 0;
+}

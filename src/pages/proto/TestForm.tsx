@@ -1,13 +1,33 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
-import { ValueInput } from '../../components/proto'
+import { Poster, ValueInput } from '../../components/proto'
 import { useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addLibItems, growChoices, leadOf, libSuggestions, MAX_SECONDS, queueVideo, RESULT_WORD, RESULTS, saveTest, shown, useLibrary, usePrototype, useSeasons, type Result, type Value } from '../../lib/proto'
+import {
+  addLibItems,
+  clipsOf,
+  growChoices,
+  hostOf,
+  leadOf,
+  libSuggestions,
+  MAX_SECONDS,
+  queueVideo,
+  RESULT_WORD,
+  RESULTS,
+  saveTest,
+  shown,
+  useLibrary,
+  usePrototype,
+  useSeasons,
+  type Clip,
+  type Result,
+  type Value,
+} from '../../lib/proto'
 
 // Logging a test, phone first: film, the values are already there from the last test, change the
-// one you changed, tap how it went, save. The video shrinks and uploads in the background.
+// one you changed, tap how it went, save. A test takes as many videos as you like (two angles,
+// a slow-mo); they shrink and upload in the background, one after another.
 
 export default function TestForm() {
   const { id = '', testId } = useParams()
@@ -28,10 +48,10 @@ export default function TestForm() {
   const [measureName, setMeasureName] = useState('')
   const [measure, setMeasure] = useState('')
   const [note, setNote] = useState('')
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [link, setLink] = useState('')
-  const [showLink, setShowLink] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
+  const [links, setLinks] = useState<string[]>([])
+  /** Videos the test already has that are marked to go when it's saved. */
+  const [removing, setRemoving] = useState<Clip[]>([])
   const [busy, guard] = useBusy()
 
   // Fill once the tests are in: the test being edited, or the last test's values for a new one.
@@ -46,18 +66,9 @@ export default function TestForm() {
       setScore(existing.score)
       setMeasure(existing.measure_value != null ? String(existing.measure_value) : '')
       setNote(existing.note)
-      setLink(existing.video_link ?? '')
-      setShowLink(!!existing.video_link)
     }
     setReady(true)
   }, [ready, loading, testsLoading, base, existing, testId])
-
-  useEffect(() => {
-    if (!file) return setPreview(null)
-    const u = URL.createObjectURL(file)
-    setPreview(u)
-    return () => URL.revokeObjectURL(u)
-  }, [file])
 
   if (!proto) return <div className="page">{loading ? <p className="soft">Loading</p> : <p className="soft">This prototype doesn't exist anymore.</p>}</div>
 
@@ -65,12 +76,20 @@ export default function TestForm() {
   const changed = (pid: string) => !!prev && String(prev.values[pid] ?? '') !== String(values[pid] ?? '')
   const visible = params.filter((d) => shown(d, values))
 
+  const had = existing ? clipsOf(existing) : []
+  const hasAny = files.length > 0 || had.length > removing.length
+  const pickFiles = (e: ChangeEvent<HTMLInputElement>) => {
+    const picked = [...(e.target.files ?? [])]
+    // Clear it, so the same file can be picked again after removing it.
+    e.target.value = ''
+    if (picked.length) setFiles((s) => [...s, ...picked])
+  }
+
   const save = () => guard(saveNow)
   const saveNow = async () => {
     if (!who) return
-    let videoLink: string | null = link.trim() || null
-    if (videoLink && !/^https?:\/\//i.test(videoLink)) videoLink = `https://${videoLink}`
-    if (!file && !videoLink && !existing && !result && !note.trim()) return toast('Add a video, a result or a note first')
+    const addLinks = links.map((l) => l.trim()).filter(Boolean).map((l) => (/^https?:\/\//i.test(l) ? l : `https://${l}`))
+    if (!files.length && !addLinks.length && !existing && !result && !note.trim()) return toast('Add a video, a result or a note first')
     const clean: Record<string, Value> = {}
     // Only what's in use: Compliant color goes when the wheel type changes to Flex.
     for (const d of visible) {
@@ -91,16 +110,16 @@ export default function TestForm() {
         measure_name: measureName.trim(),
         measure_value: m && Number.isFinite(Number(m)) ? Number(m) : null,
         note: note.trim(),
-        video_link: file ? null : videoLink,
       },
+      { remove: removing, addLinks },
       who,
       [leadOf(proto, subsystemsOf(proto.season)), ...tests.map((t) => t.by_id)],
       existing,
     )
     if (res.error) return toast(res.error)
     await growChoices(visible, clean, library)
-    if (file) queueVideo(res.data!, file)
-    toast(file ? 'Saved. The video uploads in the background.' : 'Test saved')
+    for (const f of files) queueVideo(res.data!, f)
+    toast(files.length > 1 ? `Saved. The ${files.length} videos upload in the background.` : files.length ? 'Saved. The video uploads in the background.' : 'Test saved')
     navigate(`/prototypes/${proto.id}#test-${res.data!.n}`, { replace: true })
   }
 
@@ -126,40 +145,57 @@ export default function TestForm() {
         }}
       >
         <section className="pt-form__video">
-          {preview ? (
-            <div className="pt-video">
-              <video src={preview} controls playsInline muted />
-            </div>
-          ) : existing?.video_path && !file ? (
-            <p className="soft small">This test has a video. Pick a new one to replace it.</p>
-          ) : null}
-          {file && (
-            <p className="soft small num">
-              {file.name}, {(file.size / 1048576).toFixed(1)} MB. It's shrunk to 720p before upload; past {MAX_SECONDS} s only the start is kept.
-            </p>
+          {had.length > 0 && (
+            <ul className="pt-clip-list">
+              {had.map((c, i) => {
+                const off = removing.some((r) => clipKey(r) === clipKey(c))
+                return (
+                  <li key={clipKey(c) || i} className="pt-clip-row" data-off={off || undefined}>
+                    {c.path ? <Poster path={c.poster} className="pt-poster pt-poster--small" /> : <span className="pt-poster pt-poster--small"><Icon name="play" size={22} /></span>}
+                    <span className="pt-clip-row__name small">
+                      Video {i + 1}
+                      <span className="soft">{c.path ? (c.duration_s ? ` · ${Math.round(c.duration_s)} s` : '') : ` · ${hostOf(c.link ?? '')}`}</span>
+                      {off && <span className="soft"> · goes when you save</span>}
+                    </span>
+                    <button type="button" className="q-btn q-btn--small" onClick={() => setRemoving((s) => (off ? s.filter((r) => clipKey(r) !== clipKey(c)) : [...s, c]))}>
+                      {off ? 'Keep' : <><Icon name="trash" size={16} /> Remove</>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {files.map((f, i) => (
+            <PickedVideo key={`${f.name}-${f.size}-${f.lastModified}-${i}`} file={f} n={i + 1} onRemove={() => setFiles((s) => s.filter((x) => x !== f))} />
+          ))}
+          {files.length > 0 && (
+            <p className="soft small">Each video is shrunk to 720p before upload; past {MAX_SECONDS} s only the start is kept.</p>
           )}
           <div className="pt-film">
             <label className="q-btn q-btn--big">
-              <Icon name="camera" size={20} /> {file ? 'Film again' : 'Film'}
-              <input type="file" accept="video/*" capture="environment" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+              <Icon name="camera" size={20} /> {hasAny ? 'Film another' : 'Film'}
+              <input type="file" accept="video/*" capture="environment" onChange={pickFiles} />
             </label>
             <label className="q-btn q-btn--big">
-              <Icon name="video" size={20} /> Choose file
-              <input type="file" accept="video/*" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+              <Icon name="video" size={20} /> {hasAny ? 'Add files' : 'Choose files'}
+              <input type="file" accept="video/*" multiple onChange={pickFiles} />
             </label>
           </div>
-          {!file &&
-            (showLink ? (
-              <label className="ctl">
-                <span className="ctl__name">Video link</span>
-                <input className="field" inputMode="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="youtu.be/… or a Drive link" />
-                <span className="soft small">For videos over {MAX_SECONDS} s. YouTube plays here; other links open in a new tab.</span>
-              </label>
-            ) : (
-              <button type="button" className="text-btn" onClick={() => setShowLink(true)}>
-                Paste a YouTube or Drive link instead
-              </button>
-            ))}
+          {links.map((l, i) => (
+            <div key={i} className="ctl">
+              <span className="ctl__name">Video link</span>
+              <div className="pt-link-row">
+                <input className="field" inputMode="url" value={l} onChange={(e) => setLinks((s) => s.map((x, j) => (j === i ? e.target.value : x)))} placeholder="youtu.be/… or a Drive link" autoFocus={!l} />
+                <button type="button" className="icon-btn" aria-label="Remove this link" onClick={() => setLinks((s) => s.filter((_, j) => j !== i))}>
+                  <Icon name="close" size={18} />
+                </button>
+              </div>
+              <span className="soft small">For videos over {MAX_SECONDS} s. YouTube plays here; other links open in a new tab.</span>
+            </div>
+          ))}
+          <button type="button" className="text-btn" onClick={() => setLinks((s) => [...s, ''])}>
+            {links.length || had.some((c) => c.link) ? 'Add another YouTube or Drive link' : 'Paste a YouTube or Drive link instead'}
+          </button>
         </section>
 
         <section className="pt-form__group">
@@ -231,6 +267,35 @@ export default function TestForm() {
           {busy ? 'Saving' : 'Save test'}
         </button>
       </form>
+    </div>
+  )
+}
+
+const clipKey = (c: Clip) => c.path ?? c.link ?? ''
+
+/** A video picked in the form, before it's saved: a player to check it, and a way to drop it. */
+function PickedVideo({ file, n, onRemove }: { file: File; n: number; onRemove: () => void }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const u = URL.createObjectURL(file)
+    setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [file])
+  return (
+    <div className="pt-picked">
+      <div className="pt-video">{url && <video src={url} controls playsInline muted preload="metadata" />}</div>
+      <div className="pt-clip-row">
+        <span className="pt-clip-row__name small num">
+          New video {n}
+          <span className="soft">
+            {' '}
+            · {file.name}, {(file.size / 1048576).toFixed(1)} MB
+          </span>
+        </span>
+        <button type="button" className="q-btn q-btn--small" onClick={onRemove}>
+          <Icon name="trash" size={16} /> Remove
+        </button>
+      </div>
     </div>
   )
 }

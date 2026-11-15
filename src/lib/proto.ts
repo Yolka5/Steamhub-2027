@@ -492,7 +492,9 @@ const same = (a: Value | undefined, b: Value | undefined) => (a ?? null) === (b 
 /** Parameters whose value differs from the test before. */
 export function changedSince(test: Test, tests: Test[], params: ParamDef[]) {
   const prev = tests.filter((t) => t.n < test.n).sort((a, b) => b.n - a.n)[0]
-  if (!prev) return []
+  // A test with nothing filled in hasn't changed everything to blank: it just wasn't filled in.
+  const has = (t: Test) => Object.values(t.values).some((v) => v !== undefined && v !== null && v !== '')
+  if (!prev || !has(test) || !has(prev)) return []
   return params.filter((d) => !same(test.values[d.id], prev.values[d.id])).map((d) => ({ def: d, from: prev.values[d.id], to: test.values[d.id] }))
 }
 

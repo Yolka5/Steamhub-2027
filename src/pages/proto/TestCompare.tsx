@@ -53,7 +53,8 @@ export default function TestCompare() {
     .filter((d) => cols.some((t) => filled(t, d.id)))
     .map((d) => {
       const vals = cols.map((t) => (filled(t, d.id) ? fmtValue(d, t.values[d.id]) : '–'))
-      return { d, vals, differs: new Set(vals).size > 1 }
+      // A test without this value isn't a change: only values that are there count.
+      return { d, vals, differs: new Set(vals.filter((v) => v !== '–')).size > 1 }
     })
   const shownRows = onlyDiff ? rows.filter((r) => r.differs) : rows
   const empty = cols.filter((t) => !params.some((d) => filled(t, d.id)))

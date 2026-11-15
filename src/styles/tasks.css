@@ -129,11 +129,7 @@ a.tcol__name:hover {
   margin-bottom: 0.75rem;
 }
 @media (max-width: 899px) {
-  /* One column at a time on a phone: it takes the screen's width, however narrow. */
-  .tcol,
-  .tcol--none {
-    flex: 1 1 auto;
-    min-width: 0;
+  .tcol {
     padding: 0.35rem;
     margin-bottom: 6rem;
   }

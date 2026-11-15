@@ -9,7 +9,6 @@ import { ago, saveFile } from '../../lib/mfg'
 import { supabase } from '../../lib/supabase'
 import { useRobots } from '../../lib/useMfg'
 import { Select } from '../../components/Select'
-import { copyText } from '../../lib/copy'
 
 // What's missing, for Uri's buy list. Bought parts marked Missing land here on their own; anyone
 // can add an item by hand. Uri starts a new Google Sheet each time: Copy pastes straight into it.
@@ -77,8 +76,12 @@ export default function Wishlist() {
     if (!rows.length) return toast('Nothing open to copy')
     // Tabs between cells and no quotes: Google Sheets splits it into columns on paste.
     const clean = (c: string) => c.replace(/[\t\n\r]+/g, ' ')
-    const ok = await copyText([COLUMNS, ...rows].map((r) => r.map(clean).join('\t')).join('\n'))
-    toast(ok ? `Copied ${rows.length} ${rows.length === 1 ? 'item' : 'items'}. Paste into the first cell of a new sheet.` : "This device didn't allow copying. Use CSV instead.")
+    try {
+      await navigator.clipboard.writeText([COLUMNS, ...rows].map((r) => r.map(clean).join('\t')).join('\n'))
+      toast(`Copied ${rows.length} ${rows.length === 1 ? 'item' : 'items'}. Paste into the first cell of a new sheet.`)
+    } catch {
+      toast("This device didn't allow copying. Use CSV instead.")
+    }
   }
 
   const csv = () => {

@@ -321,7 +321,6 @@
 /* ----- Mechanisms: list on the left, editor on the right ----- */
 .mechs {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
 }
@@ -338,7 +337,6 @@
 }
 
 .mech-row {
-  min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.1rem 0.75rem;
@@ -370,8 +368,6 @@
 
 .mech {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
   gap: 1rem;
   padding: clamp(1rem, 2.5vw, 1.5rem);
   background: var(--surface-1);

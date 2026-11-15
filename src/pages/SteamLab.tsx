@@ -16,7 +16,6 @@ import { useParts, usePeople, useRobots } from '../lib/useMfg'
 import { usePhone } from '../lib/usePhone'
 import { STALE_MS } from '../lib/workshopMap'
 import { ROOM } from '../lib/workshopRoom'
-import { copyText } from '../lib/copy'
 
 // SteamLab (STEAMLAB.md): a bird's-eye view for mentors and leads. Are we on schedule, where is
 // everyone, what happened, and Claude's recap of each day. Any day can be replayed on the
@@ -356,7 +355,10 @@ function Lab() {
               onYesterday={() => setDay(addDays(today, -1))}
               onCopy={(r) => {
                 const title = `${dayWords(day, today).date}${r.scope === 'team' ? '' : `, ${nameOfSub(r.scope)}`}`
-                copyText(recapText(r, title)).then((ok) => toast(ok ? 'Recap copied' : "Couldn't copy. Select the text instead."))
+                navigator.clipboard?.writeText(recapText(r, title)).then(
+                  () => toast('Recap copied'),
+                  () => toast("Couldn't copy. Select the text instead."),
+                )
               }}
             />
           </section>

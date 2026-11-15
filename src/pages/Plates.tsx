@@ -19,7 +19,6 @@ import {
   type SheetSetting,
 } from '../lib/plates'
 import { supabase } from '../lib/supabase'
-import { copyText } from '../lib/copy'
 
 // CNC plate stock, found by thickness and size. The CNC team taps Partly used or Gone after a cut.
 
@@ -246,7 +245,12 @@ function SheetPending({ remove, add }: { remove: Plate[]; add: Plate[] }) {
       ...(added.length ? ['Add to the sheet (thickness, length, width, qty):', ...added.map(({ p, n }) => [tText(p.thickness), Number(p.length), Number(p.width), n].join('\t'))] : []),
       ...(gone.length ? ['Take off the sheet (used up):', ...gone.map(line)] : []),
     ].join('\n')
-    toast((await copyText(text)) ? 'Copied. Paste it to whoever keeps the sheet.' : "Couldn't copy on this device")
+    try {
+      await navigator.clipboard.writeText(text)
+      toast('Copied. Paste it to whoever keeps the sheet.')
+    } catch {
+      toast("Couldn't copy on this device")
+    }
   }
   return (
     <section className="sheet-pending">

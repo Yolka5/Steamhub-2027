@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
-import { copyText } from '../lib/copy'
 
 // ---------- Toast ----------
 
@@ -112,7 +111,8 @@ export function Copy({ value, children }: { value: string | number; children?: R
       onClick={(e) => {
         e.stopPropagation()
         e.preventDefault()
-        copyText(String(value)).then((ok) => toast(ok ? `Copied ${value}` : "Couldn't copy on this device"))
+        navigator.clipboard?.writeText(String(value))
+        toast(`Copied ${value}`)
       }}
     >
       {children ?? value}

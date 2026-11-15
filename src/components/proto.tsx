@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import {
+  clipsOf,
   hostOf,
   keyLines,
   RESULT_TAG,
@@ -12,6 +13,7 @@ import {
   useJobs,
   useSigned,
   youtubeId,
+  type Clip,
   type ParamDef,
   type ProtoStatus,
   type Result,
@@ -40,40 +42,56 @@ export function Poster({ path, className = 'pt-poster' }: { path: string | null 
   )
 }
 
-/** Shrinking or uploading progress for a test's video, while it runs in the background. */
+/** Shrinking or uploading progress for a test's videos, while they run in the background. */
 export function JobLine({ testId }: { testId: string }) {
-  const job = useJobs().find((j) => j.testId === testId)
-  if (!job || job.stage === 'done') return job?.note ? <p className="soft small">{job.note}</p> : null
-  if (job.stage === 'failed')
-    return (
-      <div className="pt-job pt-job--bad small" role="alert">
-        <span>The video didn't upload: {job.error}</span>
-        <button type="button" className="q-btn q-btn--small" onClick={() => retryVideo(testId)}>
-          Try again
-        </button>
-      </div>
-    )
-  const pct = Math.round(job.progress * 100)
+  const mine = useJobs().filter((j) => j.testId === testId)
+  if (!mine.length) return null
+  const many = mine.length > 1
   return (
-    <div className="pt-job small">
-      <span>{job.stage === 'shrinking' ? `Shrinking the video ${pct}%` : 'Uploading the video'}</span>
-      <span className="mfg-bar" aria-hidden="true">
-        <span style={{ width: `${job.stage === 'shrinking' ? pct : 100}%` }} />
-      </span>
-    </div>
+    <>
+      {mine.map((job, i) => {
+        const which = many ? ` ${i + 1} of ${mine.length}` : ''
+        if (job.stage === 'done') return job.note ? <p key={job.key} className="soft small">{job.note}</p> : null
+        if (job.stage === 'failed')
+          return (
+            <div key={job.key} className="pt-job pt-job--bad small" role="alert">
+              <span>
+                The video{which} didn't upload: {job.error}
+              </span>
+              <button type="button" className="q-btn q-btn--small" onClick={() => retryVideo(job.key)}>
+                Try again
+              </button>
+            </div>
+          )
+        const pct = Math.round(job.progress * 100)
+        // Queued clips wait at 0% behind the one being shrunk.
+        return (
+          <div key={job.key} className="pt-job small">
+            <span>{job.stage === 'shrinking' ? `Shrinking the video${which} ${pct}%` : `Uploading the video${which}`}</span>
+            <span className="mfg-bar" aria-hidden="true">
+              <span style={{ width: `${job.stage === 'shrinking' ? pct : 100}%` }} />
+            </span>
+          </div>
+        )
+      })}
+    </>
   )
 }
 
 /**
- * The video with its key parameters on it. Fullscreen enlarges the frame and the overlay together,
- * so the parameters never leave the video. (iPhones only fullscreen the bare video.)
+ * A video of a test (the first one unless `clip` says which) with its key parameters on it.
+ * Fullscreen enlarges the frame and the overlay together, so the parameters never leave the
+ * video. (iPhones only fullscreen the bare video.)
  */
-export function TestVideo({ test, params }: { test: Test; params: ParamDef[] }) {
+export function TestVideo({ test, params, clip }: { test: Test; params: ParamDef[]; clip?: Clip }) {
   const frame = useRef<HTMLDivElement>(null)
-  const get = useSigned([test.video_path, test.poster_path])
+  const c = clip ?? clipsOf(test)[0]
+  const path = c?.path ?? null
+  const link = c?.path ? null : (c?.link ?? null)
+  const get = useSigned([path, c?.poster])
   const [full, setFull] = useState(false)
   const lines = keyLines(params, test.values)
-  const yt = test.video_link ? youtubeId(test.video_link) : null
+  const yt = link ? youtubeId(link) : null
   useEffect(() => {
     const on = () => setFull(!!frame.current && document.fullscreenElement === frame.current)
     document.addEventListener('fullscreenchange', on)
@@ -88,7 +106,7 @@ export function TestVideo({ test, params }: { test: Test; params: ParamDef[] }) 
     </div>
   )
 
-  if (test.video_path) {
+  if (path) {
     const fs = () => {
       const el = frame.current
       if (!el) return
@@ -98,8 +116,8 @@ export function TestVideo({ test, params }: { test: Test; params: ParamDef[] }) 
     }
     return (
       <div ref={frame} className="pt-video" data-full={full || undefined}>
-        {get(test.video_path) ? (
-          <video src={get(test.video_path)!} poster={get(test.poster_path) ?? undefined} controls playsInline preload="none" controlsList="nofullscreen" />
+        {get(path) ? (
+          <video key={path} src={get(path)!} poster={get(c?.poster) ?? undefined} controls playsInline preload="none" controlsList="nofullscreen" />
         ) : (
           <div className="pt-video__wait" />
         )}
@@ -117,12 +135,12 @@ export function TestVideo({ test, params }: { test: Test; params: ParamDef[] }) 
         {overlay}
       </div>
     )
-  if (test.video_link)
+  if (link)
     return (
-      <a className="pt-link-video" href={test.video_link} target="_blank" rel="noopener noreferrer">
+      <a className="pt-link-video" href={link} target="_blank" rel="noopener noreferrer">
         <Icon name="play" size={22} />
         <span>
-          Watch on {hostOf(test.video_link)} <span aria-hidden="true">↗</span>
+          Watch on {hostOf(link)} <span aria-hidden="true">↗</span>
         </span>
       </a>
     )

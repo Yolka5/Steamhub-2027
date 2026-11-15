@@ -8,6 +8,7 @@ import { useAuth, useWho } from '../../lib/auth'
 import { ago, saveFile } from '../../lib/mfg'
 import {
   changedSince,
+  clipsOf,
   deletePrototype,
   deleteTest,
   fmtValue,
@@ -315,20 +316,24 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
   const changes = changedSince(test, tests, params)
   const changedIds = new Set(changes.map((c) => c.def.id))
   const filled = params.filter((d) => test.values[d.id] !== undefined && test.values[d.id] !== null && test.values[d.id] !== '')
-  const hasMedia = !!(test.video_path || test.video_link)
+  const clips = clipsOf(test)
+  const [pick, setPick] = useState(0)
+  const clip = clips[Math.min(pick, clips.length - 1)]
+  const many = clips.length > 1
 
-  /** The clip with the parameters burned in, through the phone's share sheet or as a download. */
+  /** The clip shown, with the parameters burned in, through the phone's share sheet or as a download. */
   const share = async () => {
-    if (!test.video_path || sharing != null) return
+    if (!clip?.path || sharing != null) return
     try {
       setSharing(0)
-      const url = await signedUrl(test.video_path)
+      const url = await signedUrl(clip.path)
       if (!url) throw new Error('The video link expired. Reload and try again.')
       const blob = await (await fetch(url)).blob()
       const lines = [...keyLines(params, test.values, true), test.result ? RESULT_WORD[test.result] : '', test.measure_value != null ? `${test.measure_name || 'Measured'} ${test.measure_value}` : ''].filter(Boolean)
       const { burnIn } = await import('../../lib/video')
-      const out = await burnIn(blob, `${proto.name} · test ${test.n}`, lines, (p) => setSharing(p))
-      const name = `${proto.name} test ${test.n}.mp4`.replace(/[^\w.\- ]+/g, '_')
+      const which = many ? ` video ${clips.indexOf(clip) + 1}` : ''
+      const out = await burnIn(blob, `${proto.name} · test ${test.n}${which}`, lines, (p) => setSharing(p))
+      const name = `${proto.name} test ${test.n}${which}.mp4`.replace(/[^\w.\- ]+/g, '_')
       const file = new File([out], name, { type: 'video/mp4' })
       const text = `${proto.name}, test ${test.n}: ${lines.join(', ')}`
       if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], text }).catch(() => {})
@@ -346,7 +351,17 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
 
   return (
     <article id={`test-${test.n}`} className="pt-test">
-      {hasMedia && <TestVideo test={test} params={params} />}
+      {clip && <TestVideo test={test} params={params} clip={clip} />}
+      {many && (
+        <div className="picks picks--seg picks--wrap pt-clips" role="radiogroup" aria-label="Videos of this test">
+          {clips.map((c, i) => (
+            <button key={c.path ?? c.link ?? i} type="button" role="radio" className="pick num" aria-checked={c === clip} onClick={() => setPick(i)}>
+              Video {i + 1}
+              {c.link && !c.path ? ' (link)' : ''}
+            </button>
+          ))}
+        </div>
+      )}
       <JobLine testId={test.id} />
       <div className="pt-test__head">
         <span className="pt-test__n">Test {test.n}</span>
@@ -392,7 +407,7 @@ function TestCard({ proto, test, tests, params, canDelete }: { proto: Prototype;
         <Link to={`/prototypes/${proto.id}/test/${test.id}`} className="q-btn q-btn--small">
           <Icon name="edit" size={18} /> Edit
         </Link>
-        {test.video_path && (
+        {clip?.path && (
           <button type="button" className="q-btn q-btn--small" onClick={share}>
             <Icon name="share" size={18} /> {sharing != null ? `Making the video ${Math.round(sharing * 100)}%` : 'Share with parameters'}
           </button>

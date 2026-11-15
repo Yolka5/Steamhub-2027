@@ -5,8 +5,8 @@ import { useRobots } from './useMfg'
 import { useReloadOnReturn } from './useReturn'
 
 // Prototypes: see PROTOTYPES.md. A prototype hangs off a subsystem by season + number, so one
-// intake prototype shows on the 2027 V1 and V2 intake alike. A test is one video plus the value
-// of every parameter it ran with.
+// intake prototype shows on the 2027 V1 and V2 intake alike. A test is its videos (one or more)
+// plus the value of every parameter it ran with.
 
 /** Longer clips keep only their start; past this, paste a link instead. */
 export const MAX_SECONDS = 90
@@ -111,10 +111,51 @@ export interface Test {
   video_link: string | null
   duration_s: number | null
   video_size: number | null
+  /** Every clip after the first. The first lives in the video_* columns above. Use clipsOf. */
+  more_videos?: Clip[] | null
   by_id: string | null
   by_name: string | null
   at: string
 }
+
+/** One video of a test: an uploaded file (path + poster) or a link, never both. */
+export interface Clip {
+  path: string | null
+  poster: string | null
+  link: string | null
+  duration_s: number | null
+  size: number | null
+}
+
+/** All of a test's videos, in order. The first is the one covers, Compare and the summary show. */
+export function clipsOf(t: Test): Clip[] {
+  const out: Clip[] = []
+  if (t.video_path) out.push({ path: t.video_path, poster: t.poster_path, link: null, duration_s: t.duration_s, size: t.video_size })
+  // Older tests could have a file and a link at once: both count.
+  if (t.video_link) out.push({ path: null, poster: null, link: t.video_link, duration_s: null, size: null })
+  return [...out, ...(t.more_videos ?? [])]
+}
+
+/**
+ * The columns that store a list of clips: the first in video_*, the rest in more_videos.
+ * more_videos is left out when there's nothing to put in it and `row` (the test as read) doesn't
+ * have it, so one-video tests still save on a database without that column yet.
+ */
+export function clipColumns(clips: Clip[], row?: Test): Partial<Pick<Test, 'video_path' | 'poster_path' | 'video_link' | 'duration_s' | 'video_size' | 'more_videos'>> {
+  const [a, ...rest] = clips
+  return {
+    video_path: a?.path ?? null,
+    poster_path: a?.path ? a.poster : null,
+    video_link: a?.path ? null : (a?.link ?? null),
+    duration_s: a?.path ? a.duration_s : null,
+    video_size: a?.path ? a.size : null,
+    ...(rest.length || (row && row.more_videos !== undefined) ? { more_videos: rest } : {}),
+  }
+}
+
+export const linkClip = (link: string): Clip => ({ path: null, poster: null, link, duration_s: null, size: null })
+const sameClip = (a: Clip, b: Clip) => (a.path ? a.path === b.path : !b.path && a.link === b.link)
+const clipFiles = (clips: Clip[]) => clips.flatMap((c) => [c.path, c.poster]).filter((x): x is string => !!x)
 
 export interface Block {
   id: string
@@ -526,7 +567,7 @@ export async function updatePrototype(id: string, patch: Partial<Prototype>) {
 
 export async function deletePrototype(p: Prototype, tests: Test[], blocks: Block[]) {
   const files = [
-    ...tests.flatMap((t) => [t.video_path, t.poster_path]),
+    ...tests.flatMap((t) => clipFiles(clipsOf(t))),
     ...blocks.flatMap((b) => (b.kind === 'photos' ? ((b.data.photos as { path: string }[]) ?? []).map((x) => x.path) : [])),
   ].filter((x): x is string => !!x)
   const { error } = await supabase.from('prototypes').delete().eq('id', p.id)
@@ -558,21 +599,47 @@ export interface TestInput {
   measure_name: string
   measure_value: number | null
   note: string
-  video_link: string | null
+}
+
+/** Videos taken off a test and links added to it in the form. Files picked go through queueVideo. */
+export interface ClipChange {
+  remove: Clip[]
+  addLinks: string[]
 }
 
 /** `followers`: the lead and everyone who filmed a test before hear about a new one. */
-export async function saveTest(p: Prototype, input: TestInput, who: Who, followers: (string | null)[], existing?: Test): Promise<Res<Test>> {
+export async function saveTest(
+  p: Prototype,
+  input: TestInput,
+  clips: ClipChange,
+  who: Who,
+  followers: (string | null)[],
+  existing?: Test,
+): Promise<Res<Test>> {
   if (existing) {
-    const { data, error } = await supabase.from('prototype_tests').update(input).eq('id', existing.id).select().single()
-    return error ? { error: error.message } : { data: data as Test }
+    let patch: TestInput & Partial<ReturnType<typeof clipColumns>> = input
+    if (clips.remove.length || clips.addLinks.length) {
+      // From the row as it is now, not as the form loaded it: a clip may have finished uploading since.
+      const { data: fresh, error: e } = await supabase.from('prototype_tests').select('*').eq('id', existing.id).single()
+      if (e) return { error: e.message }
+      const kept = clipsOf(fresh as Test).filter((c) => !clips.remove.some((r) => sameClip(r, c)))
+      patch = { ...input, ...clipColumns([...kept, ...clips.addLinks.map(linkClip)], fresh as Test) }
+    }
+    const { data, error } = await supabase.from('prototype_tests').update(patch).eq('id', existing.id).select().single()
+    if (error) return { error: error.message }
+    const gone = clipFiles(clips.remove)
+    if (gone.length) {
+      await supabase.storage.from('prototypes').remove(gone)
+      await fixCover(existing.prototype_id, gone)
+    }
+    return { data: data as Test }
   }
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data: last } = await supabase.from('prototype_tests').select('n').eq('prototype_id', p.id).order('n', { ascending: false }).limit(1)
     const n = (last?.[0]?.n ?? 0) + 1
     const { data, error } = await supabase
       .from('prototype_tests')
-      .insert({ ...input, prototype_id: p.id, n, by_id: who.userId, by_name: who.name })
+      .insert({ ...input, ...clipColumns(clips.addLinks.map(linkClip)), prototype_id: p.id, n, by_id: who.userId, by_name: who.name })
       .select()
       .single()
     if (error?.code === '23505') continue // two people saved at once: take the next number
@@ -588,14 +655,20 @@ export async function saveTest(p: Prototype, input: TestInput, who: Who, followe
 export async function deleteTest(t: Test) {
   const { error } = await supabase.from('prototype_tests').delete().eq('id', t.id)
   if (error) return { error: error.message }
-  const files = [t.video_path, t.poster_path].filter((x): x is string => !!x)
-  if (files.length) await supabase.storage.from('prototypes').remove(files)
-  // The cover was this test's picture: take the newest other test's, or none.
-  if (t.poster_path) {
-    const { data: next } = await supabase.from('prototype_tests').select('poster_path').eq('prototype_id', t.prototype_id).not('poster_path', 'is', null).order('n', { ascending: false }).limit(1)
-    await supabase.from('prototypes').update({ cover_path: next?.[0]?.poster_path ?? null }).eq('id', t.prototype_id).eq('cover_path', t.poster_path)
+  const files = clipFiles(clipsOf(t))
+  if (files.length) {
+    await supabase.storage.from('prototypes').remove(files)
+    await fixCover(t.prototype_id, files)
   }
   return {}
+}
+
+/** The cover was one of these (now deleted) pictures: take the newest test's first picture, or none. */
+async function fixCover(protoId: string, gone: string[]) {
+  const { data: p } = await supabase.from('prototypes').select('cover_path').eq('id', protoId).single()
+  if (!p?.cover_path || !gone.includes(p.cover_path)) return
+  const { data: next } = await supabase.from('prototype_tests').select('poster_path').eq('prototype_id', protoId).not('poster_path', 'is', null).order('n', { ascending: false }).limit(1)
+  await updatePrototype(protoId, { cover_path: next?.[0]?.poster_path ?? null })
 }
 
 export async function addBlock(protoId: string, kind: BlockKind, blocks: Block[], who: Who) {
@@ -645,6 +718,8 @@ export async function setProtoStatus(p: Prototype, status: ProtoStatus, note: st
 // shrunk and uploaded here while the person moves on. Pages read the progress from this store.
 
 export interface Job {
+  /** One job per clip: a test can have several uploading. */
+  key: string
   testId: string
   protoId: string
   stage: 'shrinking' | 'uploading' | 'done' | 'failed'
@@ -659,8 +734,8 @@ const emit = () => {
   jobs = jobs.slice()
   listeners.forEach((l) => l())
 }
-const setJob = (testId: string, patch: Partial<Job>) => {
-  jobs = jobs.map((j) => (j.testId === testId ? { ...j, ...patch } : j))
+const setJob = (key: string, patch: Partial<Job>) => {
+  jobs = jobs.map((j) => (j.key === key ? { ...j, ...patch } : j))
   emit()
 }
 
@@ -683,28 +758,29 @@ if (typeof window !== 'undefined')
 
 let chain: Promise<unknown> = Promise.resolve()
 /** The clip of each job, kept until it's uploaded so a failed upload can be tried again. */
-const clips = new Map<string, { test: Test; file: File }>()
+const pending = new Map<string, { test: Test; file: File }>()
+let seq = 0
 
-/** One clip at a time, so a phone doesn't encode three videos at once. */
-export function queueVideo(test: Test, file: File) {
-  clips.set(test.id, { test, file })
-  jobs = [...jobs.filter((j) => j.testId !== test.id), { testId: test.id, protoId: test.prototype_id, stage: 'shrinking', progress: 0 }]
+/** One clip at a time, so a phone doesn't encode three videos at once. Each clip is added to the test's videos. */
+export function queueVideo(test: Test, file: File, key = `${test.id}:${++seq}`) {
+  pending.set(key, { test, file })
+  jobs = [...jobs.filter((j) => j.key !== key), { key, testId: test.id, protoId: test.prototype_id, stage: 'shrinking', progress: 0 }]
   emit()
-  chain = chain.then(() => runJob(test, file)).catch(() => {})
+  chain = chain.then(() => runJob(key, test, file)).catch(() => {})
 }
 
 /** Try a failed upload again with the same clip (the connection dropped, the app was updated). */
-export function retryVideo(testId: string) {
-  const c = clips.get(testId)
-  if (c) queueVideo(c.test, c.file)
+export function retryVideo(key: string) {
+  const c = pending.get(key)
+  if (c) queueVideo(c.test, c.file, key)
 }
 
-async function runJob(test: Test, file: File) {
+async function runJob(key: string, test: Test, file: File) {
   try {
     // The video library is big, so it only loads when a clip is actually processed.
     const { prepareVideo } = await import('./video')
-    const prepared = await prepareVideo(file, (p) => setJob(test.id, { progress: p }))
-    setJob(test.id, { stage: 'uploading', progress: 1, note: prepared.trimmed ? 'Only the first 90 s were kept.' : undefined })
+    const prepared = await prepareVideo(file, (p) => setJob(key, { progress: p }))
+    setJob(key, { stage: 'uploading', progress: 1, note: prepared.trimmed ? `${file.name}: only the first ${MAX_SECONDS} s were kept.` : undefined })
     const base = `tests/${test.prototype_id}/${test.id}-${Date.now()}`
     const ext = prepared.compressed || prepared.video.type === 'video/mp4' ? 'mp4' : (file.name.split('.').pop() ?? 'mp4')
     const up = await supabase.storage.from('prototypes').upload(`${base}.${ext}`, prepared.video, { contentType: prepared.video.type || 'video/mp4' })
@@ -714,25 +790,24 @@ async function runJob(test: Test, file: File) {
       const r = await supabase.storage.from('prototypes').upload(`${base}.jpg`, prepared.poster, { contentType: 'image/jpeg' })
       if (!r.error) poster = `${base}.jpg`
     }
-    const old = [test.video_path, test.poster_path].filter((x): x is string => !!x)
-    const { error } = await supabase
-      .from('prototype_tests')
-      .update({ video_path: `${base}.${ext}`, poster_path: poster, duration_s: Math.round(prepared.duration * 10) / 10, video_size: prepared.video.size })
-      .eq('id', test.id)
+    const clip: Clip = { path: `${base}.${ext}`, poster, link: null, duration_s: Math.round(prepared.duration * 10) / 10, size: prepared.video.size }
+    // Appended to the row as it is now, so clips uploaded one after another all stay.
+    const { data: fresh, error: e } = await supabase.from('prototype_tests').select('*').eq('id', test.id).single()
+    if (e) throw new Error(e.code === 'PGRST116' ? 'The test was deleted.' : e.message)
+    const { error } = await supabase.from('prototype_tests').update(clipColumns([...clipsOf(fresh as Test), clip], fresh as Test)).eq('id', test.id)
     if (error) throw new Error(error.message)
-    if (old.length) await supabase.storage.from('prototypes').remove(old)
-    // The first clip's picture becomes the prototype's cover (and replaces it when that clip is replaced).
+    // The first picture a prototype gets becomes its cover.
     if (poster) {
       const { data: p } = await supabase.from('prototypes').select('cover_path').eq('id', test.prototype_id).single()
-      if (!p?.cover_path || old.includes(p.cover_path)) await updatePrototype(test.prototype_id, { cover_path: poster })
+      if (!p?.cover_path) await updatePrototype(test.prototype_id, { cover_path: poster })
     }
-    setJob(test.id, { stage: 'done' })
-    clips.delete(test.id)
+    setJob(key, { stage: 'done' })
+    pending.delete(key)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     // A tab left open across a deploy can't load the video tools any more: say what fixes it.
     const stale = /dynamically imported module|Importing a module script failed|error loading/i.test(msg)
-    setJob(test.id, { stage: 'failed', error: stale ? 'Steamhub was updated. Tap Refresh at the top, then try again.' : msg })
+    setJob(key, { stage: 'failed', error: stale ? 'Steamhub was updated. Tap Refresh at the top, then try again.' : msg })
   }
 }
 

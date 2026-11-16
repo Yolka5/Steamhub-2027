@@ -793,6 +793,42 @@
   flex-wrap: nowrap;
 }
 
+/* A plate's photo, or a camera button that opens the camera straight away. */
+.plate-row__photo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: var(--surface-1);
+  border: 0;
+  border-radius: 8px;
+}
+.plate-row__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.plate-row__photo--add {
+  border: 1px dashed var(--surface-3);
+}
+.plate-row__photo input {
+  display: none;
+}
+.plate-photo {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.plates-attach .form {
+  margin-top: 0.5rem;
+}
+
 /* ===== End mills ===== */
 .mill-qty {
   display: flex;

@@ -1,11 +1,13 @@
 // Syncs plate stock and end mills from the team's Google Sheet (MANUFACTURING.md, phase 3).
 // The sheet must be shared as "anyone with the link can view"; it's read as CSV, no Google key.
-//  - First tab: plates. Columns thickness, length, width, qty (blank = 1). The header row is skipped.
+//  - First tab: plates. Columns thickness, length, width, qty (blank = 1), material (blank = Aluminum;
+//    Aluminum, Polycarb or Wood, in English or Hebrew). The header row is skipped.
 //  - The end mills tab (name in settings): blocks headed "1 flute / diameter" style rows, then "3mm, count".
 // The team keeps both the sheet and Steamhub, so a sync merges and neither side wins outright.
 // Plates: one row per physical plate. When the sheet lists more of a size, plates added in Steamhub
 // of that size are taken as the sheet's first, then new ones are added. When it lists fewer, plates
-// marked Gone go first (the sheet caught up), then Available ones; Partly used plates always stay.
+// marked Gone go first (the sheet caught up), then Available ones without a photo, then the rest that
+// are Available; Partly used plates always stay.
 // End mills: Steamhub remembers what the sheet said last time (sheet_qty) and applies only the
 // sheet's change since then, so counts changed in Steamhub survive the sync.
 import { createClient } from 'npm:@supabase/supabase-js@2.49.4'
@@ -54,6 +56,14 @@ const num = (s: string | undefined) => {
   return Number.isFinite(v) ? v : null
 }
 
+/** "Aluminum", "פוליקרבונט", "plywood"... to one of the three plate materials. */
+function materialOf(s: string | undefined): string {
+  const t = String(s ?? '').trim().toLowerCase()
+  if (/poly|lexan|פוליקרב/.test(t)) return 'Polycarb'
+  if (/wood|ply|mdf|עץ|דיקט/.test(t)) return 'Wood'
+  return 'Aluminum'
+}
+
 async function sheetCsv(id: string, tab?: string) {
   const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=0${tab ? `&sheet=${encodeURIComponent(tab)}` : ''}`
   const res = await fetch(url, { redirect: 'follow' })
@@ -90,7 +100,7 @@ Deno.serve(async (req) => {
 
   try {
     // ----- Plates -----
-    const want = new Map<string, { t: number; l: number; w: number; n: number }>()
+    const want = new Map<string, { m: string; t: number; l: number; w: number; n: number }>()
     for (const r of await sheetCsv(id)) {
       const t = num(r[0])
       const a = num(r[1])
@@ -101,20 +111,20 @@ Deno.serve(async (req) => {
       if (n === 0) continue
       const l = Math.max(a, b)
       const w = Math.min(a, b)
-      const key = `${t}|${l}|${w}`
-      const cur = want.get(key) ?? { t, l, w, n: 0 }
+      const m = materialOf(r[4])
+      const key = `${m}|${t}|${l}|${w}`
+      const cur = want.get(key) ?? { m, t, l, w, n: 0 }
       cur.n += n
       want.set(key, cur)
     }
-    const { data: have, error: hErr } = await admin.from('plates').select('id, thickness, length, width, state, source, material')
+    const { data: have, error: hErr } = await admin.from('plates').select('id, thickness, length, width, state, source, material, photo_url')
     if (hErr) throw new Error(hErr.message)
-    type Row = { id: string; state: string; source: string }
-    const keyOf = (p: { thickness: unknown; length: unknown; width: unknown }) => `${Number(p.thickness)}|${Number(p.length)}|${Number(p.width)}`
+    type Row = { id: string; state: string; source: string; photo_url: string | null }
+    const keyOf = (p: { material: string; thickness: unknown; length: unknown; width: unknown }) =>
+      `${p.material}|${Number(p.thickness)}|${Number(p.length)}|${Number(p.width)}`
     const haveBy = new Map<string, Row[]>()
     const manualBy = new Map<string, Row[]>()
     for (const p of have ?? []) {
-      // The sheet only lists aluminum, so only aluminum plates added in Steamhub can be the sheet's.
-      if (p.source !== 'sheet' && p.material !== 'Aluminum') continue
       const by = p.source === 'sheet' ? haveBy : manualBy
       by.set(keyOf(p), [...(by.get(keyOf(p)) ?? []), p])
     }
@@ -130,10 +140,15 @@ Deno.serve(async (req) => {
         const mine = (manualBy.get(key) ?? []).slice(0, need - list.length)
         adopt.push(...mine.map((p) => p.id))
         for (let i = list.length + mine.length; i < need; i++)
-          add.push({ thickness: w!.t, length: w!.l, width: w!.w, material: 'Aluminum', source: 'sheet', updated_by: user.id, updated_by_name: me.name })
+          add.push({ thickness: w!.t, length: w!.l, width: w!.w, material: w!.m, source: 'sheet', updated_by: user.id, updated_by_name: me.name })
       } else if (need < list.length) {
-        // Gone ones first: the sheet caught up with Steamhub. Then untouched ones. Partly used stay.
-        const out = [...list.filter((p) => p.state === 'gone'), ...list.filter((p) => p.state === 'available')]
+        // Gone ones first: the sheet caught up with Steamhub. Then untouched ones, photographed last so
+        // nobody's photo is thrown away while another plate of the same size could go. Partly used stay.
+        const out = [
+          ...list.filter((p) => p.state === 'gone'),
+          ...list.filter((p) => p.state === 'available' && !p.photo_url),
+          ...list.filter((p) => p.state === 'available' && p.photo_url),
+        ]
         remove.push(...out.slice(0, list.length - need).map((p) => p.id))
       }
     }

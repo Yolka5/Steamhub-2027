@@ -6,7 +6,7 @@ import { reservePiece } from '../lib/actions'
 import { useWho } from '../lib/auth'
 import { loadGeometry } from '../lib/drawing'
 import { barDims, hexDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
-import { cutFromPlate, fitGroups, plateArea, STATE_WORD, tText, usePlates, type PlateState } from '../lib/plates'
+import { cutFromPlate, fitGroups, plateArea, plateMaterialOf, STATE_WORD, tText, usePlates, type PlateState } from '../lib/plates'
 import { tubeWall } from '../lib/step/engine'
 import { findMatches, sizeLabel, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
@@ -49,7 +49,7 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
   const { plates, setPlates } = usePlates()
   const who = useWho()
   const toast = useToast()
-  const fits = useMemo(() => fitGroups(plates, part.size.map(Number)), [plates, part.size])
+  const fits = useMemo(() => fitGroups(plates, part.size.map(Number), plateMaterialOf(part.material)), [plates, part.size, part.material])
   const used = plates.find((p) => p.id === part.plate_id)
   const thick = Math.round(Math.min(...part.size.map(Number)) * 100) / 100
   const [busy, run] = useBusy()

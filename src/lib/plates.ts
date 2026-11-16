@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { selectAll, supabase } from './supabase'
 import { useReloadOnReturn } from './useReturn'
 import { updatePart, type Part, type Who } from './mfg'
+import { uploadPhoto } from './actions'
 
 // CNC plate stock and end mills. Plates have no labels; they're found by size. One row per
 // physical plate, so each can be Available, Partly used (someone cut from it, there may be enough
@@ -18,6 +19,7 @@ export interface Plate {
   state: PlateState
   source: 'sheet' | 'manual'
   notes: string | null
+  photo_url: string | null
   updated_by_name: string | null
   updated_at: string
 }
@@ -33,12 +35,28 @@ export interface EndMill {
 
 export interface SheetSetting {
   url: string
+  /** The sheet that was linked before it was detached. */
+  previous_url?: string
   endmill_tab: string
   low_m2: number
   synced_at: string | null
   synced_by?: string
   /** Set by the merging sync. Only then is it safe to sync on every page open. */
   merges?: boolean
+}
+
+export const MATERIALS = ['Aluminum', 'Polycarb', 'Wood'] as const
+
+/**
+ * The plate material a part needs, from its material text ("Polycarb · 3 mm", "Aluminum 6061 · 5 mm",
+ * "Plywood 6 mm"). Null when the text doesn't say, so any plate of the right size fits.
+ */
+export function plateMaterialOf(text: string | null | undefined): string | null {
+  const t = (text ?? '').toLowerCase()
+  if (/poly|lexan|פוליקרב/.test(t)) return 'Polycarb'
+  if (/wood|ply|mdf|עץ|דיקט/.test(t)) return 'Wood'
+  if (/alu|6061|7075|אלומיניום/.test(t)) return 'Aluminum'
+  return null
 }
 
 export const STATE_WORD: Record<PlateState, string> = { available: 'Available', partly_used: 'Partly used', gone: 'Gone' }
@@ -114,21 +132,22 @@ export async function syncSheet(): Promise<{ plates?: number; added?: number; ad
  * 5 mm to spare on each side. Partly used ones first (use them up), then smallest first. A partly
  * used plate may have enough left, but never more than the whole plate, so it has to fit too.
  */
-export function platesFor(plates: Plate[], size: number[]): Plate[] {
+export function platesFor(plates: Plate[], size: number[], material?: string | null): Plate[] {
   const [x, y, t] = size.slice().sort((a, b) => b - a)
   if (!t) return []
   const m = 10
   return plates
     .filter((p) => p.state !== 'gone' && Math.abs(p.thickness - t) <= 0.2)
+    .filter((p) => !material || p.material === material)
     .filter((p) => p.length >= x + m && p.width >= y + m)
     .sort((a, b) => (a.state === b.state ? plateArea(a) - plateArea(b) : a.state === 'partly_used' ? -1 : 1))
 }
 
 /** The plates that fit, with identical plates in the same state shown once and counted. */
-export function fitGroups(plates: Plate[], size: number[], max = 4): { plate: Plate; n: number }[] {
+export function fitGroups(plates: Plate[], size: number[], material?: string | null, max = 4): { plate: Plate; n: number }[] {
   const groups = new Map<string, { plate: Plate; n: number }>()
-  for (const pl of platesFor(plates, size)) {
-    const k = `${pl.length}|${pl.width}|${pl.state}`
+  for (const pl of platesFor(plates, size, material)) {
+    const k = `${pl.material}|${pl.length}|${pl.width}|${pl.state}`
     const g = groups.get(k)
     if (g) g.n++
     else groups.set(k, { plate: pl, n: 1 })
@@ -160,6 +179,19 @@ export async function cutFromPlate(part: Part, plate: Plate, state: PlateState, 
       return r3.data
     },
   }
+}
+
+/** A plate's photo, taken on the phone. Same bucket and shrinking as tube stock. */
+export async function setPlatePhoto(id: string, file: File, who: { userId: string; name: string }) {
+  const up = await uploadPhoto(`plate-${id}`, file).catch((e) => ({ url: undefined, error: e instanceof Error ? e.message : "That photo couldn't be read" }))
+  if (!up.url) return { error: up.error ?? 'Upload failed' }
+  const { data, error } = await supabase
+    .from('plates')
+    .update({ photo_url: up.url, updated_by: who.userId, updated_by_name: who.name, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+  return error ? { error: error.message } : { data: data as Plate }
 }
 
 export function useEndMills() {
@@ -198,6 +230,6 @@ export function useAutoSync(setting: SheetSetting | null, after: () => void) {
 export function notInSheet(plates: Plate[]): { remove: Plate[]; add: Plate[] } {
   return {
     remove: plates.filter((p) => p.source === 'sheet' && p.state === 'gone'),
-    add: plates.filter((p) => p.source !== 'sheet' && p.material === 'Aluminum' && p.state !== 'gone'),
+    add: plates.filter((p) => p.source !== 'sheet' && p.state !== 'gone'),
   }
 }

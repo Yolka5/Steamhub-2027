@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { useWho } from '../lib/auth'
 import { plateThickness, type Part } from '../lib/mfg'
-import { cutFromPlate, fitGroups, plateArea, platesAt, tText, type Plate, type PlateState } from '../lib/plates'
+import { cutFromPlate, fitGroups, plateArea, plateMaterialOf, platesAt, tText, type Plate, type PlateState } from '../lib/plates'
 import { Sheet, useToast } from './ui'
 
 // Done on a CNC part asks which plate it came from, so Plates stays right without anyone
@@ -19,7 +19,7 @@ export function usePlateAsk() {
   const after = useCallback(async (part: Part, put?: (p: Part) => void) => {
     if (part.machine !== 'CNC' || part.plate_id || part.status !== 'done' || !part.size?.length) return
     const size = part.size.map(Number)
-    const fits = fitGroups(await platesAt(plateThickness(size)), size)
+    const fits = fitGroups(await platesAt(plateThickness(size)), size, plateMaterialOf(part.material))
     if (!fits.length) return
     onPart.current = put ?? null
     setAsking({ part, fits })

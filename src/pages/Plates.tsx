@@ -314,7 +314,11 @@ function AddPlate({ plates, start, onSaved, onDone }: { plates: Plate[]; start: 
       setLength('')
       setWidth('')
       setPhoto(null)
-      toast(`${res.plate.code} saved`)
+      toast(
+        res.plate.code === code
+          ? `${res.plate.code} saved`
+          : `Someone took ${code} a moment ago. This plate is ${res.plate.code}: fix the number written on it`,
+      )
     } finally {
       setBusy(false)
     }
@@ -364,27 +368,27 @@ function AddPlate({ plates, start, onSaved, onDone }: { plates: Plate[]; start: 
         </span>
       </label>
 
-      {saved[0] && (
-        <div className="written">
-          <span className="written__do">Write it on the plate now</span>
-          <span className="written__id num">
-            {saved[0].code} · {Number(saved[0].length)} × {Number(saved[0].width)}
-          </span>
-        </div>
-      )}
+      {/* One number on screen: the plate being added. Write it, then save, and both move on. */}
+      <div className="written">
+        <span className="written__do">Write it on the plate now</span>
+        <span className="written__id num">
+          {code}
+          {l > 0 && w > 0 ? ` · ${Math.max(l, w)} × ${Math.min(l, w)}` : ''}
+        </span>
+      </div>
       <button type="submit" className="q-btn q-btn--main q-btn--wide q-btn--big" data-waiting={problem ? true : undefined} disabled={busy}>
-        {busy ? 'Saving' : `${saved.length ? 'Save next as' : 'Save as'} ${code}`}
+        {busy ? 'Saving' : `Save as ${code}`}
       </button>
       {saved.length > 0 && (
         <button type="button" className="q-btn q-btn--wide" onClick={onDone}>
           Done
         </button>
       )}
-      {saved.length > 1 && (
+      {saved.length > 0 && (
         <section className="section">
           <h2 className="section__title">Added just now</h2>
           <ul className="rows">
-            {saved.slice(1).map((p) => (
+            {saved.map((p) => (
               <li key={p.id} className="row">
                 <span className="num strong">{p.code}</span>
                 <span className="num soft">

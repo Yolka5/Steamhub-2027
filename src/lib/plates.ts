@@ -12,7 +12,7 @@ export type PlateState = 'available' | 'partly_used' | 'gone'
 
 export interface Plate {
   id: string
-  /** The number written on the plate: AL-007, PC-002, WD-013. */
+  /** The number written on the plate: AL07, PC02, WD13. */
   code: string | null
   material: string
   thickness: number
@@ -49,25 +49,29 @@ export interface SheetSetting {
 
 export const MATERIALS = ['Aluminum', 'Polycarb', 'Wood'] as const
 
-/** Each material counts its own plates: AL-001, PC-001, WD-001. */
+/** Each material counts its own plates: AL01, PC01, WD01 (AL100 after AL99). */
 export const CODE_PREFIX: Record<string, string> = { Aluminum: 'AL', Polycarb: 'PC', Wood: 'WD' }
 
 /** The next number for a material from the plates loaded here, shown on the button before saving. */
 export function localNextCode(plates: Plate[], material: string) {
   const prefix = CODE_PREFIX[material] ?? 'PL'
   let max = 0
-  for (const p of plates) if (p.code?.startsWith(prefix + '-')) max = Math.max(max, Number(p.code.slice(prefix.length + 1)) || 0)
-  return `${prefix}-${String(max + 1).padStart(3, '0')}`
+  const re = new RegExp(`^${prefix}(\\d+)$`)
+  for (const p of plates) {
+    const m = p.code?.match(re)
+    if (m) max = Math.max(max, Number(m[1]))
+  }
+  return `${prefix}${String(max + 1).padStart(2, '0')}`
 }
 
-/** "al-7", "AL007", "al 7" → "AL-007"; "7" → "007" (any material). Null when it isn't a number. */
+/** "al7", "AL07", "al-7", "al 7" → AL07; "7" → number 7 in any material. Null when it isn't a number. */
 export function codeQuery(text: string): { prefix: string | null; n: number } | null {
   const m = text.trim().toUpperCase().match(/^([A-Z]{2})?[\s-]*0*(\d{1,4})$/)
   return m ? { prefix: m[1] ?? null, n: Number(m[2]) } : null
 }
 
 export function codeMatches(code: string | null, q: { prefix: string | null; n: number }) {
-  const m = code?.match(/^([A-Z]+)-(\d+)$/)
+  const m = code?.match(/^([A-Z]+)-?(\d+)$/)
   return !!m && Number(m[2]) === q.n && (!q.prefix || m[1] === q.prefix)
 }
 
@@ -76,7 +80,7 @@ export async function addPlate(row: Partial<Plate>, code: string): Promise<{ pla
   const insert = (c: string) => supabase.from('plates').insert({ ...row, code: c }).select().single()
   let res = await insert(code)
   if (res.error?.code === '23505') {
-    const { data } = await supabase.rpc('next_plate_code', { prefix: code.split('-')[0] })
+    const { data } = await supabase.rpc('next_plate_code', { prefix: code.replace(/\d+$/, '') })
     res = await insert((data as string) ?? code)
   }
   if (res.error) return { error: res.error.message }

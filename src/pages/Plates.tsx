@@ -22,7 +22,7 @@ import {
   type PlateState,
 } from '../lib/plates'
 
-// CNC plate stock. Every plate has a number written on it (AL-007, PC-002, WD-013), given when it's
+// CNC plate stock. Every plate has a number written on it (AL07, PC02, WD13), given when it's
 // added, like tube stock. Found by number, or by material, thickness and size. The CNC team taps
 // Partly used or Gone after a cut. A photo of each plate is optional, taken straight from the camera.
 
@@ -115,7 +115,7 @@ export default function Plates() {
           className="field plates-search num"
           type="search"
           enterKeyHint="search"
-          placeholder="Plate number, like AL-7"
+          placeholder="Plate number, like AL07"
           aria-label="Find a plate by its number"
           value={search}
           onChange={(e) => set('q', e.target.value)}
@@ -366,7 +366,7 @@ function AddPlate({ plates, start, onSaved, onDone }: { plates: Plate[]; start: 
 
       {saved[0] && (
         <div className="written">
-          <span className="soft">Saved - write on this plate</span>
+          <span className="written__do">Write it on the plate now</span>
           <span className="written__id num">
             {saved[0].code} · {Number(saved[0].length)} × {Number(saved[0].width)}
           </span>

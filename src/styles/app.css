@@ -1938,3 +1938,8 @@ dialog {
 .gate__new {
   margin: 0.25rem 0 0;
 }
+
+/* The step people forget: said as an instruction, not a caption. */
+.written__do {
+  font-weight: 600;
+}

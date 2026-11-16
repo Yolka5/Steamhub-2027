@@ -118,9 +118,9 @@ export default function Stock() {
             </label>
     </>
   )
-  const words = describe(q)
-  // AL-007, PC-002, WD-013 are written on CNC plates, which live on their own page.
-  const plateCode = q.id && /^(AL|PC|WD)-/.test(q.id) ? q.id : null
+  // AL07, PC02, WD13 are written on CNC plates, which live on their own page.
+  const plateCode = q.id && /^(AL|PC|WD)-/.test(q.id) ? q.id.replace(/-0*(\d+)$/, (_, n: string) => n.padStart(2, '0')) : null
+  const words = plateCode ? [plateCode] : describe(q)
   const available = pieces.filter((p) => p.status === 'available').length
 
   return (

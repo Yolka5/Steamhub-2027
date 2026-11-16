@@ -95,6 +95,8 @@ video {
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Kill Chrome's blue tap flash on Android - buttons have their own pressed states. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {

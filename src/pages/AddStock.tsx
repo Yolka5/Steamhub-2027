@@ -326,7 +326,7 @@ export default function AddStock() {
 
         {saved[0] && (
           <div className="written">
-            <span className="soft">Write on the piece</span>
+            <span className="soft">Saved - write on this piece</span>
             <span className="written__id num">
               {saved[0].id} · {saved[0].length}
             </span>
@@ -336,7 +336,7 @@ export default function AddStock() {
         {/* Only once something is typed: an empty form doesn't need telling it's empty. */}
         {problem && (dims.a || length) && <p className="soft small" aria-live="polite">{problem}</p>}
         <button type="submit" className="q-btn q-btn--main q-btn--wide q-btn--big" data-waiting={!ready || undefined}>
-          {busy ? 'Saving' : `Save as ${id}`}
+          {busy ? 'Saving' : `${saved.length ? 'Save next as' : 'Save as'} ${id}`}
         </button>
       </form>
 

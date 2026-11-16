@@ -366,14 +366,14 @@ function AddPlate({ plates, start, onSaved, onDone }: { plates: Plate[]; start: 
 
       {saved[0] && (
         <div className="written">
-          <span className="soft">Write on the plate</span>
+          <span className="soft">Saved - write on this plate</span>
           <span className="written__id num">
             {saved[0].code} · {Number(saved[0].length)} × {Number(saved[0].width)}
           </span>
         </div>
       )}
       <button type="submit" className="q-btn q-btn--main q-btn--wide q-btn--big" data-waiting={problem ? true : undefined} disabled={busy}>
-        {busy ? 'Saving' : `Save as ${code}`}
+        {busy ? 'Saving' : `${saved.length ? 'Save next as' : 'Save as'} ${code}`}
       </button>
       {saved.length > 0 && (
         <button type="button" className="q-btn q-btn--wide" onClick={onDone}>

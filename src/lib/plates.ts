@@ -12,6 +12,8 @@ export type PlateState = 'available' | 'partly_used' | 'gone'
 
 export interface Plate {
   id: string
+  /** The number written on the plate: AL-007, PC-002, WD-013. */
+  code: string | null
   material: string
   thickness: number
   length: number
@@ -46,6 +48,41 @@ export interface SheetSetting {
 }
 
 export const MATERIALS = ['Aluminum', 'Polycarb', 'Wood'] as const
+
+/** Each material counts its own plates: AL-001, PC-001, WD-001. */
+export const CODE_PREFIX: Record<string, string> = { Aluminum: 'AL', Polycarb: 'PC', Wood: 'WD' }
+
+/** The next number for a material from the plates loaded here, shown on the button before saving. */
+export function localNextCode(plates: Plate[], material: string) {
+  const prefix = CODE_PREFIX[material] ?? 'PL'
+  let max = 0
+  for (const p of plates) if (p.code?.startsWith(prefix + '-')) max = Math.max(max, Number(p.code.slice(prefix.length + 1)) || 0)
+  return `${prefix}-${String(max + 1).padStart(3, '0')}`
+}
+
+/** "al-7", "AL007", "al 7" → "AL-007"; "7" → "007" (any material). Null when it isn't a number. */
+export function codeQuery(text: string): { prefix: string | null; n: number } | null {
+  const m = text.trim().toUpperCase().match(/^([A-Z]{2})?[\s-]*0*(\d{1,4})$/)
+  return m ? { prefix: m[1] ?? null, n: Number(m[2]) } : null
+}
+
+export function codeMatches(code: string | null, q: { prefix: string | null; n: number }) {
+  const m = code?.match(/^([A-Z]+)-(\d+)$/)
+  return !!m && Number(m[2]) === q.n && (!q.prefix || m[1] === q.prefix)
+}
+
+/** Saves one plate under the next free number. Someone else may take the shown number a moment earlier. */
+export async function addPlate(row: Partial<Plate>, code: string): Promise<{ plate?: Plate; error?: string }> {
+  const insert = (c: string) => supabase.from('plates').insert({ ...row, code: c }).select().single()
+  let res = await insert(code)
+  if (res.error?.code === '23505') {
+    const { data } = await supabase.rpc('next_plate_code', { prefix: code.split('-')[0] })
+    res = await insert((data as string) ?? code)
+  }
+  if (res.error) return { error: res.error.message }
+  const p = res.data as Plate
+  return { plate: { ...p, thickness: Number(p.thickness), length: Number(p.length), width: Number(p.width) } }
+}
 
 /**
  * The plate material a part needs, from its material text ("Polycarb · 3 mm", "Aluminum 6061 · 5 mm",
@@ -143,11 +180,12 @@ export function platesFor(plates: Plate[], size: number[], material?: string | n
     .sort((a, b) => (a.state === b.state ? plateArea(a) - plateArea(b) : a.state === 'partly_used' ? -1 : 1))
 }
 
-/** The plates that fit, with identical plates in the same state shown once and counted. */
-export function fitGroups(plates: Plate[], size: number[], material?: string | null, max = 4): { plate: Plate; n: number }[] {
+/** The plates that fit. Old plates without a number, identical and in the same state, are shown once and counted. */
+export function fitGroups(plates: Plate[], size: number[], material?: string | null, max = 6): { plate: Plate; n: number }[] {
   const groups = new Map<string, { plate: Plate; n: number }>()
   for (const pl of platesFor(plates, size, material)) {
-    const k = `${pl.material}|${pl.length}|${pl.width}|${pl.state}`
+    // A numbered plate is its own row: the number says which one on the shelf to take.
+    const k = pl.code ?? `${pl.material}|${pl.length}|${pl.width}|${pl.state}`
     const g = groups.get(k)
     if (g) g.n++
     else groups.set(k, { plate: pl, n: 1 })

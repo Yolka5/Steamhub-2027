@@ -38,7 +38,8 @@ export function usePlateAsk() {
     if (res.error) return toast(res.error)
     if (res.part) onPart.current?.(res.part)
     const put = onPart.current
-    toast(state === 'gone' ? `Plate ${plate.length} × ${plate.width} marked gone` : `Plate ${plate.length} × ${plate.width} marked partly used`, {
+    const what = plate.code ?? `Plate ${plate.length} × ${plate.width}`
+    toast(state === 'gone' ? `${what} marked gone` : `${what} marked partly used`, {
       undo: async () => {
         const back = await res.undo!()
         if (back) put?.(back)
@@ -59,6 +60,7 @@ export function usePlateAsk() {
               <li key={pl.id} className="stock-pick__row">
                 <span className="num">
                   <strong>
+                    {pl.code ? `${pl.code} · ` : ''}
                     {pl.length} × {pl.width}
                   </strong>{' '}
                   <span className="soft">

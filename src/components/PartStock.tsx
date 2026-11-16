@@ -78,6 +78,7 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
         <div className="stock-pick__row">
           <span className="num">
             <strong>
+              {used.code ? `${used.code} · ` : ''}
               {used.length} × {used.width}
             </strong>{' '}
             <span className="soft">
@@ -101,6 +102,7 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
             <div key={pl.id} className="stock-pick__row">
               <span className="num">
                 <strong>
+                  {pl.code ? `${pl.code} · ` : ''}
                   {pl.length} × {pl.width}
                 </strong>{' '}
                 <span className="soft">

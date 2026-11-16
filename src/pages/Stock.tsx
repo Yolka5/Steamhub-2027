@@ -119,6 +119,8 @@ export default function Stock() {
     </>
   )
   const words = describe(q)
+  // AL-007, PC-002, WD-013 are written on CNC plates, which live on their own page.
+  const plateCode = q.id && /^(AL|PC|WD)-/.test(q.id) ? q.id : null
   const available = pieces.filter((p) => p.status === 'available').length
 
   return (
@@ -200,7 +202,13 @@ export default function Stock() {
       {error && <p className="error">Couldn't load stock: {error}</p>}
       {loading && <p className="soft">Loading stock</p>}
 
-      {!loading && matches.length === 0 && words.length > 0 && (
+      {plateCode && (
+        <p className="empty">
+          {plateCode} is a plate number. <Link to={`/stock/plates?q=${plateCode}`}>Find it in Plates</Link>
+        </p>
+      )}
+
+      {!plateCode && !loading && matches.length === 0 && words.length > 0 && (
         <p className="empty">Nothing in stock fits exactly.{near.length ? ' Close sizes below.' : ''}</p>
       )}
 

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ProgressBar, StatusIcon, useOpenTask } from '../../components/cal'
+import { DatePill, StatusPill } from '../../components/CalPhase'
 import { useWho } from '../../lib/auth'
-import { addDays, currentPhase, dayLabel, firstName, groupOrder, occurrences, rangeLabel, TEAM_WORD, todayIso, type Task, type Team } from '../../lib/cal'
+import { addDays, dayLabel, isoDay, firstName, groupOrder, occurrences, rangeLabel, TEAM_WORD, todayIso, type Task, type Team } from '../../lib/cal'
 import type { Progress } from '../../lib/calLinked'
 import type { Profile } from '../../lib/mfg'
 import type { Cal } from '../../lib/useCal'
@@ -54,7 +55,6 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
         if ((filter.mine || !phases.length) && !tasks.length) return null
         const head = g.team !== lastTeam && !filter.team
         lastTeam = g.team
-        const cur = currentPhase(cal.phases, g.id)
         return (
           <div key={g.id}>
             {head && <h2 className="cal-team">{TEAM_WORD[g.team]}</h2>}
@@ -69,21 +69,17 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
               {phases.length > 0 && (
                 <ol className="cal-steps">
                   {phases.map((p) => {
-                    const now = p.id === cur?.id
-                    const end = p.ends_on ?? p.starts_on
-                    const late = !p.done_at && !!end && end < today
                     const prog = linked.get(p.id)
                     return (
-                      <li key={p.id} className="cal-step" data-state={p.done_at ? 'done' : now ? 'now' : 'next'}>
+                      <li key={p.id} className="cal-step" data-state={p.status === 'done' ? 'done' : p.status === 'doing' ? 'now' : 'next'}>
                         <span className="cal-step__dot" aria-hidden="true" />
                         <div className="cal-step__body">
                           <div className="cal-step__top">
                             <span className="cal-step__name">{p.name}</span>
-                            <span className="small num cal-step__when" data-late={late || undefined}>
-                              {p.done_at ? 'Done' : p.starts_on || p.ends_on ? rangeLabel(p.starts_on, p.ends_on) : 'No dates'}
-                            </span>
+                            <StatusPill status={p.status} startsOn={p.starts_on} />
                           </div>
-                          {now && prog && (
+                          <DatePill start={p.starts_on} end={p.ends_on} status={p.status} doneDay={p.done_at ? isoDay(new Date(p.done_at)) : null} />
+                          {p.status === 'doing' && prog && (
                             <div className="cal-step__prog">
                               <ProgressBar p={prog} />
                               <span className="soft small">{prog.line}</span>

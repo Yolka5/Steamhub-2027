@@ -320,8 +320,15 @@ export function seed() {
       ['Manufacturing', 'manufacturing', 22, 55],
     ].map(([name, kind, a, b], i) => ({
       id: uuid(), group_id: g.id, name, kind, robot_id: robot.id, sort: i, starts_on: day(a + g.subsystem_number), ends_on: day(b + g.subsystem_number),
-      follows_previous: i > 0, done_at: null, done_by: null, dismissed_for: null, suggested_at: null, created_at: ago(60 * 24 * 3),
+      follows_previous: i > 0, status: i === 0 ? 'doing' : 'todo', done_at: null, done_by: null, dismissed_for: null, suggested_at: null, created_at: ago(60 * 24 * 3),
     })))
+  // A few phases in other states, so every colour shows: done early, late, overdue to start.
+  const ph = (g, kind) => db.cal_phases.find((p) => p.group_id === G(g)?.id && p.kind === kind)
+  Object.assign(ph('Drivetrain', 'prototypes') ?? {}, { status: 'done', done_at: ago(60 * 24 * 2), starts_on: day(-14), ends_on: day(0) })
+  Object.assign(ph('Drivetrain', 'cad') ?? {}, { status: 'doing', starts_on: day(-2), ends_on: day(14) })
+  Object.assign(ph('Shooter', 'prototypes') ?? {}, { starts_on: day(-12), ends_on: day(-2) })
+  Object.assign(ph('Elevator', 'prototypes') ?? {}, { status: 'done', done_at: ago(60 * 24 * 5), starts_on: day(-15), ends_on: day(-6) })
+  Object.assign(ph('Elevator', 'cad') ?? {}, { status: 'todo', starts_on: day(-3), ends_on: day(8) })
   const phase = (g, kind) => db.cal_phases.find((p) => p.group_id === g.id && p.kind === kind)?.id ?? null
   const task = (g, title, status, a, b, owners, extra = {}) => {
     const t = { id: uuid(), group_id: g.id, phase_id: phase(g, extra.kind ?? 'prototypes'), parent_id: null, title, status, priority: extra.priority ?? 'normal', starts_on: day(a), due_on: day(b), notes: '', prototype_id: null, part_id: null, sort: db.tasks.length, done_at: status === 'done' ? ago(300) : null, created_by: ME.id, created_at: ago(60 * 24 * 2), updated_at: ago(120) }
@@ -349,6 +356,13 @@ export function seed() {
   db.cal_updates = [
     { id: uuid(), group_id: intake.id, phase_id: phase(intake, 'prototypes'), day: day(0), author_id: ME.id, text: 'Double roller at 18 mm took 10 of 10. Picking the concept tomorrow, then CAD.', created_at: ago(90), updated_at: ago(90) },
     { id: uuid(), group_id: G('Shooter').id, phase_id: phase(G('Shooter'), 'prototypes'), day: day(0), author_id: people[2].id, text: 'Flywheel holds 4000 RPM. Hood sweep next.', created_at: ago(70), updated_at: ago(70) },
+  ]
+  const notePhase = phase(intake, 'prototypes')
+  const n1 = { id: uuid(), phase_id: notePhase, parent_id: null, author_id: people[1].id, text: 'Rollers grip at 18 mm now. Had to move the side plate 3 mm out.', photos: [], mentions: [], created_at: ago(120), updated_at: ago(120) }
+  db.phase_notes = [
+    n1,
+    { id: uuid(), phase_id: notePhase, parent_id: n1.id, author_id: ME.id, text: 'Nice, check it still clears the bumper', photos: [], mentions: [], created_at: ago(100), updated_at: ago(100) },
+    { id: uuid(), phase_id: notePhase, parent_id: null, author_id: people[2].id, text: `Belt snapped at 60%. Ordering a wider one, @${ME.name.split(' ')[0]} can you check stock?`, photos: [], mentions: [ME.id], created_at: ago(60 * 26), updated_at: ago(60 * 26) },
   ]
   db.events = [
     { id: uuid(), title: 'Team meeting', kind: 'meeting', group_id: null, starts_at: '2026-11-15T15:00:00Z', ends_at: '2026-11-15T16:00:00Z', all_day: false, repeat_days: [0], repeat_until: null, skip_days: [], reminders: [30], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },

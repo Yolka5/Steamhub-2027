@@ -1,10 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
-import { ProgressBar, TaskRow } from '../../components/cal'
+import { useOpenTask } from '../../components/cal'
+import { LineHead, PhaseRow, TaskList, useOpenPhases } from '../../components/CalPhase'
 import { useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addDays, createTask, currentPhase, dayLabel, firstName, groupOrder, parseQuick, PRIORITY_WORD, rangeLabel, taskOrder, TEAM_WORD, todayIso, type CalGroup, type Team } from '../../lib/cal'
+import { addDays, createTask, currentPhase, dayLabel, firstName, groupOrder, parseQuick, phaseBars, PRIORITY_WORD, taskOrder, TEAM_WORD, todayIso, type CalGroup, type Task, type Team } from '../../lib/cal'
 import { CNC_MACHINES, openParts, WORKSHOP_MACHINES } from '../../lib/calParts'
 import { useTasks } from '../../lib/useTasks'
 import type { Progress } from '../../lib/calLinked'
@@ -31,9 +32,10 @@ export interface BoardFilter {
   done: boolean
 }
 
-export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<string, Progress>; filter: BoardFilter; people: Profile[] }) {
+export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: Map<string, Progress>; filter: BoardFilter; people: Profile[]; big?: boolean }) {
   const who = useWho()
   const [folded, setFolded] = useState<Set<string>>(() => new Set(readFolded()))
+  const [openPhases, togglePhase] = useOpenPhases()
   const nameOf = (id: string | null) => people.find((p) => p.id === id)?.name ?? null
   const fold = (id: string) =>
     setFolded((s) => {
@@ -67,18 +69,20 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
   const groups = useMemo(() => {
     return [...cal.groups]
       .filter((g) => !filter.team || g.team === filter.team)
+      // The big view is the plan: groups with phases only.
+      .filter((g) => !big || cal.phases.some((p) => p.group_id === g.id))
       .sort(groupOrder)
       .map((g) => {
         const all = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id)
         const shown = all
-          .filter((t) => filter.done || t.status !== 'done')
+          // Done ones fold under "4 done" in the list; Show done opens them.
           // Mine: tasks I own, or with a subtask I own.
           .filter((t) => !filter.mine || mineIds.has(t.id) || cal.tasks.some((s) => s.parent_id === t.id && mineIds.has(s.id)))
           .sort(taskOrder)
         return { g, shown, open: all.filter((t) => t.status !== 'done').length, done: all.length - all.filter((t) => t.status !== 'done').length }
       })
       .filter((x) => !filter.mine || x.shown.length > 0)
-  }, [cal.groups, cal.tasks, filter, mineIds])
+  }, [cal.groups, cal.tasks, cal.phases, filter, mineIds, big])
 
   if (!groups.length)
     return (
@@ -107,42 +111,50 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
     )
   }
 
-  /** Each phase on its own line: the one it's in is marked, with its progress and dates. */
-  const phases = (groupId: string) => {
-    const list = cal.phases.filter((p) => p.group_id === groupId).sort((a, b) => a.sort - b.sort)
-    const cur = currentPhase(cal.phases, groupId)
+  /** Mine and Show done, for tasks wherever they sit. */
+  const passes = (t: Task) =>
+    !filter.mine || mineIds.has(t.id) || cal.tasks.some((s) => s.parent_id === t.id && mineIds.has(s.id))
+
+  /** Each phase on its own line, its tasks folded under it, then the group's tasks with no phase. */
+  const phases = (g: CalGroup) => {
+    const list = cal.phases.filter((p) => p.group_id === g.id).sort((a, b) => a.sort - b.sort)
     if (!list.length) return <p className="soft small cal-group__none">No phases yet.</p>
+    const bars = phaseBars(cal.phases, g.id)
+    const loose = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id && !t.phase_id && passes(t))
     return (
-      <ol className="cal-phases">
-        {list.map((p) => {
-          const pr = linked.get(p.id)
-          const state = p.done_at ? 'done' : p.id === cur?.id ? 'now' : 'next'
-          return (
-            <li key={p.id} data-state={state}>
-              <Link to={`/calendar/g/${groupId}`} className="cal-phases__name">
-                {state === 'done' && <Icon name="check" size={14} />}
-                {p.name}
-              </Link>
-              <span className="cal-phases__mid">
-                {pr?.share != null && state !== 'done' && <ProgressBar p={pr} />}
-                {state !== 'next' && pr?.line && <span className="soft small">{pr.line}</span>}
-              </span>
-              <span className="small num cal-phases__when">{p.done_at ? 'Done' : p.starts_on || p.ends_on ? rangeLabel(p.starts_on, p.ends_on) : <span className="soft">No dates</span>}</span>
-            </li>
-          )
-        })}
-      </ol>
+      <>
+        <LineHead />
+        <ol className="cal-phase-rows">
+          {list.map((p) => (
+            <PhaseRow
+              key={p.id}
+              p={p}
+              cal={cal}
+              prog={linked.get(p.id)}
+              bar={bars.get(p.id)}
+              nameOf={nameOf}
+              people={people}
+              open={openPhases.has(p.id)}
+              onFold={() => togglePhase(p.id)}
+              nameLink={`/calendar/g/${g.id}`}
+              big={big}
+              filterTasks={passes}
+            />
+          ))}
+        </ol>
+        {!big && (
+          <div className="cal-loose">
+            {loose.length > 0 && <h3 className="cal-loose__head">Other tasks</h3>}
+            <TaskList tasks={loose} cal={cal} nameOf={nameOf} people={people} addTo={{ group: g, phaseId: null }} showDone={filter.done} />
+          </div>
+        )}
+      </>
     )
   }
 
-  const tasks = ({ shown }: Item) =>
-    shown.length > 0 && (
-      <ul className="rows cal-rows">
-        {shown.map((t) => (
-          <TaskRow key={t.id} task={t} cal={cal} nameOf={nameOf} />
-        ))}
-      </ul>
-    )
+  const tasks = ({ g, shown }: Item, add = true) => (
+    <TaskList tasks={shown} cal={cal} nameOf={nameOf} people={people} addTo={add ? { group: g, phaseId: null } : undefined} showDone={filter.done} />
+  )
 
   /** CNC and Workshop: how many parts wait on their machines, linked to the manufacturing board. */
   const partsLine = (machines: typeof CNC_MACHINES) => {
@@ -194,18 +206,11 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
     const phased = g.kind === 'subsystem' || g.kind === 'project'
     return (
       <section key={g.id} id={anchor(g.id)} className="cal-group" data-kind={g.kind} data-late={lateOf(g.id) ? true : undefined}>
-        {head(g, false, <span className="cal-group__end">{countLine([g.id])}</span>)}
+        {head(g, false, big ? undefined : <span className="cal-group__end">{countLine([g.id])}</span>)}
         {!isFolded && (
           <div className="cal-group__body">
-            {machines && partsLine(machines)}
-            {phased ? (
-              phases(g.id)
-            ) : (
-              <>
-                {tasks(item)}
-                <QuickAdd group={g} cal={cal} people={people} />
-              </>
-            )}
+            {machines && !big && partsLine(machines)}
+            {phased ? phases(g) : tasks(item)}
           </div>
         )}
       </section>
@@ -224,8 +229,9 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
   }
 
   return (
-    <div className="cal-board">
+    <div className={`cal-board${big ? ' cal-board--big' : ''}`}>
       {/* Straight to a group, or everything folded to its title line. */}
+      {!big && (
       <nav className="cal-jump" aria-label="Go to a group">
         {jumpable.map(({ g }) => (
           <button key={g.id} type="button" className="chip" onClick={() => jump(g.id)}>
@@ -236,6 +242,7 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
           {allFolded ? 'Open all' : 'Fold all'}
         </button>
       </nav>
+      )}
 
       {teams.map((team) => {
         const mine = groups.filter((x) => x.g.team === team)
@@ -256,14 +263,16 @@ export function Board({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
             {head(
               host.g,
               true,
-              <span className="cal-group__end">
-                {countLine(mine.map((x) => x.g.id))}
-                <QuickAdd group={host.g} cal={cal} people={people} />
-              </span>,
+              big ? undefined : (
+                <span className="cal-group__end">
+                  {countLine(mine.map((x) => x.g.id))}
+                  <QuickAdd group={host.g} cal={cal} people={people} />
+                </span>
+              ),
             )}
             {!isFolded && (
               <>
-                {tasks(host)}
+                {!big && host.shown.length > 0 && tasks(host, false)}
                 {season.length > 0 && <div className="cal-group__kids">{season.map(card)}</div>}
                 {projects.length > 0 && (
                   <div className="cal-group__kids">
@@ -303,8 +312,10 @@ export function QuickAdd({
 }) {
   const who = useWho()
   const toast = useToast()
+  const openTask = useOpenTask()
   const [open, setOpen] = useState(!compact)
   const [text, setText] = useState('')
+  const [focused, setFocused] = useState(false)
   const [busy, run] = useBusy()
   const active = people.filter((p) => !p.banned && !p.shared)
   const q = parseQuick(text, active)
@@ -320,6 +331,8 @@ export function QuickAdd({
       for (const user_id of q.owners) putRows('task_owners', [{ task_id: res.data!.id, user_id }])
       setText('')
       onAdded?.(res.data!.title)
+      // Straight into the task, for owners, waits and subtasks.
+      openTask(res.data!.id)
     })
 
   if (!open)
@@ -351,6 +364,8 @@ export function QuickAdd({
           data-autofocus={autoFocus || undefined}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
             if (e.key === 'Escape' && compact) {
               setText('')
@@ -365,6 +380,8 @@ export function QuickAdd({
           {busy ? 'Adding' : 'Add'}
         </button>
       </div>
+      {/* How to type it, only while typing, so a page of groups isn't a page of hints. */}
+      {(focused || chips.length > 0) && (
       <p className="soft small cal-quick__hint">
         {chips.length ? (
           chips.map((c) => (
@@ -376,6 +393,7 @@ export function QuickAdd({
           <>End with a day (thu, 14/11, mon-thu), high or low, and @name for who.</>
         )}
       </p>
+      )}
     </form>
   )
 }

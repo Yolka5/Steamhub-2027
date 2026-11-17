@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { useOpenTask } from '../../components/cal'
 import { Sheet } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addDays, dayLabel, isoDay, longDay, occurrences, timeLabel, toDate, todayIso, type CalGroup, type Task } from '../../lib/cal'
+import { addDays, dayLabel, isoDay, longDay, occurrences, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task } from '../../lib/cal'
 import type { Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
 import { usePhone } from '../../lib/usePhone'
@@ -22,6 +22,8 @@ interface Item {
   /** Time for events, group for tasks. */
   note?: string
   state?: 'done' | 'late' | 'high'
+  /** Phases: their status colour. */
+  tone?: StatusTone
   open: () => void
   href?: string
 }
@@ -63,7 +65,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
         const end = p.ends_on ?? p.starts_on
         if (!start || !end || end < from || start > to) continue
         const g = groups.get(p.group_id)
-        items.push({ key: `p${p.id}`, kind: 'phase', title: `${g?.name}: ${p.name}`, start, end, state: p.done_at ? 'done' : undefined, open: () => {}, href: `/calendar/g/${p.group_id}` })
+        items.push({ key: `p${p.id}`, kind: 'phase', title: `${g?.name}: ${p.name}`, start, end, state: p.status === 'done' ? 'done' : undefined, tone: statusTone(p.status, p.starts_on), open: () => {}, href: `/calendar/g/${p.group_id}` })
       }
     for (const e of cal.events) {
       if (!inTeam(e.group_id)) continue
@@ -203,7 +205,7 @@ function Month({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
                 </>
               )
               return item.href ? (
-                <Link key={item.key} to={item.href} className={cls} style={style} data-state={item.state} title={item.title}>
+                <Link key={item.key} to={item.href} className={cls} style={style} data-state={item.state} data-tone={item.tone} title={item.title}>
                   {label}
                 </Link>
               ) : (

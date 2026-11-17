@@ -22,9 +22,13 @@ export interface Progress {
   suggest: string | null
   /** What "Not yet" was pressed at; the question comes back once this changes. */
   key: string
+  /** When the data got there (last part released, last task done): Finish files the phase on it. */
+  doneAt?: string | null
 }
 
-type Slim = Pick<Part, 'subsystem_id' | 'status' | 'machine' | 'released_at'>
+const latest = (xs: (string | null | undefined)[]) => xs.filter((x): x is string => !!x).sort().pop() ?? null
+
+type Slim = Pick<Part, 'subsystem_id' | 'status' | 'machine' | 'released_at' | 'done_at'>
 
 export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phases' | 'tasks'>) {
   const { robots, subs } = useRobots()
@@ -42,7 +46,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
     if (!subKey) return
     let live = true
     const load = () =>
-      selectAll<Slim>(() => supabase.from('parts').select('subsystem_id, status, machine, released_at').in('subsystem_id', subKey.split(',')).order('id')).then(({ data }) => {
+      selectAll<Slim>(() => supabase.from('parts').select('subsystem_id, status, machine, released_at, done_at').in('subsystem_id', subKey.split(',')).order('id')).then(({ data }) => {
         if (live && data) setParts(data)
       })
     load()
@@ -72,6 +76,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
           line: mine.length ? `${mine.length} ${mine.length === 1 ? 'prototype' : 'prototypes'} · ${t} ${t === 1 ? 'test' : 'tests'}${chosen ? ` · ${chosen.name} chosen` : ''}` : 'No prototypes yet',
           suggest: chosen ? `${chosen.name} was chosen. Finish ${ph.name}?` : null,
           key: `p:${chosen?.id ?? ''}`,
+          doneAt: chosen?.updated_at ?? null,
         })
         continue
       }
@@ -79,13 +84,15 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
         const sub = g.subsystem_id
           ? seasonSubs.find((s) => s.id === g.subsystem_id)
           : seasonSubs.find((s) => s.robot_id === ph.robot_id && s.number === g.subsystem_number)
-        const c = countParts(sub ? parts.filter((p) => p.subsystem_id === sub.id) : [])
+        const mineParts = sub ? parts.filter((p) => p.subsystem_id === sub.id) : []
+        const c = countParts(mineParts)
         if (ph.kind === 'cad') {
           out.set(ph.id, {
             share: c.made ? c.released / c.made : null,
             line: c.made ? `${c.released} of ${c.made} parts released` : 'No STEP uploaded yet',
             suggest: c.made && c.released === c.made ? `All ${c.made} parts released. Finish ${ph.name}?` : null,
             key: `c:${c.released}/${c.made}`,
+            doneAt: latest(mineParts.map((p) => p.released_at)),
           })
         } else {
           const ready = (c.made > 0 && c.done === c.made && c.got === c.bought) || !!sub?.assembled
@@ -94,6 +101,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
             line: c.made ? `${c.done} of ${c.made} parts made${c.bought ? ` · ${c.got} of ${c.bought} bought in` : ''}` : 'Nothing released yet',
             suggest: ready ? `Every part is made${c.bought ? ' and in' : ''}. Finish ${ph.name}?` : null,
             key: `m:${c.done}/${c.made}/${c.got}/${c.bought}`,
+            doneAt: latest(mineParts.map((p) => p.done_at)),
           })
         }
         continue
@@ -105,6 +113,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
         line: list.length ? `${done} of ${list.length} tasks done` : 'No tasks yet',
         suggest: list.length && done === list.length ? `Every task is done. Finish ${ph.name}?` : null,
         key: `t:${done}/${list.length}`,
+        doneAt: latest(list.map((t) => t.done_at)),
       })
     }
     return out
@@ -112,7 +121,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
 }
 
 /** A suggestion is shown until the phase is finished, or "Not yet" was pressed at the same progress. */
-export const showSuggest = (ph: Phase, p: Progress | undefined) => !!p?.suggest && !ph.done_at && ph.dismissed_for !== p.key
+export const showSuggest = (ph: Phase, p: Progress | undefined) => !!p?.suggest && ph.status !== 'done' && ph.dismissed_for !== p.key
 
 /** The group's lead hears about each suggestion once, whoever's screen noticed it first. */
 export function useSuggestNotify(cal: Pick<Cal, 'groups' | 'phases'>, linked: Map<string, Progress>, me: string | null) {

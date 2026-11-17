@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
-import { ensureSeason, type CalEvent, type CalGroup, type Owner, type Phase, type Task, type Update, type Wait } from './cal'
+import { ensureSeason, type CalEvent, type CalGroup, type Owner, type Phase, type PhaseNote, type Task, type Update, type Wait } from './cal'
 import { selectAll, supabase } from './supabase'
 import { useReloadOnReturn } from './useReturn'
 
@@ -15,6 +15,8 @@ export interface CalData {
   waits: Wait[]
   updates: Update[]
   events: CalEvent[]
+  /** Notes on phases, replies included. */
+  notes: PhaseNote[]
 }
 
 interface State extends CalData {
@@ -23,7 +25,7 @@ interface State extends CalData {
   error: string | null
 }
 
-const empty: State = { season: null, groups: [], phases: [], tasks: [], owners: [], waits: [], updates: [], events: [], loading: true, error: null }
+const empty: State = { season: null, groups: [], phases: [], tasks: [], owners: [], waits: [], updates: [], events: [], notes: [], loading: true, error: null }
 
 let state: State = empty
 const listeners = new Set<() => void>()
@@ -58,6 +60,9 @@ async function load(season: number) {
     ids.length ? selectAll<Update>(() => supabase.from('cal_updates').select('*').in('group_id', ids).order('id')) : none,
     selectAll<CalEvent>(() => supabase.from('events').select('*').order('starts_at')),
   ])
+  // Notes hang off phases, so they come once the phases are known.
+  const phaseIds = ((p.data as Phase[] | null) ?? []).map((x) => x.id)
+  const n = phaseIds.length ? await selectAll<PhaseNote>(() => supabase.from('phase_notes').select('*').in('phase_id', phaseIds).order('id')) : { data: [], error: null }
   if (loadingSeason !== season) return
   const err = p.error ?? t.error ?? o.error ?? w.error ?? u.error ?? e.error
   if (err && !state.groups.length) return set({ loading: false, error: err.message })
@@ -70,6 +75,7 @@ async function load(season: number) {
     waits: (w.data as Wait[]) ?? [],
     updates: (u.data as Update[]) ?? [],
     events: (e.data as CalEvent[]) ?? [],
+    notes: (n.data as PhaseNote[]) ?? [],
     loading: false,
     error: null,
   })
@@ -84,6 +90,7 @@ const KEYS: Record<string, { key: Key; same: (a: never, b: never) => boolean }> 
   task_waits: { key: 'waits', same: (a: Wait, b: Wait) => a.task_id === b.task_id && a.waits_for_id === b.waits_for_id },
   cal_updates: { key: 'updates', same: (a: Update, b: Update) => a.id === b.id },
   events: { key: 'events', same: (a: CalEvent, b: CalEvent) => a.id === b.id },
+  phase_notes: { key: 'notes', same: (a: PhaseNote, b: PhaseNote) => a.id === b.id },
 }
 
 /** Applies one row change, from realtime or from a save, right away. */
@@ -94,6 +101,7 @@ export function applyRow(table: keyof typeof KEYS, kind: 'upsert' | 'delete', ro
   // Rows of another season's groups don't belong here.
   if (kind === 'upsert' && 'group_id' in row && table !== 'events' && !state.groups.some((g) => g.id === (row as { group_id: string }).group_id)) return
   if (kind === 'upsert' && table === 'cal_groups' && (row as CalGroup).season !== state.season) return
+  if (kind === 'upsert' && table === 'phase_notes' && !state.phases.some((p) => p.id === (row as PhaseNote).phase_id)) return
   const i = list.findIndex((x) => same(x, row))
   if (kind === 'delete') {
     if (i === -1) return

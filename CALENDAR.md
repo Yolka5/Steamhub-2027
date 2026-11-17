@@ -225,3 +225,62 @@ Members-only RLS on everything, as in `20261111_members_only.sql`. Tasks, phases
 - Comments on tasks, Stuck status, custom fields, automations, time tracking.
 - Google Calendar sync. A read-only feed Google can subscribe to is cheap if it's ever wanted.
 - Email notifications (push replaces them for now).
+
+## Readability pass (decided and built 2026-11-17)
+
+From a 13-round Q&A with Yoni. The Calendar works but takes effort to read: almost all black and white, small text. This pass adds colour **only where it carries meaning** (status, time left, late). Don't make the rest big or colourful.
+
+**Built 2026-11-17, not pushed yet.** Database: `supabase/migrations/20261119_calendar_readability.sql`, already applied to live (phase `status`, `phase_notes` and its notification trigger). App: `src/components/CalPhase.tsx` (status and date pills, phase and task rows, phase editor, notes panel), `src/components/DateRange.tsx` (Steamhub's own date picker, in the phase editor and task window). The task window's broken layout was a class clash: the Workshop part cards' `.task` (tasks.css) won over the Calendar's; the Calendar's are now `.tsheet`. Still to do when going live: deploy `steamlab-recap` so the nightly recap reads phase notes.
+
+### Phase status (new, real column)
+- Each phase gets its own status: **Not started / In progress / Done** (same words as tasks). Replaces the derived Now / Next.
+- Any number of phases can be In progress at once.
+- Changed by hand: clicking the pill opens a 3-choice menu.
+- Only automatic part: Steamhub's Done suggestions stay (Prototypes, CAD, Manufacturing). On approval, the done date is **when the data got there** (e.g. last release yesterday → CAD finished yesterday), not when someone pressed Finish.
+- Colours: Not started is **grey while its start date is ahead, red once the start date passed** and it still hasn't started (no dates → grey). In progress yellow, Done green.
+- Pill style: **Steamhub pale tint** (picked 2026-11-17 from the demo over Monday solid). Demo: `Creations/calendar-demo.html`.
+- Finish and Reopen buttons are removed; the pill does it.
+- Left bar on the row: yellow on every In progress phase. When nothing is in progress, black on the next phase to start. Done keeps the green check (screenshot 5).
+- Gantt and month grid phase bars take the status colours.
+
+### Date pill
+- Replaces the small text on the right. Monday-style: the share of time already gone fills the pill.
+- Green: plenty of time. Yellow: last 25% of the phase's time. Red: past the end and not done, says "2 days late".
+- Start date still ahead: grey pill with the range.
+- Done: full green with the planned dates plus "2 days early" / "3 days late" against the end date.
+- No dates: dashed "Set dates" pill.
+- Used on phase rows, task rows (start + due get the fill; due-only gets a short pill with the day) and the phone Plan view.
+- Clicking it opens the **phase editor** in a small centered window: name, dates, starts after, Earlier / Later, Delete. Also reachable another way from the row (not only the pill).
+
+### Rows (Board and group page, one design)
+- Computer: name · progress line (on every row) · notes chip · status pill · date pill. Status and dates are fixed-width columns that line up down the page.
+- Phone: name on top, status and date pills side by side under it.
+- Group page uses the exact Board row, plus the Done suggestion banner. Fixes the overlapping name / dates (screenshots 9, 10).
+- Clicking a phase name still goes to the group page.
+- **Tasks fold under their phase** (like Monday subitems). Task rows use the same columns: name, owner initial circles, status pill, date pill. Done tasks fold behind "4 done". Tasks with no phase sit at the bottom of the group.
+- **+ Task** inside each phase's fold (lands in that phase), plus one at the group's bottom for tasks with no phase.
+- Board remembers what you folded, per device.
+- Group header unchanged (name, lead).
+
+### Task window
+- Fix the broken layout on PC, the 9:16 screen and phones (screenshot 8).
+- PC: centered window. 9:16 and phones: full-height sheet from the bottom.
+- **Add** creates the task from the quick line, then opens its window.
+- Task status uses the same red / yellow / green pills everywhere.
+
+### Phase notes (new)
+- Small progress notes on a phase ("got X working, Y broke"). Separate from daily updates, which are more detailed.
+- Only phases have notes (no notes on groups without phases).
+- A notes chip with a count on each phase row opens the phase's notes in a side panel (sheet on phones), write box on top.
+- Text, photos, one level of replies, @mentions.
+- Notify every lead, Tom (captain), mentors and admins. @mentions notify the mentioned person.
+- Only the writer can edit or delete a note.
+- The daily Summary and Updates view show the day's notes under each group.
+- SteamLab's nightly Claude recap reads both notes and daily updates.
+
+### Daily updates
+- Filed under the **group**, no longer under a phase.
+
+### Big view (meetings)
+- A "Big view" button next to the view switch. Read-only: every group with its phase rows (status, dates, progress), large type, no tasks, no buttons.
+- Stays on for that device until Exit is pressed.

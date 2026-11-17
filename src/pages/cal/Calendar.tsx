@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CalTabs, useCalSeason } from '../../components/cal'
 import { Icon } from '../../components/Icon'
+import { NotesHost, PhaseEditorHost } from '../../components/CalPhase'
 import { EventSheetHost } from '../../components/EventSheet'
 import { TaskSheetHost } from '../../components/TaskSheet'
 import { LoadError } from '../../components/ui'
@@ -31,6 +33,23 @@ export default function CalendarPage() {
   const team = (params.get('team') as Team | null) ?? null
   const mine = params.get('mine') === '1'
   const done = params.get('done') === '1'
+  // Big view for meetings: read-only phases in large type. Stays on for this screen until Exit.
+  const [big, setBigState] = useState(() => {
+    try {
+      return localStorage.getItem('cal-big') === '1'
+    } catch {
+      return false
+    }
+  })
+  const setBig = (on: boolean) => {
+    setBigState(on)
+    try {
+      if (on) localStorage.setItem('cal-big', '1')
+      else localStorage.removeItem('cal-big')
+    } catch {
+      /* private mode: lasts this visit */
+    }
+  }
 
   const set = (k: string, v: string | null) => {
     const next = new URLSearchParams(params)
@@ -77,6 +96,25 @@ export default function CalendarPage() {
     </div>
   )
 
+  if (big)
+    return (
+      <div className="page page--full cal-page cal-page--big">
+        <div className="page__head">
+          <h1 className="page__title">Calendar</h1>
+          <button type="button" className="q-btn" onClick={() => setBig(false)}>
+            Exit big view
+          </button>
+        </div>
+        {cal.error && !cal.groups.length ? (
+          <LoadError onRetry={cal.reload} />
+        ) : cal.loading ? (
+          <p className="soft">Loading</p>
+        ) : (
+          <Board cal={cal} linked={linked} filter={{ team, mine: false, done: false }} people={people} big />
+        )}
+      </div>
+    )
+
   return (
     <div className={`page cal-page${view === 'gantt' ? ' page--full' : ''}`}>
       <div className="page__head">
@@ -88,6 +126,11 @@ export default function CalendarPage() {
             </Link>
           )}
           {!phone && <CalTabs />}
+          {!phone && (
+            <button type="button" className="q-btn" onClick={() => setBig(true)}>
+              Big view
+            </button>
+          )}
         </div>
       </div>
       {/* On phones it's a direct child of the page, so it can stick under the top bar. */}
@@ -129,6 +172,8 @@ export default function CalendarPage() {
 
       <TaskSheetHost cal={cal} />
       <EventSheetHost cal={cal} />
+      <PhaseEditorHost cal={cal} />
+      <NotesHost cal={cal} people={people} />
     </div>
   )
 }

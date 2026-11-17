@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { ProgressBar, TaskRow, useCalSeason } from './cal'
 import { TaskSheetHost } from './TaskSheet'
-import { currentPhase, rangeLabel, taskOrder } from '../lib/cal'
+import { currentPhase, isoDay, taskOrder } from '../lib/cal'
+import { DatePill, StatusPill } from './CalPhase'
 import { useLinked } from '../lib/calLinked'
 import { useCal } from '../lib/useCal'
 import { usePeople } from '../lib/useMfg'
@@ -33,10 +34,11 @@ export function SubsystemCalendar({ season, number, projectSub }: { season: numb
       {phases.length > 0 && (
         <ol className="sub-cal__phases">
           {phases.map((p) => (
-            <li key={p.id} data-done={!!p.done_at || undefined} data-current={p.id === cur?.id || undefined}>
+            <li key={p.id} data-done={p.status === 'done' || undefined} data-current={p.id === cur?.id || undefined}>
               <span className="strong small">{p.name}</span>
               <ProgressBar p={linked.get(p.id)} />
-              <span className="soft small num">{p.done_at ? 'Done' : p.starts_on || p.ends_on ? rangeLabel(p.starts_on, p.ends_on) : 'No dates'}</span>
+              <StatusPill status={p.status} startsOn={p.starts_on} />
+              <DatePill start={p.starts_on} end={p.ends_on} status={p.status} doneDay={p.done_at ? isoDay(new Date(p.done_at)) : null} />
             </li>
           ))}
         </ol>

@@ -276,12 +276,12 @@
 }
 
 /* ===== Task sheet ===== */
-.task {
+.tsheet {
   display: grid;
   gap: 1rem;
 }
 
-.task__parent {
+.tsheet__parent {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -294,7 +294,7 @@
   cursor: pointer;
 }
 
-.task__title {
+.tsheet__title {
   min-height: 2.75rem;
   font-size: 1.25rem;
   font-weight: 600;
@@ -302,60 +302,60 @@
   field-sizing: content;
 }
 
-.task__grid {
+.tsheet__grid {
   display: grid;
   grid-template-columns: 5rem minmax(0, 1fr);
   align-items: center;
   gap: 0.6rem 0.75rem;
 }
 
-.task__label {
+.tsheet__label {
   font-size: 0.875rem;
   color: var(--ink-soft);
 }
 
-.task__grid .picks--seg {
+.tsheet__grid .picks--seg {
   flex-wrap: wrap;
 }
 
-.task__grid .pick {
+.tsheet__grid .pick {
   gap: 0.35rem;
 }
 
-.task__grid .pick svg {
+.tsheet__grid .pick svg {
   width: 18px;
   height: 18px;
 }
 
-.task__pair {
+.tsheet__pair {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
 
-.task__pair > * {
+.tsheet__pair > * {
   flex: 1 1 8rem;
   min-width: 0;
 }
 
-.task__dates > span[aria-hidden] {
+.tsheet__dates > span[aria-hidden] {
   flex: 0 0 auto;
 }
 
-.task__date {
+.tsheet__date {
   display: grid;
   gap: 0.15rem;
 }
 
-.task__owners {
+.tsheet__owners {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
 }
 
-.task__add-owner {
+.tsheet__add-owner {
   width: auto;
 }
 
@@ -383,22 +383,22 @@
   cursor: pointer;
 }
 
-.task__block {
+.tsheet__block {
   display: grid;
   gap: 0.5rem;
 }
 
-.task__head {
+.tsheet__head {
   font-size: 0.9375rem;
 }
 
-.task__mini {
+.tsheet__mini {
   flex-wrap: nowrap;
   gap: 0.6rem;
   padding: 0.25rem 0.25rem 0.25rem 0.75rem;
 }
 
-.task__link {
+.tsheet__link {
   padding: 0.25rem 0;
   font: inherit;
   text-align: left;
@@ -407,7 +407,7 @@
   cursor: pointer;
 }
 
-.task__subs {
+.tsheet__subs {
   display: grid;
   gap: 0.1rem;
   margin: 0;
@@ -415,34 +415,34 @@
   list-style: none;
 }
 
-.task__subs li {
+.tsheet__subs li {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
 }
 
-.task__subs [data-done] {
+.tsheet__subs [data-done] {
   color: var(--ink-soft);
   text-decoration: line-through;
 }
 
-.task__add {
+.tsheet__add {
   display: flex;
   gap: 0.5rem;
 }
 
-.task__add .q-btn,
+.tsheet__add .q-btn,
 .cal-quick__row .q-btn {
   flex-shrink: 0;
   white-space: nowrap;
 }
 
-.task__part {
+.tsheet__part {
   max-width: 14rem;
 }
 
-.task__foot {
+.tsheet__foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -451,34 +451,34 @@
   border-top: 1px solid var(--line);
 }
 
-.task__foot > .soft {
+.tsheet__foot > .soft {
   margin-right: auto;
 }
 
-.task__confirm {
+.tsheet__confirm {
   display: flex;
   gap: 0.5rem;
 }
 
 @media (min-width: 600px) {
-  .sheet:has(.task),
+  .sheet:has(.tsheet),
   .sheet:has(.cal-event) {
     width: min(34rem, calc(100% - 2rem));
   }
 }
 
 @media (max-width: 599px) {
-  .sheet:has(.task),
+  .sheet:has(.tsheet),
   .sheet:has(.cal-event) {
     max-height: 92dvh;
   }
 
-  .task__grid {
+  .tsheet__grid {
     grid-template-columns: 1fr;
     gap: 0.3rem;
   }
 
-  .task__label {
+  .tsheet__label {
     margin-top: 0.4rem;
   }
 }
@@ -1436,7 +1436,7 @@
 
 .sub-cal__phases li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto 7.5rem 11rem;
   align-items: center;
   gap: 0.75rem;
   padding: 0.4rem 0.75rem;
@@ -1449,7 +1449,21 @@
 }
 
 .sub-cal__phases li[data-current] {
-  box-shadow: inset 3px 0 0 var(--meaning-a);
+  box-shadow: inset 4px 0 0 var(--tone-yellow-bar);
+}
+
+@media (max-width: 599px) {
+  .sub-cal__phases li {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  .sub-cal__phases li .cal-bar {
+    display: none;
+  }
+
+  .sub-cal__phases li .strong {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ===== Phone notifications ===== */
@@ -1826,16 +1840,16 @@
 
 /* Two date fields side by side always fit: no arrow, equal halves. */
 @media (max-width: 599px) {
-  .task__dates {
+  .tsheet__dates {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
-  .task__dates > span[aria-hidden] {
+  .tsheet__dates > span[aria-hidden] {
     display: none;
   }
 
-  .task__date .field {
+  .tsheet__date .field {
     min-width: 0;
   }
 }
@@ -2104,69 +2118,6 @@
   padding: 0.35rem 0.6rem 0.75rem;
 }
 
-/* Phases, one per line: done ones green with a tick, the current one marked on the left. */
-.cal-phases {
-  display: grid;
-  gap: 0.3rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cal-phases li {
-  display: grid;
-  grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.25rem 1rem;
-  padding: 0.45rem 0.75rem;
-  background: var(--surface-1);
-  border-radius: var(--radius-control);
-}
-
-.cal-phases li[data-state='now'] {
-  box-shadow: inset 3px 0 0 var(--ink);
-}
-
-.cal-phases__name {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-weight: 600;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.cal-phases li[data-state='next'] .cal-phases__name {
-  font-weight: 500;
-  color: var(--ink-soft);
-}
-
-.cal-phases li[data-state='done'] .cal-phases__name {
-  color: var(--meaning-b);
-}
-
-.cal-phases__mid {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.75rem;
-  min-width: 0;
-}
-
-.cal-phases__when {
-  white-space: nowrap;
-}
-
-@media (max-width: 599px) {
-  .cal-phases li {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .cal-phases__mid {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-}
 
 /* CNC and Workshop: the number of parts waiting leads the line. */
 .cal-parts-line {
@@ -2193,4 +2144,1174 @@
 .cal-due[data-soon] {
   font-weight: 600;
   color: var(--warn);
+}
+
+/* ===================================================================================
+   Readability pass (CALENDAR.md): status and date pills, one row for phases and tasks,
+   phase notes, big view. Colour only where it means something: status, time left, late.
+   =================================================================================== */
+
+:root {
+  /* fill = the time already gone, track = the time left, ink = the words. */
+  --tone-green-fill: #a9dcac;
+  --tone-green-track: #e3f2e3;
+  --tone-green-ink: #1d5520;
+  --tone-yellow-fill: #f6d36b;
+  --tone-yellow-track: #fcf2cf;
+  --tone-yellow-ink: #634900;
+  --tone-red-fill: #f4b0a5;
+  --tone-red-track: #fdeae7;
+  --tone-red-ink: #9e2516;
+  --tone-yellow-bar: #e9b000;
+  --cal-cols: minmax(0, 1.3fr) minmax(0, 1fr) 2.75rem 8rem 13.5rem;
+}
+
+:root[data-theme='dark'] {
+  --tone-green-fill: #2c6a31;
+  --tone-green-track: #17301a;
+  --tone-green-ink: #b4e8b7;
+  --tone-yellow-fill: #7d6210;
+  --tone-yellow-track: #2e2610;
+  --tone-yellow-ink: #f8de8a;
+  --tone-red-fill: #8a3226;
+  --tone-red-track: #351a16;
+  --tone-red-ink: #ffb3a8;
+  --tone-yellow-bar: #f2c12e;
+}
+
+/* ----- Status pill ----- */
+.cal-st {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: filter 120ms ease, transform 100ms ease;
+}
+
+span.cal-st {
+  cursor: default;
+}
+
+button.cal-st:active {
+  transform: scale(0.97);
+}
+
+.cal-st[data-tone='late'] {
+  color: var(--tone-red-ink);
+  background: var(--tone-red-track);
+}
+
+.cal-st[data-tone='doing'] {
+  color: var(--tone-yellow-ink);
+  background: var(--tone-yellow-track);
+}
+
+.cal-st[data-tone='done'] {
+  color: var(--tone-green-ink);
+  background: var(--tone-green-track);
+}
+
+/* The menu that opens from a status pill. */
+.cal-st-menu {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 0.25rem;
+  width: 11rem;
+  padding: 0.375rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--line);
+  animation: cal-pop 140ms var(--ease-out);
+}
+
+.cal-st-menu .cal-st {
+  justify-content: flex-start;
+  min-height: 2.25rem;
+}
+
+.cal-st-menu .cal-st[aria-checked='true']::after {
+  content: '✓';
+  margin-left: auto;
+}
+
+@keyframes cal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+/* The three status choices in the phase editor. */
+.cal-st-picks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.cal-st-picks .cal-st[aria-checked='false'] {
+  font-weight: 500;
+  color: var(--ink-soft);
+  background: var(--surface-1);
+}
+
+/* ----- Date pill: the time already gone fills it ----- */
+.cal-dp {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  overflow: hidden;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+
+button.cal-dp {
+  cursor: pointer;
+}
+
+button.cal-dp:active {
+  transform: scale(0.98);
+}
+
+.cal-dp__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+}
+
+.cal-dp__txt {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-dp__txt em {
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.cal-dp[data-tone='green'] {
+  color: var(--tone-green-ink);
+  background: var(--tone-green-track);
+}
+
+.cal-dp[data-tone='green'] .cal-dp__fill {
+  background: var(--tone-green-fill);
+}
+
+.cal-dp[data-tone='yellow'] {
+  color: var(--tone-yellow-ink);
+  background: var(--tone-yellow-track);
+}
+
+.cal-dp[data-tone='yellow'] .cal-dp__fill {
+  background: var(--tone-yellow-fill);
+}
+
+.cal-dp[data-tone='red'] {
+  color: var(--tone-red-ink);
+  background: var(--tone-red-track);
+}
+
+.cal-dp[data-tone='red'] .cal-dp__fill {
+  background: var(--tone-red-fill);
+}
+
+.cal-dp[data-tone='none'] {
+  font-weight: 500;
+  background: transparent;
+  outline: 1.5px dashed var(--surface-3);
+  outline-offset: -1.5px;
+}
+
+/* ----- One row for phases and tasks, so the pills line up down the page ----- */
+.cal-phase-rows,
+.cal-lines {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-line-head {
+  display: grid;
+  grid-template-columns: var(--cal-cols);
+  gap: 0.75rem;
+  padding: 0.25rem 0.75rem 0.35rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.cal-line-head span:nth-child(4),
+.cal-line-head span:nth-child(5) {
+  text-align: center;
+}
+
+.cal-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--cal-cols);
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+}
+
+.cal-line__name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.cal-line__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: left;
+  text-overflow: ellipsis;
+  color: var(--ink);
+  background: none;
+  border: 0;
+}
+
+button.cal-line__title {
+  cursor: pointer;
+}
+
+.cal-line__link {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cal-line__link:hover .cal-line__title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cal-line--phase[data-status='done'] .cal-line__title {
+  color: var(--meaning-b);
+}
+
+.cal-line__fold.icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: -0.35rem;
+}
+
+.cal-line__edit.icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.cal-line:hover .cal-line__edit,
+.cal-line__edit:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .cal-line__edit.icon-btn {
+    opacity: 1;
+  }
+}
+
+.cal-line__mid {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.cal-line__meta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The bar on the left: yellow on every phase in progress, black on the next one when none is. */
+.cal-line[data-bar]::before {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+}
+
+.cal-line[data-bar='doing']::before {
+  background: var(--tone-yellow-bar);
+}
+
+.cal-line[data-bar='next']::before {
+  background: var(--ink);
+}
+
+.cal-note-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.cal-note-chip:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.cal-note-chip[data-has] {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Tasks folded under their phase. */
+.cal-phase-item .cal-suggest {
+  margin: 0.3rem 0 0 1.5rem;
+}
+
+.cal-tasks {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.3rem 0 0.4rem;
+}
+
+.cal-phase-item > .cal-tasks {
+  margin-left: 1.5rem;
+}
+
+.cal-line--task {
+  min-height: 2.75rem;
+  background: color-mix(in srgb, var(--surface-0) 65%, transparent);
+}
+
+.cal-line--task .cal-line__title {
+  font-weight: 500;
+}
+
+.cal-line--task[data-status='done'] .cal-line__title {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--surface-3);
+}
+
+.cal-hi.tag {
+  flex: none;
+  padding: 0 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.cal-avs {
+  display: inline-flex;
+  flex: none;
+}
+
+.cal-av.avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+}
+
+.cal-avs .cal-av {
+  box-shadow: 0 0 0 2px var(--surface-0);
+}
+
+.cal-avs .cal-av + .cal-av {
+  margin-left: -0.3rem;
+}
+
+.cal-done-fold {
+  justify-self: start;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.cal-done-fold:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.cal-tasks .cal-quick {
+  margin-top: 0.15rem;
+}
+
+.cal-tasks .cal-quick .field {
+  background: var(--surface-0);
+}
+
+.cal-loose {
+  margin-top: 0.75rem;
+}
+
+.cal-loose__head {
+  margin: 0 0 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.cal-add-phase {
+  margin-top: 0.75rem;
+}
+
+/* Phones, the 9:16 screen and any narrow column: the name on top, the pills side by side under it.
+   Measured on the list itself, so a narrow column stacks too. */
+.cal-board,
+.cal-phases,
+.cal-group-page {
+  container-type: inline-size;
+}
+
+@container (max-width: 700px) {
+  .cal-line-head {
+    display: none;
+  }
+
+  .cal-line {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    grid-template-areas:
+      'name name chip'
+      'mid mid mid'
+      'st dp dp';
+    gap: 0.35rem 0.5rem;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .cal-line__name {
+    grid-area: name;
+  }
+
+  .cal-line__mid {
+    grid-area: mid;
+  }
+
+  .cal-line__mid:empty {
+    display: none;
+  }
+
+  .cal-line > .cal-note-chip,
+  .cal-line > .cal-line__chip {
+    grid-area: chip;
+    justify-self: end;
+  }
+
+  .cal-line > .cal-st {
+    grid-area: st;
+  }
+
+  .cal-line > .cal-dp {
+    grid-area: dp;
+  }
+
+  .cal-st,
+  .cal-dp {
+    min-height: 2.5rem;
+  }
+
+  .cal-phase-item > .cal-tasks,
+  .cal-phase-item .cal-suggest {
+    margin-left: 0.6rem;
+  }
+}
+
+/* ----- Phase editor ----- */
+.cal-ph-edit {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cal-ph-edit__name {
+  min-height: 2.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.cal-ph-edit__group {
+  margin: -0.4rem 0 0 0.25rem;
+}
+
+.cal-ph-edit__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cal-ph-edit .cal-dp {
+  max-width: 15rem;
+}
+
+.cal-ph-edit__done {
+  margin-left: auto;
+}
+
+/* ----- Task window: centered on computers, a full-height sheet on phones and the 9:16 screen ----- */
+@media (max-width: 599px) {
+  .sheet:has(.tsheet) {
+    height: calc(100dvh - 0.75rem);
+    max-height: none;
+  }
+}
+
+:root.tall .sheet:has(.tsheet) {
+  width: 100%;
+  max-width: none;
+  height: calc(100dvh - 1rem);
+  max-height: none;
+  margin: auto 0 0;
+  border-radius: var(--radius-shell) var(--radius-shell) 0 0;
+}
+
+/* ----- Phase notes: a panel on the right, a sheet from the bottom on phones ----- */
+.cal-notes {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(28rem, 100vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0 0 1.5rem;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--surface-0);
+  border: 0;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.14);
+}
+
+.cal-notes[open] {
+  animation: cal-slide-in 320ms var(--ease-drawer);
+}
+
+.cal-notes::backdrop {
+  background: rgba(20, 20, 19, 0.22);
+}
+
+@keyframes cal-slide-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes cal-slide-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (max-width: 599px) {
+  .cal-notes {
+    inset: 0.75rem 0 0 0;
+    width: 100vw;
+    height: calc(100dvh - 0.75rem);
+    border-radius: var(--radius-shell) var(--radius-shell) 0 0;
+  }
+
+  .cal-notes[open] {
+    animation-name: cal-slide-up;
+  }
+}
+
+:root.tall .cal-notes {
+  inset: 1rem 0 0 0;
+  width: 100vw;
+  height: calc(100dvh - 1rem);
+  border-radius: var(--radius-shell) var(--radius-shell) 0 0;
+}
+
+:root.tall .cal-notes[open] {
+  animation-name: cal-slide-up;
+}
+
+.cal-notes__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1rem 0.5rem;
+}
+
+.cal-notes__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.375rem;
+}
+
+.cal-notes__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0 1rem 0.75rem;
+}
+
+.cal-notes__pills .cal-st,
+.cal-notes__pills .cal-dp {
+  width: auto;
+  min-height: 1.75rem;
+}
+
+.cal-write {
+  position: relative;
+  margin: 0 1rem;
+  padding: 0.6rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+}
+
+.cal-note .cal-write {
+  margin: 0.4rem 0 0;
+}
+
+.cal-write__text {
+  display: block;
+  width: 100%;
+  min-height: 3.5rem;
+  padding: 0.2rem 0.3rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  resize: none;
+  field-sizing: content;
+}
+
+.cal-write__text:focus {
+  outline: none;
+}
+
+.cal-write:focus-within {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.cal-write__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cal-write__cam {
+  cursor: pointer;
+}
+
+.cal-write__hint {
+  flex: 1;
+  min-width: 0;
+}
+
+.cal-write__people {
+  position: absolute;
+  top: 100%;
+  left: 0.5rem;
+  z-index: 3;
+  min-width: 12rem;
+  margin-top: 0.25rem;
+  padding: 0.25rem;
+  background: var(--surface-0);
+  border-radius: var(--radius-control);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--line);
+}
+
+.cal-write__people button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.cal-write__people button:hover,
+.cal-write__people button:focus-visible {
+  background: var(--surface-1);
+}
+
+.cal-notes__list,
+.cal-note__replies {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-notes__list {
+  padding: 1rem 1rem 0;
+}
+
+.cal-notes__empty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.cal-note {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.cal-note .cal-av.avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.75rem;
+}
+
+.cal-note[data-reply] {
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+}
+
+.cal-note[data-reply] .cal-av.avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.cal-note__text {
+  margin: 0.1rem 0 0.25rem;
+  font-size: 0.9375rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cal-note__at {
+  font-weight: 600;
+  color: var(--brand-text);
+}
+
+.cal-note__acts {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.cal-note__acts .text-btn {
+  color: var(--ink-soft);
+}
+
+.cal-note__acts .text-btn:hover {
+  color: var(--ink);
+}
+
+.cal-note__replies {
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--surface-2);
+}
+
+.cal-note__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.35rem 0;
+}
+
+.cal-note__photo {
+  position: relative;
+  display: block;
+  width: 5.5rem;
+  height: 4.25rem;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: 0.5rem;
+}
+
+.cal-note__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cal-note__photo--wait {
+  animation: cal-wait 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes cal-wait {
+  to {
+    background: var(--surface-3);
+  }
+}
+
+.cal-note__unphoto {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* ----- Big view for meetings: the plan in large type, nothing to press ----- */
+.cal-board--big {
+  --cal-cols: minmax(0, 1.2fr) minmax(0, 1fr) 0 11rem 17rem;
+  font-size: 1.25rem;
+}
+
+.cal-board--big .cal-group__name {
+  font-size: 1.6rem;
+}
+
+.cal-board--big .cal-line {
+  min-height: 4.25rem;
+  padding: 0.6rem 1.25rem;
+}
+
+.cal-board--big .cal-line__title {
+  font-size: 1.35rem;
+}
+
+.cal-board--big .cal-line__meta {
+  font-size: 1rem;
+}
+
+.cal-board--big .cal-bar {
+  width: 6rem;
+  height: 0.55rem;
+}
+
+.cal-board--big .cal-st,
+.cal-board--big .cal-dp {
+  min-height: 2.75rem;
+  font-size: 1.05rem;
+}
+
+.cal-board--big .cal-dp__txt em {
+  font-size: 0.9rem;
+}
+
+.cal-board--big .cal-line-head {
+  font-size: 0.95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-st-menu,
+  .cal-notes[open] {
+    animation: none;
+  }
+}
+
+/* Phase bars on the Gantt and the month grid take the status colours. */
+.gantt__phase[data-tone='doing'],
+.cal-bar-item--phase[data-tone='doing'] {
+  color: var(--tone-yellow-ink);
+  background: var(--tone-yellow-track);
+  box-shadow: inset 0 0 0 1px var(--tone-yellow-fill);
+}
+
+.gantt__phase[data-tone='doing'] .gantt__fill {
+  background: var(--tone-yellow-fill);
+}
+
+.gantt__phase[data-tone='late'],
+.cal-bar-item--phase[data-tone='late'] {
+  color: var(--tone-red-ink);
+  background: var(--tone-red-track);
+  box-shadow: inset 0 0 0 1px var(--tone-red-fill);
+}
+
+.gantt__phase[data-tone='done'],
+.cal-bar-item--phase[data-tone='done'] {
+  background: var(--tone-green-track);
+  box-shadow: none;
+}
+
+.gantt__phase[data-tone='done'] .gantt__text {
+  color: var(--tone-green-ink);
+}
+
+.gantt__phase[data-tone='done'] .gantt__fill {
+  display: none;
+}
+
+/* Phone Plan: the status beside the name, the date pill under it. */
+.cal-step__top .cal-st {
+  width: auto;
+  min-height: 1.75rem;
+  flex: none;
+}
+
+.cal-step__body > .cal-dp {
+  max-width: 16rem;
+  min-height: 1.875rem;
+  margin-top: 0.3rem;
+}
+
+/* The day's phase notes, under a group's daily update. */
+.cal-card__notes {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.cal-card__note {
+  display: grid;
+  width: 100%;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.cal-card__note:hover {
+  background: var(--surface-1);
+}
+
+@media (min-width: 600px) {
+  .sheet:has(.cal-ph-edit) {
+    width: min(32rem, calc(100% - 2rem));
+  }
+}
+
+.cal-ph-edit .tsheet__date,
+.cal-ph-edit .tsheet__date .field {
+  min-width: 0;
+}
+
+/* ===== Date range picker (DateRange.tsx): in Steamhub's look, not the browser's ===== */
+.dr {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dr-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dr-field {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface-1);
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.dr-field:hover {
+  background: var(--surface-2);
+}
+
+.dr-field[data-on] {
+  background: var(--surface-0);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.dr-field__word {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.dr-field__day {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dr-field__day[data-empty] {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.dr-arrow {
+  font-size: 0.875rem;
+}
+
+.dr-cal {
+  padding: 0.5rem 0.6rem 0.6rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+  animation: cal-pop 140ms var(--ease-out);
+}
+
+.dr-cal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dr-cal__month {
+  font-weight: 650;
+}
+
+.dr-cal__say {
+  margin: 0 0 0.35rem;
+  text-align: center;
+}
+
+.dr-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 0.15rem;
+}
+
+.dr-cal__wd {
+  padding: 0.2rem 0;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.dr-day {
+  display: grid;
+  place-items: center;
+  height: 2.5rem;
+  padding: 0;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.dr-day span {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  transition: background 100ms ease;
+}
+
+.dr-day:hover span {
+  background: var(--surface-2);
+}
+
+.dr-day[data-out] {
+  color: var(--ink-soft);
+}
+
+.dr-day[data-today] span {
+  box-shadow: inset 0 0 0 1.5px var(--ink-soft);
+}
+
+/* The days between fill in, the same green as the date pill. */
+.dr-day[data-in] {
+  background: var(--tone-green-track);
+}
+
+.dr-day[data-start][data-edge] {
+  background: linear-gradient(to right, transparent 50%, var(--tone-green-track) 50%);
+}
+
+.dr-day[data-end][data-edge] {
+  background: linear-gradient(to left, transparent 50%, var(--tone-green-track) 50%);
+}
+
+.dr-day[data-start] span,
+.dr-day[data-end] span {
+  font-weight: 700;
+  color: var(--tone-green-ink);
+  background: var(--tone-green-fill);
+}
+
+.dr-day:focus-visible {
+  outline: none;
+}
+
+.dr-day:focus-visible span {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.dr-cal__foot {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.35rem;
+  padding: 0 0.25rem;
+}
+
+.dr-cal__foot .text-btn {
+  color: var(--ink-soft);
+}
+
+.dr-cal__foot .text-btn:hover {
+  color: var(--ink);
+}
+
+.dr-cal__done {
+  margin-left: auto;
 }

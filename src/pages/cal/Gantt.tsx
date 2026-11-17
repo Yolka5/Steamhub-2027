@@ -28,6 +28,7 @@ import {
   type DateMove,
   type Phase,
   type Task,
+  statusTone,
 } from '../../lib/cal'
 import type { Progress } from '../../lib/calLinked'
 import { useRobots } from '../../lib/useMfg'
@@ -460,7 +461,8 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                           <div
                             key={p.id}
                             className="gantt__phase"
-                            data-done={p.done_at ? true : undefined}
+                            data-done={p.status === 'done' ? true : undefined}
+                            data-tone={statusTone(p.status, p.starts_on)}
                             data-kind={p.kind}
                             role="button"
                             tabIndex={0}

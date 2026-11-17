@@ -93,7 +93,7 @@ function pairRuns(events: Ev[]): Run[] {
 interface Sub { id: string; robot_id: string; number: number; name: string; lead_id: string | null }
 interface Robot { id: string; name: string; season: number; archived: boolean; offseason?: boolean }
 interface Group { id: string; season: number; kind: string; subsystem_number: number | null; subsystem_id?: string | null; name: string; lead_id: string | null }
-interface Phase { group_id: string; name: string; kind: string; robot_id: string | null; sort: number; starts_on: string | null; ends_on: string | null; done_at: string | null }
+interface Phase { id: string; group_id: string; name: string; kind: string; robot_id: string | null; sort: number; starts_on: string | null; ends_on: string | null; done_at: string | null }
 
 async function collect(day: string) {
   const from = dayStart(day)
@@ -106,15 +106,17 @@ async function collect(day: string) {
   const seasons = [...new Set(active.map((r) => r.season))]
   const subIds = subs.map((s) => s.id)
 
-  const [parts, events, tests, picks, updates, groups, phases, people] = await Promise.all([
+  const [parts, events, tests, picks, updates, groups, phases, people, notes] = await Promise.all([
     subIds.length ? db.from('parts').select('id, subsystem_id, status, machine, done_at').in('subsystem_id', subIds) : Promise.resolve({ data: [] }),
     db.from('part_events').select('part_id, action, by_name, details, at, part:parts!inner(part_no, machine, name, subsystem_id)').in('action', [...STARTS, ...ENDS]).gte('at', iso(from - 12 * 60 * MIN)).lt('at', iso(to)).order('at').limit(5000),
     db.from('prototype_tests').select('n, result, measure_name, measure_value, by_name, at, prototype:prototypes!inner(name, season, subsystem_number)').gte('at', iso(from)).lt('at', iso(to)),
     db.from('prototypes').select('name, season, subsystem_number').eq('status', 'chosen').gte('updated_at', iso(from)).lt('updated_at', iso(to)),
     db.from('cal_updates').select('group_id, text').eq('day', day),
     seasons.length ? db.from('cal_groups').select('id, season, kind, subsystem_number, subsystem_id, name, lead_id').in('season', seasons) : Promise.resolve({ data: [] }),
-    db.from('cal_phases').select('group_id, name, kind, robot_id, sort, starts_on, ends_on, done_at'),
+    db.from('cal_phases').select('id, group_id, name, kind, robot_id, sort, starts_on, ends_on, done_at'),
     db.from('profiles').select('id, name'),
+    // Phase notes: the small updates during the day ("got X working, Y broke"), replies included.
+    db.from('phase_notes').select('phase_id, parent_id, author_id, text, photos, created_at').gte('created_at', iso(from)).lt('created_at', iso(to)).order('created_at'),
   ])
   const nameOf = (id: string | null) => ((people.data ?? []) as { id: string; name: string }[]).find((p) => p.id === id)?.name ?? null
   const gs = (groups.data ?? []) as Group[]
@@ -133,6 +135,20 @@ async function collect(day: string) {
     if (s && !groupOfSub.has(s.id)) groupOfSub.set(s.id, g)
   }
   const updateOf = new Map(((updates.data ?? []) as { group_id: string; text: string }[]).map((u) => [u.group_id, u.text]))
+  type Note = { phase_id: string; parent_id: string | null; author_id: string | null; text: string; photos: string[]; created_at: string }
+  const noteList = ((notes.data ?? []) as Note[]).map((n) => {
+    const ph = ps.find((p) => p.id === n.phase_id)
+    return {
+      group_id: ph?.group_id ?? null,
+      group: gs.find((g) => g.id === ph?.group_id)?.name ?? null,
+      phase: ph?.name ?? null,
+      by: first(nameOf(n.author_id)),
+      at: hhmm(+new Date(n.created_at)),
+      text: n.text,
+      photos: n.photos.length,
+      reply: !!n.parent_id,
+    }
+  })
 
   const subsystems = subs.map((s) => {
     const robot = active.find((r) => r.id === s.robot_id)!
@@ -166,6 +182,7 @@ async function collect(day: string) {
       machine_minutes_today: Math.round(mineRuns.reduce((a, r) => a + counted(r), 0) / MIN),
       daily_update: g ? (updateOf.get(g.id) ?? null) : null,
       daily_update_expected: !!g,
+      phase_notes_today: g ? noteList.filter((n) => n.group_id === g.id).map(({ group_id: _g, group: _n, ...n }) => n) : [],
     }
   })
 
@@ -199,7 +216,7 @@ async function collect(day: string) {
   const phasesDone = ps.filter((p) => p.done_at && +new Date(p.done_at) >= from && +new Date(p.done_at) < to).map((p) => ({ group: gs.find((g) => g.id === p.group_id)?.name ?? null, phase: p.name }))
   const expected = subsystems.filter((s) => s.daily_update_expected)
 
-  const events_count = runs.length + testList.length + chosen.length + updateOf.size + phasesDone.length
+  const events_count = runs.length + testList.length + chosen.length + updateOf.size + phasesDone.length + noteList.length
   return {
     input: {
       day,
@@ -211,6 +228,8 @@ async function collect(day: string) {
       prototype_tests: testList,
       prototypes_chosen: chosen,
       calendar_phases_done: phasesDone,
+      // Notes on groups that aren't a subsystem (Electronics, Programming, CNC, Workshop...).
+      phase_notes_other_groups: noteList.filter((n) => ![...groupOfSub.values()].some((g) => g.id === n.group_id)).map(({ group_id: _g, ...n }) => n),
       daily_updates: { sent: expected.filter((s) => s.daily_update).length, expected: expected.length, missing: expected.filter((s) => !s.daily_update).map((s) => s.name) },
     },
     events: events_count,
@@ -247,7 +266,7 @@ const SYSTEM = `You write the nightly recap for SteamLab, the page the mentors a
 
 Write two kinds of recap:
 - team: for the mentors, about the whole team.
-- subsystems: one for every subsystem in the JSON that had activity that day, sent a daily update, or is behind plan. Use its id as subsystem_id. Its lead reads it.
+- subsystems: one for every subsystem in the JSON that had activity that day, sent a daily update, wrote phase notes, or is behind plan. Use its id as subsystem_id. Its lead reads it.
 
 Each recap has:
 - headline: one sentence with the most important thing, at most 14 words.
@@ -256,7 +275,7 @@ Each recap has:
 
 How to write:
 - Lead with the schedule: who is behind or ahead of plan (days_behind_plan above 0.8 is behind, made_pct at least 5 points over plan_pct is ahead), and the likely reason the data shows, such as a machine left idle, few sessions, or a missing daily update. When plan_pct is null, say nothing about that subsystem's schedule.
-- Then what got done: parts finished, machine time, prototype tests and their results, prototypes chosen, phases finished. Use the daily_update text for context, in your own words.
+- Then what got done: parts finished, machine time, prototype tests and their results, prototypes chosen, phases finished. Use the daily_update text and the phase notes (phase_notes_today, phase_notes_other_groups) for context, in your own words. Daily updates are the lead's detailed end of day; phase notes are small updates during it.
 - Plain English, short sentences, numbers with units ("2 h 10 min", "41%", "3 parts").
 - First names only, to credit work. Never blame anyone.
 - Only facts that are in the JSON. Never invent numbers, causes or plans.

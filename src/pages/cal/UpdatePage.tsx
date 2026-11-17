@@ -4,11 +4,11 @@ import { Select } from '../../components/Select'
 import { useCalSeason } from '../../components/cal'
 import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
-import { currentPhase, isoDay, groupOrder, longDay, saveUpdate, TEAM_WORD, todayIso } from '../../lib/cal'
+import { isoDay, groupOrder, longDay, saveUpdate, TEAM_WORD, todayIso } from '../../lib/cal'
 import { putRows, useCal } from '../../lib/useCal'
 
-// The lead's end of the day: one text box, one Send. It's filed under the group's current phase,
-// so each phase keeps its own history. Sending again the same day replaces it.
+// The lead's end of the day: one text box, one Send. It's filed under the group (not a phase: small
+// phase updates are phase notes). Sending again the same day replaces it.
 
 export default function UpdatePage() {
   const season = useCalSeason()
@@ -29,7 +29,6 @@ export default function UpdatePage() {
   const yesterday = group
     ? cal.updates.filter((u) => u.group_id === group.id && u.day < today).sort((a, b) => (a.day < b.day ? 1 : -1))[0]
     : undefined
-  const phase = group ? currentPhase(cal.phases, group.id) : null
   const doneToday = group ? cal.tasks.filter((t) => t.group_id === group.id && t.status === 'done' && !!t.done_at && isoDay(new Date(t.done_at)) === today) : []
 
   const [text, setText] = useState('')
@@ -43,7 +42,7 @@ export default function UpdatePage() {
       if (!who || !group) return
       const t = text.trim()
       if (!t) return toast('Write what happened today first')
-      const res = await saveUpdate(group.id, phase?.id ?? null, today, t, who)
+      const res = await saveUpdate(group.id, null, today, t, who)
       if (res.error) return toast(res.error)
       putRows('cal_updates', [res.data!])
       toast(existing ? 'Update changed' : `${group.name} update sent`)
@@ -103,8 +102,7 @@ export default function UpdatePage() {
             aria-label={`${group.name} update for today`}
           />
           <p className="soft small">
-            Goes under {group.name}
-            {phase ? `: ${phase.name}` : ''}. Everyone can read it on Updates.
+            Goes under {group.name}. Everyone can read it on Updates.
             {doneToday.length > 0 && ` Done today: ${doneToday.map((t) => t.title).join(', ')}.`}
           </p>
           <button type="submit" className="q-btn q-btn--main q-btn--wide">

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { HighTag, StatusIcon, useOpenTask } from './cal'
+import { DateRange } from './DateRange'
 import { Sheet, useBusy, useToast } from './ui'
 import { useWho } from '../lib/auth'
 import {
@@ -24,6 +25,7 @@ import {
   setTaskStatus,
   STATUSES,
   STATUS_WORD,
+  statusTone,
   TEAM_WORD,
   updateTask,
   type DateMove,
@@ -239,14 +241,14 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
   const groupOptions = [...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.name, group: TEAM_WORD[g.team] }))
 
   return (
-    <div className="task">
+    <div className="tsheet">
       {parent && (
-        <button type="button" className="task__parent soft small" onClick={() => open(parent.id)}>
+        <button type="button" className="tsheet__parent soft small" onClick={() => open(parent.id)}>
           <Icon name="back" size={16} /> Part of {parent.title}
         </button>
       )}
       <textarea
-        className="field task__title"
+        className="field tsheet__title"
         rows={1}
         aria-label="Task name"
         value={title}
@@ -264,9 +266,9 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         }}
       />
 
-      <div className="task__grid">
-        <span className="task__label">Group</span>
-        <div className="task__pair">
+      <div className="tsheet__grid">
+        <span className="tsheet__label">Group</span>
+        <div className="tsheet__pair">
           <Select label="Group" value={task.group_id} onChange={moveGroup} options={groupOptions} />
           {groupPhases.length > 0 && (
             <Select
@@ -278,16 +280,17 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           )}
         </div>
 
-        <span className="task__label">Status</span>
-        <div className="picks picks--seg" role="radiogroup" aria-label="Status">
+        <span className="tsheet__label">Status</span>
+        <div className="cal-st-picks" role="radiogroup" aria-label="Status">
           {STATUSES.map((s) => (
-            <button key={s} type="button" role="radio" className="pick" aria-checked={task.status === s} onClick={() => setStatus(s)} data-status={s}>
-              <StatusIcon status={s} /> {STATUS_WORD[s]}
+            <button key={s} type="button" role="radio" className="cal-st" data-tone={statusTone(s, task.starts_on, task.due_on)} aria-checked={task.status === s} onClick={() => setStatus(s)}>
+              {s === 'done' && <Icon name="check" size={14} />}
+              {STATUS_WORD[s]}
             </button>
           ))}
         </div>
 
-        <span className="task__label">Priority</span>
+        <span className="tsheet__label">Priority</span>
         <div className="picks picks--seg" role="radiogroup" aria-label="Priority">
           {PRIORITIES.map((p) => (
             <button key={p} type="button" role="radio" className="pick" aria-checked={task.priority === p} onClick={() => save({ priority: p })}>
@@ -296,23 +299,11 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           ))}
         </div>
 
-        <span className="task__label">Dates</span>
-        <div className="task__pair task__dates">
-          <label className="task__date">
-            <span className="soft small">Start</span>
-            <input type="date" className="field num" value={task.starts_on ?? ''} onChange={(e) => setDates(e.target.value || null, task.due_on)} />
-          </label>
-          <span className="soft" aria-hidden="true">
-            →
-          </span>
-          <label className="task__date">
-            <span className="soft small">Due</span>
-            <input type="date" className="field num" value={task.due_on ?? ''} onChange={(e) => setDates(task.starts_on, e.target.value || null)} />
-          </label>
-        </div>
+        <span className="tsheet__label">Dates</span>
+        <DateRange start={task.starts_on} end={task.due_on} onChange={setDates} endWord="Due" />
 
-        <span className="task__label">Owners</span>
-        <div className="task__owners">
+        <span className="tsheet__label">Owners</span>
+        <div className="tsheet__owners">
           {owners.map((id) => (
             <span key={id} className="chip-x">
               {nameOf(id) ?? 'Someone'}
@@ -323,7 +314,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           ))}
           <Select
             label="Add owner"
-            className="field--inline task__add-owner"
+            className="field--inline tsheet__add-owner"
             value=""
             placeholder={owners.length ? 'Add' : 'Add an owner'}
             onChange={addOwnerTo}
@@ -332,16 +323,16 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         </div>
       </div>
 
-      <section className="task__block">
-        <h3 className="task__head">Waits for</h3>
+      <section className="tsheet__block">
+        <h3 className="tsheet__head">Waits for</h3>
         {waitsFor.length > 0 && (
           <ul className="rows">
             {waitsFor.map((t) => (
-              <li key={t.id} className="row task__mini">
+              <li key={t.id} className="row tsheet__mini">
                 <span className="cal-mini-status" data-status={t.status}>
                   <StatusIcon status={t.status} />
                 </span>
-                <button type="button" className="row__main task__link" onClick={() => open(t.id)}>
+                <button type="button" className="row__main tsheet__link" onClick={() => open(t.id)}>
                   {t.title}
                   <span className="soft small">{t.due_on ? `Due ${dayLabel(t.due_on)}` : STATUS_WORD[t.status]}</span>
                 </button>
@@ -369,12 +360,12 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
       </section>
 
       {!task.parent_id && (
-        <section className="task__block">
-          <h3 className="task__head">
+        <section className="tsheet__block">
+          <h3 className="tsheet__head">
             Subtasks {subs.length > 0 && <span className="soft num">{subs.filter((s) => s.status === 'done').length}/{subs.length}</span>}
           </h3>
           {subs.length > 0 && (
-            <ul className="task__subs">
+            <ul className="tsheet__subs">
               {subs.map((s) => (
                 <li key={s.id}>
                   <label className="check">
@@ -389,7 +380,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
             </ul>
           )}
           <form
-            className="task__add"
+            className="tsheet__add"
             onSubmit={(e) => {
               e.preventDefault()
               addSub()
@@ -405,8 +396,8 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
 
       <TaskLink task={task} cal={cal} save={save} />
 
-      <section className="task__block">
-        <h3 className="task__head">Notes</h3>
+      <section className="tsheet__block">
+        <h3 className="tsheet__head">Notes</h3>
         <textarea
           className="field"
           rows={2}
@@ -417,7 +408,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         />
       </section>
 
-      <div className="task__foot">
+      <div className="tsheet__foot">
         <span className="soft small">
           {group ? `${group.name} · ` : ''}
           {task.created_by ? `Added by ${firstName(nameOf(task.created_by))}` : ''}
@@ -425,7 +416,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         </span>
         {task.priority === 'high' && task.status !== 'done' && <HighTag />}
         {confirm ? (
-          <span className="task__confirm">
+          <span className="tsheet__confirm">
             <button type="button" className="q-btn" onClick={() => setConfirm(false)}>
               Keep it
             </button>
@@ -434,7 +425,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
             </button>
           </span>
         ) : (
-          <button type="button" className="q-btn task__delete" onClick={() => setConfirm(true)}>
+          <button type="button" className="q-btn tsheet__delete" onClick={() => setConfirm(true)}>
             <Icon name="trash" size={18} /> Delete
           </button>
         )}
@@ -476,14 +467,14 @@ function TaskLink({ task, cal, save }: { task: Task; cal: Cal; save: (p: Partial
   }
 
   return (
-    <section className="task__block">
-      <h3 className="task__head">Linked to</h3>
+    <section className="tsheet__block">
+      <h3 className="tsheet__head">Linked to</h3>
       {(proto || part) && (
         <ul className="rows">
           {proto && (
-            <li className="row task__mini">
+            <li className="row tsheet__mini">
               <Icon name="flask" size={18} />
-              <Link to={`/prototypes/${proto.id}`} className="row__main task__link">
+              <Link to={`/prototypes/${proto.id}`} className="row__main tsheet__link">
                 {proto.name}
                 <span className="soft small">Prototype</span>
               </Link>
@@ -493,9 +484,9 @@ function TaskLink({ task, cal, save }: { task: Task; cal: Cal; save: (p: Partial
             </li>
           )}
           {part && (
-            <li className="row task__mini">
+            <li className="row tsheet__mini">
               <Icon name="gear" size={18} />
-              <Link to={`/manufacturing/p/${part.id}`} className="row__main task__link">
+              <Link to={`/manufacturing/p/${part.id}`} className="row__main tsheet__link">
                 <span>
                   <span className="num">{part.part_no}</span> {partName(part)}
                 </span>
@@ -508,13 +499,13 @@ function TaskLink({ task, cal, save }: { task: Task; cal: Cal; save: (p: Partial
           )}
         </ul>
       )}
-      <div className="task__pair">
+      <div className="tsheet__pair">
         {!proto && protoOptions.length > 0 && (
           <Select label="Link a prototype" className="field--inline" value="" placeholder="A prototype" onChange={(v) => v && save({ prototype_id: v })} options={protoOptions} />
         )}
         {!part && (
           <form
-            className="task__add task__part"
+            className="tsheet__add tsheet__part"
             onSubmit={(e) => {
               e.preventDefault()
               linkPart()

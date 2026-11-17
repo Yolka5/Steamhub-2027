@@ -1,9 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { CalTabs, useCalSeason } from '../../components/cal'
+import { NotesHost, useOpenNotes } from '../../components/CalPhase'
 import { LoadError, useToast } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { addDays, firstName, groupOrder, longDay, TEAMS, TEAM_WORD, todayIso } from '../../lib/cal'
+import { addDays, firstName, groupOrder, isoDay, longDay, TEAMS, TEAM_WORD, todayIso } from '../../lib/cal'
 import { useCal } from '../../lib/useCal'
 import { usePhone } from '../../lib/usePhone'
 import { usePeople } from '../../lib/useMfg'
@@ -14,7 +15,8 @@ import { usePeople } from '../../lib/useMfg'
 export default function Summary() {
   const season = useCalSeason()
   const cal = useCal(season)
-  const { nameOf } = usePeople()
+  const { people, nameOf } = usePeople()
+  const openNotes = useOpenNotes()
   const { userId } = useAuth()
   const toast = useToast()
   const phone = usePhone()
@@ -26,19 +28,28 @@ export default function Summary() {
   if (cal.error && !cal.groups.length) return <LoadError onRetry={cal.reload} />
 
   const groups = [...cal.groups].sort(groupOrder)
+  const phaseOf = new Map(cal.phases.map((p) => [p.id, p]))
+  // The day's phase notes, under their group (replies stay in the notes panel).
+  const notesOf = (groupId: string) =>
+    cal.notes
+      .filter((n) => !n.parent_id && phaseOf.get(n.phase_id)?.group_id === groupId && isoDay(new Date(n.created_at)) === day)
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
   const rows = groups
-    .map((g) => ({ g, u: cal.updates.find((u) => u.group_id === g.id && u.day === day) }))
+    .map((g) => ({ g, u: cal.updates.find((u) => u.group_id === g.id && u.day === day), notes: notesOf(g.id) }))
     // Groups with no lead only show when someone wrote for them anyway.
-    .filter((r) => r.u || r.g.lead_id)
+    .filter((r) => r.u || r.g.lead_id || r.notes.length)
   const sent = rows.filter((r) => r.u).length
 
   const copy = () => {
     const lines = [`Steamhub updates, ${longDay(day)}`]
     for (const t of TEAMS) {
-      const mine = rows.filter((r) => r.g.team === t && r.u)
+      const mine = rows.filter((r) => r.g.team === t && (r.u || r.notes.length))
       if (!mine.length) continue
       lines.push('', `*${TEAM_WORD[t]}*`)
-      for (const r of mine) lines.push(`${r.g.name} (${firstName(nameOf(r.u!.author_id))}): ${r.u!.text}`)
+      for (const r of mine) {
+        if (r.u) lines.push(`${r.g.name} (${firstName(nameOf(r.u.author_id))}): ${r.u.text}`)
+        for (const n of r.notes) lines.push(`  ${phaseOf.get(n.phase_id)?.name} · ${firstName(nameOf(n.author_id))}: ${n.text || 'a photo'}`)
+      }
     }
     navigator.clipboard?.writeText(lines.join('\n')).then(
       () => toast('Copied. Paste it in the team chat.'),
@@ -72,7 +83,7 @@ export default function Summary() {
         <span className="soft small num">
           {sent} of {rows.length} sent
         </span>
-        {sent > 0 && (
+        {(sent > 0 || rows.some((r) => r.notes.length)) && (
           <button type="button" className="q-btn q-btn--small" onClick={copy}>
             <Icon name="copy" size={16} /> Copy as text
           </button>
@@ -94,7 +105,7 @@ export default function Summary() {
             <section key={t} className="cal-summary__team">
               <h2 className="cal-team">{TEAM_WORD[t]}</h2>
               <div className="cal-summary__grid">
-                {mine.map(({ g, u }) => {
+                {mine.map(({ g, u, notes }) => {
                   const phase = u?.phase_id ? cal.phases.find((p) => p.id === u.phase_id) : null
                   return (
                     <article key={g.id} className="cal-card" data-missing={!u || undefined}>
@@ -122,6 +133,23 @@ export default function Summary() {
                           )}
                         </p>
                       )}
+                      {notes.length > 0 && (
+                        <ul className="cal-card__notes">
+                          {notes.map((n) => (
+                            <li key={n.id}>
+                              <button type="button" className="cal-card__note" onClick={() => openNotes(n.phase_id)}>
+                                <span className="soft small">
+                                  {phaseOf.get(n.phase_id)?.name} · {firstName(nameOf(n.author_id))}
+                                  {n.photos.length ? ` · ${n.photos.length === 1 ? 'photo' : `${n.photos.length} photos`}` : ''}
+                                </span>
+                                <span className="small" dir="auto">
+                                  {n.text}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </article>
                   )
                 })}
@@ -130,6 +158,7 @@ export default function Summary() {
           )
         })
       )}
+      <NotesHost cal={cal} people={people} />
     </div>
   )
 }

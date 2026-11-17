@@ -49,6 +49,8 @@ export interface Phase {
   starts_on: string | null
   ends_on: string | null
   follows_previous: boolean
+  /** Set by hand. Any number of a group's phases can be In progress. Done keeps done_at in step. */
+  status: TaskStatus
   done_at: string | null
   done_by: string | null
   dismissed_for: string | null
@@ -93,6 +95,20 @@ export interface Update {
   day: string
   author_id: string | null
   text: string
+  created_at: string
+  updated_at: string
+}
+
+/** A small update on a phase. A reply has a parent; replies go one level deep. */
+export interface PhaseNote {
+  id: string
+  phase_id: string
+  parent_id: string | null
+  author_id: string | null
+  text: string
+  /** Paths in the private prototypes bucket. */
+  photos: string[]
+  mentions: string[]
   created_at: string
   updated_at: string
 }
@@ -353,9 +369,91 @@ export function pushPhases(moved: { id: string; starts_on: string | null; ends_o
 
 // ---------- Phases ----------
 
-/** The phase a group is in: the first one not marked done. */
+/** The phase a group is in: the first one In progress, or else the first not done. */
 export function currentPhase(phases: Phase[], groupId: string) {
-  return phases.filter((p) => p.group_id === groupId).sort((a, b) => a.sort - b.sort).find((p) => !p.done_at) ?? null
+  const mine = phases.filter((p) => p.group_id === groupId).sort((a, b) => a.sort - b.sort)
+  return mine.find((p) => p.status === 'doing') ?? mine.find((p) => p.status !== 'done') ?? null
+}
+
+/**
+ * The bar on the left of a phase row: yellow on every phase In progress; when none is, black on
+ * the next one to start.
+ */
+export function phaseBars(phases: Phase[], groupId: string) {
+  const mine = phases.filter((p) => p.group_id === groupId).sort((a, b) => a.sort - b.sort)
+  const out = new Map<string, 'doing' | 'next'>()
+  for (const p of mine) if (p.status === 'doing') out.set(p.id, 'doing')
+  if (!out.size) {
+    const next = mine.find((p) => p.status !== 'done')
+    if (next) out.set(next.id, 'next')
+  }
+  return out
+}
+
+// ---------- Pills: status and time ----------
+
+/**
+ * Status colour. Not started stays grey while its start day is ahead (or it has no dates), and turns
+ * red once the start day has passed and it still hasn't started.
+ */
+export type StatusTone = 'wait' | 'late' | 'doing' | 'done'
+export function statusTone(status: TaskStatus, startsOn: string | null, dueOn: string | null = null, today = todayIso()): StatusTone {
+  if (status !== 'todo') return status
+  const start = startsOn ?? dueOn
+  return start && start < today ? 'late' : 'wait'
+}
+
+export interface TimePill {
+  /** none: no dates. grey: start ahead (or due far off). green: plenty of time. yellow: last
+   *  quarter. red: past the end and not done. */
+  tone: 'none' | 'grey' | 'green' | 'yellow' | 'red'
+  /** Share of the time already gone, 0 to 1. */
+  fill: number
+  label: string
+  /** "2 days late", "3 days early", "on time". */
+  extra?: string
+}
+
+/** Short enough for a pill: "Mon 9 → Thu 19" in one month, "29 Oct → 12 Nov" across two. */
+function pillRange(a: string, b: string) {
+  if (a === b) return dayLabel(a)
+  const A = toDate(a)
+  const B = toDate(b)
+  if (A.getMonth() === B.getMonth() && A.getFullYear() === B.getFullYear()) {
+    const wd = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short' })
+    return `${wd(A)} ${A.getDate()} → ${wd(B)} ${B.getDate()}`
+  }
+  const dm = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return `${dm(A)} → ${dm(B)}`
+}
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+
+/**
+ * The date pill: the time already gone fills it, green until the last 25% of the time, yellow in
+ * it, red once late. Done shows the planned dates against when it was finished.
+ */
+export function timePill(item: { start: string | null; end: string | null; status: TaskStatus; doneDay?: string | null }, today = todayIso()): TimePill {
+  const { start, end, status } = item
+  if (!start && !end) return { tone: 'none', fill: 0, label: 'Set dates' }
+  const label = start && end ? pillRange(start, end) : dayLabel((end ?? start)!)
+  if (status === 'done') {
+    const done = item.doneDay ?? today
+    const diff = end ? daysBetween(end, done) : 0
+    const extra = !end ? undefined : diff < 0 ? `${plural(-diff, 'day')} early` : diff > 0 ? `${plural(diff, 'day')} late` : 'on time'
+    return { tone: 'green', fill: 1, label, extra }
+  }
+  if (end && end < today) return { tone: 'red', fill: 1, label: `${plural(daysBetween(end, today), 'day')} late` }
+  if (!start || !end) {
+    // One day only (a due day): yellow for the last two days, grey before.
+    const day = (end ?? start)!
+    return { tone: daysBetween(today, day) <= 2 ? 'yellow' : 'grey', fill: 0, label }
+  }
+  if (today < start) return { tone: 'grey', fill: 0, label }
+  const total = daysBetween(start, end) + 1
+  const gone = daysBetween(start, today) + 1
+  const share = Math.min(1, gone / total)
+  return { tone: 1 - share <= 0.25 ? 'yellow' : 'green', fill: share, label }
 }
 
 // ---------- Events ----------
@@ -520,6 +618,11 @@ export async function movePhases(moves: { id: string; starts_on: string | null; 
   return {}
 }
 
+/** Status by hand. Done takes `doneAt` when Steamhub knows when the work really finished. */
+export async function setPhaseStatus(p: Phase, status: TaskStatus, who: Who, doneAt?: string | null): Promise<Res<Phase>> {
+  return updatePhase(p.id, status === 'done' ? { status, done_at: doneAt ?? new Date().toISOString(), done_by: who.userId } : { status, done_at: null, done_by: null })
+}
+
 export async function deletePhase(id: string) {
   const { error } = await supabase.from('cal_phases').delete().eq('id', id)
   return { error: error?.message }
@@ -543,6 +646,48 @@ export async function saveUpdate(groupId: string, phaseId: string | null, day: s
 export async function deleteUpdate(id: string) {
   const { error } = await supabase.from('cal_updates').delete().eq('id', id)
   return { error: error?.message }
+}
+
+// ---------- Phase notes ----------
+
+/** People @mentioned in a note: "@Noa" or "@NoaLevi", matched like the task line's @name. */
+export function mentionsIn(text: string, people: { id: string; name: string }[]) {
+  const out: string[] = []
+  for (const m of text.matchAll(/@([\p{L}][\p{L}\d_-]*)/gu)) {
+    const h = m[1].toLowerCase()
+    const p =
+      people.find((x) => x.name.toLowerCase().replace(/\s+/g, '') === h) ?? people.find((x) => x.name.toLowerCase().split(/\s+/)[0] === h)
+    if (p && !out.includes(p.id)) out.push(p.id)
+  }
+  return out
+}
+
+export async function addNote(input: { phase_id: string; parent_id?: string | null; text: string; photos?: string[]; mentions?: string[] }, who: Who): Promise<Res<PhaseNote>> {
+  const { data, error } = await supabase
+    .from('phase_notes')
+    .insert({ parent_id: null, photos: [], mentions: [], ...input, author_id: who.userId })
+    .select()
+    .single()
+  return error ? { error: error.message } : { data: data as PhaseNote }
+}
+
+export async function editNote(id: string, patch: Pick<PhaseNote, 'text' | 'mentions'>): Promise<Res<PhaseNote>> {
+  const { data, error } = await supabase.from('phase_notes').update(patch).eq('id', id).select().maybeSingle()
+  if (error) return { error: error.message }
+  if (!data) return { error: 'Only the person who wrote a note can change it.' }
+  return { data: data as PhaseNote }
+}
+
+export async function deleteNote(n: PhaseNote) {
+  const { error } = await supabase.from('phase_notes').delete().eq('id', n.id)
+  if (!error && n.photos.length) await supabase.storage.from('prototypes').remove(n.photos)
+  return { error: error?.message }
+}
+
+export async function uploadNotePhoto(phaseId: string, blob: Blob) {
+  const path = `phase-notes/${phaseId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`
+  const { error } = await supabase.storage.from('prototypes').upload(path, blob, { contentType: 'image/jpeg' })
+  return error ? { error: error.message } : { path }
 }
 
 export type EventInput = Omit<CalEvent, 'id' | 'created_by' | 'created_at' | 'updated_at'>

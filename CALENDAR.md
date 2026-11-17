@@ -230,7 +230,7 @@ Members-only RLS on everything, as in `20261111_members_only.sql`. Tasks, phases
 
 From a 13-round Q&A with Yoni. The Calendar works but takes effort to read: almost all black and white, small text. This pass adds colour **only where it carries meaning** (status, time left, late). Don't make the rest big or colourful.
 
-**Built 2026-11-17, not pushed yet.** Database: `supabase/migrations/20261119_calendar_readability.sql`, already applied to live (phase `status`, `phase_notes` and its notification trigger). App: `src/components/CalPhase.tsx` (status and date pills, phase and task rows, phase editor, notes panel), `src/components/DateRange.tsx` (Steamhub's own date picker, in the phase editor and task window). The task window's broken layout was a class clash: the Workshop part cards' `.task` (tasks.css) won over the Calendar's; the Calendar's are now `.tsheet`. Still to do when going live: deploy `steamlab-recap` so the nightly recap reads phase notes.
+**Built and live 2026-11-17.** Database: `supabase/migrations/20261119_calendar_readability.sql`, already applied to live (phase `status`, `phase_notes` and its notification trigger). App: `src/components/CalPhase.tsx` (status and date pills, phase and task rows, phase editor, notes panel), `src/components/DateRange.tsx` (Steamhub's own date picker, in the phase editor and task window). The task window's broken layout was a class clash: the Workshop part cards' `.task` (tasks.css) won over the Calendar's; the Calendar's are now `.tsheet`. `steamlab-recap` (version 2) reads phase notes.
 
 ### Phase status (new, real column)
 - Each phase gets its own status: **Not started / In progress / Done** (same words as tasks). Replaces the derived Now / Next.

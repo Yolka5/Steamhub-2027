@@ -1,3 +1,5 @@
+import { numIn } from '../lib/units'
+import { UnitInput } from './UnitInput'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { deletePiece, updatePiece } from '../lib/actions'
@@ -6,7 +8,7 @@ import { useStore } from '../lib/store'
 import { useBusy, useToast } from './ui'
 import { Select } from './Select'
 
-const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
+const num = (s: string) => (s.trim() === '' ? null : (numIn(s, 'mm') ?? NaN))
 const str = (n: number | null) => (n == null ? '' : String(n))
 
 /** Fix anything about a piece: size, length, material, note. Deleting asks twice. */
@@ -84,12 +86,12 @@ export function PieceEditor({ piece, who, onDone }: { piece: Piece; who: { userI
             <span className="ctl__name">
               {f.label} (mm){f.key === 'inner_d' && kind !== 'hex' ? ', empty if solid' : ''}
             </span>
-            <input className="field num" inputMode="decimal" value={dims[f.key]} onChange={(e) => setDims((d) => ({ ...d, [f.key]: e.target.value }))} />
+            <UnitInput unit="mm" value={dims[f.key]} onChange={(t) => setDims((d) => ({ ...d, [f.key]: t }))} />
           </label>
         ))}
         <label className="ctl">
           <span className="ctl__name">Length (mm)</span>
-          <input className="field num" inputMode="decimal" value={length} onChange={(e) => setLength(e.target.value)} />
+          <UnitInput unit="mm" value={length} onChange={setLength} />
         </label>
       </div>
       <label className="ctl">

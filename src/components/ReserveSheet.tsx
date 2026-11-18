@@ -1,3 +1,5 @@
+import { numIn } from '../lib/units'
+import { UnitInput } from './UnitInput'
 import { useMemo, useState } from 'react'
 import { reservePiece } from '../lib/actions'
 import { useAuth } from '../lib/auth'
@@ -52,7 +54,7 @@ export function ReserveSheet({
     if (!piece || !userId || !name) return
     setError(null)
     const label = sub ? `${sub.number} ${sub.name}` : forWhat.trim()
-    const planned = len ? Number(len.replace(',', '.')) : null
+    const planned = len ? (numIn(len, 'mm') ?? NaN) : null
     const res = await reservePiece(piece.id, { userId, name }, label, planned != null && Number.isFinite(planned) && planned > 0 ? planned : null, sub?.id ?? null)
     if (res.error) return setError(res.error)
     try {
@@ -101,7 +103,7 @@ export function ReserveSheet({
           )}
           <label className="ctl">
             <span className="ctl__name">Planned length (mm), optional</span>
-            <input className="field num" inputMode="decimal" value={len} onChange={(e) => setLen(e.target.value)} />
+            <UnitInput unit="mm" value={len} onChange={setLen} />
           </label>
           <p className="soft small">The final length comes from the drawing when the part is made.</p>
           {error && <p className="error">{error}</p>}

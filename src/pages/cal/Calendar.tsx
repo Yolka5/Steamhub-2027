@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CalTabs, useCalSeason } from '../../components/cal'
 import { Icon } from '../../components/Icon'
@@ -9,6 +9,7 @@ import { LoadError } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { TEAMS, TEAM_WORD, todayIso, type Team } from '../../lib/cal'
 import { useLinked, useSuggestNotify } from '../../lib/calLinked'
+import { supabase } from '../../lib/supabase'
 import { useCal } from '../../lib/useCal'
 import { usePeople } from '../../lib/useMfg'
 import { usePhone } from '../../lib/usePhone'
@@ -24,7 +25,8 @@ export default function CalendarPage() {
   const season = useCalSeason()
   const cal = useCal(season)
   const linked = useLinked(season, cal)
-  const { userId } = useAuth()
+  const { userId, isAdmin } = useAuth()
+  const google = useGoogleLinked(isAdmin)
   useSuggestNotify(cal, linked, userId)
   const { people } = usePeople()
   const phone = usePhone()
@@ -147,6 +149,17 @@ export default function CalendarPage() {
         </Link>
       )}
 
+      {/* Until the team's Google Calendar is linked, admins see the way to it here, not only under Import. */}
+      {google === false && (
+        <p className="cal-connect soft small">
+          <Icon name="calendar" size={18} />
+          <span>The team's Google Calendar isn't connected yet.</span>
+          <Link to="/calendar/import" className="q-btn q-btn--small">
+            Connect Google Calendar
+          </Link>
+        </p>
+      )}
+
       {phone ? (
         <details className="finder__more mfg-filters-fold">
           <summary>
@@ -176,4 +189,19 @@ export default function CalendarPage() {
       <NotesHost cal={cal} people={people} />
     </div>
   )
+}
+
+/** Whether the Google Calendar link is saved: null while loading or for non-admins (only admins link it). */
+function useGoogleLinked(isAdmin: boolean) {
+  const [linked, setLinked] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!isAdmin) return
+    supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'google_calendar')
+      .maybeSingle()
+      .then(({ data, error }) => !error && setLinked(!!(data?.value as { url?: string } | null)?.url))
+  }, [isAdmin])
+  return isAdmin ? linked : null
 }

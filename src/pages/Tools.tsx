@@ -15,11 +15,12 @@ interface Tool {
 }
 
 export const OUR_TOOLS: Tool[] = [
-  { name: 'Calendar', what: 'Tasks for every team and subsystem, phases, the Gantt and the daily updates.', icon: 'calendar', to: '/calendar', keywords: 'tasks gantt monday schedule update לוח משימות גאנט עדכון' },
   { name: 'Motor and gearbox', what: 'Gear ratio, current and battery budget for every mechanism on the robot.', icon: 'calc', to: '/calculators', keywords: 'ratio gearbox current amps kraken מנוע תמסורת' },
-  { name: 'Tap drills and holes', what: 'Tap drill, clearance hole and thread depth for any screw, with a thin-wall check.', icon: 'screw', to: '/tools/tap-drills', keywords: 'tap tapping drill clearance thread הברזה הברזות קידוח' },
+  { name: 'Tap drills and cheat sheet', what: 'Tap drill, clearance hole and thread depth for any screw, plus the full tables: metric and imperial screws, bearings with flanges, hex shaft.', icon: 'screw', to: '/tools/tap-drills', keywords: 'tap tapping drill clearance thread cheat sheet bearing flange hex הברזה הברזות קידוח מיסב' },
   { name: 'Center distance', what: 'Belt, chain and gear center distances: the belts or gears that fit your spacing, or the spacing for a belt you already have.', icon: 'ruler', to: '/tools/center-distance', keywords: 'belt chain gear pulley sprocket timing מרחק רצועה שרשרת' },
   { name: 'Swerve ratios', what: 'Compare the three drive ratios: top speed, acceleration and current.', icon: 'wheel', to: '/calculators?tab=swerve', keywords: 'drive drivetrain sds mk5n סוורב' },
+  // Calendar has its own way in from Home and the menu, so the calculators come first.
+  { name: 'Calendar', what: 'Tasks for every team and subsystem, phases, the Gantt and the daily updates.', icon: 'calendar', to: '/calendar', keywords: 'tasks gantt monday schedule update לוח משימות גאנט עדכון' },
   { name: 'Motor curves', what: 'Torque, current, power and efficiency at every speed, for one mechanism or one motor.', icon: 'chart', to: '/calculators?tab=curves', keywords: 'dyno torque power efficiency voltage' },
   { name: 'Cut list', what: 'Every length a mechanism needs, matched to the fewest pieces of stock.', icon: 'cut', to: '/stock/cut', keywords: 'stock cut lengths saw מלאי חיתוך' },
   { name: 'Weight per mechanism', what: 'Each subsystem’s CAD weight from Onshape, plus the raw stock it reserved.', icon: 'scale', to: '/stock/mechanisms', keywords: 'weight mass onshape cad משקל' },

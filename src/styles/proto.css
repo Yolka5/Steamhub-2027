@@ -226,7 +226,8 @@
   gap: 0.4rem;
 }
 
-.pt-sizes .field {
+.pt-sizes .field,
+.pt-sizes .pt-typed {
   max-width: 10rem;
 }
 
@@ -1215,4 +1216,10 @@
 
 .pt-compare--tests .pt-table__note {
   min-width: 0;
+}
+
+/* A number typed with another unit: the converted value under the field. */
+.pt-typed {
+  display: grid;
+  gap: 0.2rem;
 }

@@ -5,7 +5,7 @@ import { CenterTab, SheetTab } from './calc/ShopTabs'
 // calculator's team robot and tabs around them. The same tools stay as Calculator tabs too.
 
 const TOOLS = {
-  sheet: { title: 'Tap drills', body: <SheetTab /> },
+  sheet: { title: 'Tap drills and cheat sheet', body: <SheetTab /> },
   center: { title: 'Center distance', body: <CenterTab /> },
 }
 

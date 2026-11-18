@@ -16,11 +16,14 @@ import {
   leadOf,
   RESULT_WORD,
   saveLayout,
+  scopeColumns,
+  scopeOf,
   setProtoStatus,
   signedUrl,
   STATUS_WORD,
   STATUSES,
   subLabel,
+  subOptions,
   updatePrototype,
   usePrototype,
   usePrototypes,
@@ -28,6 +31,7 @@ import {
   type ParamDef,
   type Prototype,
   type ProtoStatus,
+  type ProtoSub,
   type Test,
 } from '../../lib/proto'
 import { usePeople } from '../../lib/useMfg'
@@ -61,14 +65,15 @@ export default function PrototypePage() {
     return <div className="page">{error ? <LoadError /> : loading ? <p className="soft">Loading</p> : <p className="soft">This prototype doesn't exist anymore.</p>}</div>
 
   const subs = subsystemsOf(proto.season)
-  const sub = subs.find((s) => s.number === proto.subsystem_number)
-  const subName = proto.subsystem_number != null ? subLabel(proto.subsystem_number, subs) : null
+  const key = scopeOf(proto)
+  const sub = subs.find((s) => s.key === key)
+  const subName = key !== 'none' ? subLabel(key, subs) : null
   const newest = tests.slice().sort((a, b) => b.n - a.n)
   const current = newest[0]?.values ?? {}
-  const others = siblings.prototypes.filter((p) => p.id !== proto.id && p.subsystem_number === proto.subsystem_number && proto.subsystem_number != null)
+  const others = siblings.prototypes.filter((p) => p.id !== proto.id && key !== 'none' && scopeOf(p) === key)
   const lead = leadOf(proto, subs)
   const canDelete = isAdmin || lead === userId || proto.created_by === userId
-  const leads = [sub?.lead_id ?? null, ...subsystemsOf(proto.season).filter((s) => s.number === proto.subsystem_number).map((s) => s.lead_id)]
+  const leads = [sub?.lead_id ?? null]
 
   const pickStatus = async (s: ProtoStatus) => {
     if (s === proto.status) return
@@ -86,7 +91,8 @@ export default function PrototypePage() {
             {proto.name}
           </h1>
           <p className="soft sub-meta">
-            {sub ? <Link to={`/prototypes?sub=${sub.number}`}>{subName}</Link> : subName ?? 'No subsystem yet'}
+            {sub ? <Link to={`/prototypes?sub=${sub.key}`}>{subName}</Link> : subName ?? 'No subsystem yet'}
+            {sub?.project_sub ? ` · ${sub.robotName}` : null}
             {proto.concept ? <> · <span dir="auto">{proto.concept}</span></> : null}
             {nameOf(lead) ? ` · ${nameOf(lead)}` : ''}
             {' · '}
@@ -149,13 +155,13 @@ export default function PrototypePage() {
 
           <Blocks proto={proto} blocks={blocks} setBlocks={setBlocks} tests={tests} params={params} />
 
-          {proto.subsystem_number != null && blocks.length > 0 && (
+          {key !== 'none' && blocks.length > 0 && (
             <p className="mfg-foot soft small">
               <button
                 type="button"
                 className="text-btn"
                 onClick={async () => {
-                  const res = await saveLayout(proto.season, proto.subsystem_number!, blocks)
+                  const res = await saveLayout(proto, blocks)
                   toast(res.error ?? `New ${subName} prototypes start with these blocks`)
                 }}
               >
@@ -242,7 +248,7 @@ function EditDetails({
   onDelete,
 }: {
   proto: Prototype
-  subs: { number: number; name: string; lead_id: string | null }[]
+  subs: ProtoSub[]
   canDelete: boolean
   onDone: () => void
   onDelete: () => void
@@ -251,12 +257,12 @@ function EditDetails({
   const { people, nameOf } = usePeople()
   const [name, setName] = useState(proto.name)
   const [concept, setConcept] = useState(proto.concept)
-  const [sub, setSub] = useState(proto.subsystem_number != null ? String(proto.subsystem_number) : '')
+  const [sub, setSub] = useState(scopeOf(proto) === 'none' ? '' : scopeOf(proto))
   const [owner, setOwner] = useState(proto.owner_id ?? '')
   const [note, setNote] = useState(proto.status_note)
   const [confirm, setConfirm] = useState(false)
   // Left empty, the lead follows the subsystem's lead (or whoever made it, with no subsystem).
-  const subLead = (sub && subs.find((s) => String(s.number) === sub)?.lead_id) || null
+  const subLead = (sub && subs.find((s) => s.key === sub)?.lead_id) || null
   const autoLead = sub ? `Subsystem lead${nameOf(subLead) ? ` (${nameOf(subLead)})` : ''}` : `Whoever made it${nameOf(proto.created_by) ? ` (${nameOf(proto.created_by)})` : ''}`
   return (
     <form
@@ -264,7 +270,7 @@ function EditDetails({
       onSubmit={async (e) => {
         e.preventDefault()
         if (!name.trim()) return toast('Give it a name')
-        const res = await updatePrototype(proto.id, { name: name.trim(), concept: concept.trim(), subsystem_number: sub ? Number(sub) : null, owner_id: owner || null, status_note: note.trim() })
+        const res = await updatePrototype(proto.id, { name: name.trim(), concept: concept.trim(), ...scopeColumns(sub || 'none', subs), owner_id: owner || null, status_note: note.trim() })
         if (res.error) return toast(res.error)
         onDone()
       }}
@@ -279,8 +285,8 @@ function EditDetails({
       </label>
       <label className="ctl">
         <span className="ctl__name">Subsystem</span>
-        <Select value={sub} onChange={setSub} options={[{ value: '', label: 'No subsystem yet' }, ...subs.map((s) => ({ value: String(s.number), label: `${s.number} ${s.name}` }))]} />
-        {String(proto.subsystem_number ?? '') !== sub && <span className="soft small">Shared parameters come from the new subsystem. Its own parameters stay.</span>}
+        <Select value={sub} onChange={setSub} options={[{ value: '', label: 'No subsystem yet' }, ...subOptions(subs)]} />
+        {(scopeOf(proto) === 'none' ? '' : scopeOf(proto)) !== sub && <span className="soft small">Shared parameters come from the new subsystem. Its own parameters stay.</span>}
       </label>
       <label className="ctl">
         <span className="ctl__name">Lead</span>

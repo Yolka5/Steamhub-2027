@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { readTyped, tidy } from '../lib/units'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import {
@@ -263,7 +264,10 @@ export function ValueInput({ def, value, onChange, changed }: { def: ParamDef; v
       </label>
     )
   }
-  const field = (
+  // A number can be typed with another unit ("50mm" for an inch parameter): it's shown in the
+  // parameter's unit underneath and turned into it on leaving the field.
+  const typedNow = def.kind === 'number' && typeof value === 'string' && /[^\d.\-\s]/.test(value) ? readTyped(value, def.unit) : null
+  const input = (
     <input
       className="field num"
       inputMode={def.kind === 'number' ? 'decimal' : undefined}
@@ -275,10 +279,20 @@ export function ValueInput({ def, value, onChange, changed }: { def: ParamDef; v
         if (def.kind !== 'number') return onChange(t || null)
         // Kept as typed until the test is saved (TestForm turns it into a number then).
         // Turning it into a number on every key dropped zeros: 1.05 became 15.
-        const clean = t.replace(',', '.').replace(/[^\d.-]/g, '')
-        onChange(clean === '' ? null : clean)
+        const clean = t.replace(',', '.')
+        onChange(clean.trim() === '' ? null : clean)
+      }}
+      onBlur={() => {
+        if (typedNow?.value != null) onChange(tidy(typedNow.value))
       }}
     />
+  )
+  // Always the same wrapper, so the input isn't remounted (and loses focus) when a unit is typed.
+  const field = (
+    <span className="pt-typed">
+      {input}
+      {typedNow && <span className={`small ${typedNow.value == null ? 'error' : 'soft'} num`}>{typedNow.value == null ? typedNow.error : `= ${tidy(typedNow.value)} ${def.unit}`}</span>}
+    </span>
   )
   if (def.kind === 'number' && def.options.length)
     return (

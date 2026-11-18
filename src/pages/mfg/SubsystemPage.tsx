@@ -239,7 +239,7 @@ export default function SubsystemPage() {
       </div>
 
       {/* Prototypes belong to the season's subsystem numbers, which an off-season project doesn't share. */}
-      {!robot.offseason && <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} />}
+      <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} projectSub={robot.offseason ? sub.id : undefined} />
       {robot.version != null && <SubsystemCalendar season={robot.season} number={sub.number} />}
       {robot.offseason && <SubsystemCalendar season={robot.season} number={sub.number} projectSub={sub.id} />}
 

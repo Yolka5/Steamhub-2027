@@ -54,7 +54,7 @@ const PAGES: Item[] = [
   { key: 'p-motors', label: 'Motors table', to: '/calculators?tab=motors' },
   { key: 'p-center', label: 'Center distance: belt, chain, gear', to: '/tools/center-distance' },
   { key: 'p-center-have', label: 'Center distance for a belt or chain I have', to: '/tools/center-distance?cd=have' },
-  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings, hex', to: '/tools/tap-drills', keywords: 'tap tapping thread הברזה הברזות קידוח מיסב' },
+  { key: 'p-sheet', label: 'Cheat sheet: tap drills, clearance holes, bearings and flanges, hex', to: '/tools/tap-drills', keywords: 'tap tapping thread flange flanged bearing הברזה הברזות קידוח מיסב' },
   { key: 'p-tools', label: 'Tools: every calculator and outside tool', to: '/tools', keywords: 'calculator כלים מחשבון' },
   { key: 'p-guide', label: 'How to use Steamhub', to: '/guide', keywords: 'guide help how to start new tutorial poster qr מדריך עזרה' },
   { key: 'p-hand', label: 'Mechanical design handbook', to: '/handbook/design', keywords: 'המדריך למתכנן המכני' },

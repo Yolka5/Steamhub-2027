@@ -37,7 +37,7 @@ export function SwerveTab({ robot, update }: { robot: Robot; update: Update }) {
         <div className="fields" role="group">
           <h3 className="fields__title">Robot</h3>
           <NumField help={HELP.robotMass} label="Robot mass" unit="kg" value={s.robotMass} min={1} step={1} onChange={(v) => edit({ robotMass: v })} />
-          <NumField help={HELP.swWheel} label="Wheel diameter" unit="cm" value={s.wheelDiameter} min={1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
+          <NumField help={HELP.swWheel} label="Wheel diameter" unit="mm" store="cm" value={s.wheelDiameter} min={1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
           <label className="num-field">
             <span className="num-field__label">Drive motor</span>
             <Select value={s.motor} onChange={(v) => edit({ motor: v })} options={robot.motors.map((m) => ({ value: m.name, label: m.name }))} />

@@ -165,7 +165,7 @@ function PrototypeWeek({ robot, subs, season }: { robot: Robot; subs: Subsystem[
   const { prototypes, tests } = usePrototypes(season)
   const today = new Date().toDateString()
   const testsToday = tests.filter((t) => new Date(t.at).toDateString() === today).length
-  const covered = subs.filter((s) => prototypes.some((p) => p.subsystem_number === s.number)).length
+  const covered = subs.filter((s) => prototypes.some((p) => !p.project_sub && p.subsystem_number === s.number)).length
 
   return (
     <Card

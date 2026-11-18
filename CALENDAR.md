@@ -223,7 +223,6 @@ Members-only RLS on everything, as in `20261111_members_only.sql`. Tasks, phases
 
 - Importing from Monday (the new season starts from scratch).
 - Comments on tasks, Stuck status, custom fields, automations, time tracking.
-- Google Calendar sync. A read-only feed Google can subscribe to is cheap if it's ever wanted.
 - Email notifications (push replaces them for now).
 
 ## Readability pass (decided and built 2026-11-17)
@@ -284,3 +283,15 @@ From a 13-round Q&A with Yoni. The Calendar works but takes effort to read: almo
 ### Big view (meetings)
 - A "Big view" button next to the view switch. Read-only: every group with its phase rows (status, dates, progress), large type, no tasks, no buttons.
 - Stays on for that device until Exit is pressed.
+
+## Google Calendar, both ways (built 2026-11-18)
+
+- **Google to Steamhub:** `ical-sync` reads the team calendar's secret iCal link every hour (cron `google-calendar`) and on Sync now. Those events are source `google` and are changed in Google.
+- **Steamhub to Google:** `gcal-push` writes events made in Steamhub (source null) into the same calendar, through a Google service account. The calendar id comes out of the iCal link, so both ways meet in one calendar.
+  - Key: the service account's JSON file is the Supabase secret `GOOGLE_SERVICE_ACCOUNT`. The team calendar is shared with its email with "Make changes to events". Sending is turned on from Calendar, Import (settings `google_calendar_push` {on}).
+  - When: `events_gcal_mark` marks an event `google_dirty` on any change Google would show; `events_gcal_poke` (once per statement) calls `gcal-push` when something waits. Also every hour (cron `google-calendar-push`) and Send now.
+  - `google_id` remembers the Google event, so edits update it in place. Deleted events go through `gcal_trash`. Weekly repeats go as a weekly RRULE, skip days as EXDATE.
+  - Echo: Google's feed shows our events again as `<google id>@google.com`. `events_skip_google_echo` drops that insert, so nothing shows twice.
+  - Each event is edited where it was made. The Google copy says so in its description.
+- Until the calendar is linked, admins see "Connect Google Calendar" at the top of the Calendar.
+

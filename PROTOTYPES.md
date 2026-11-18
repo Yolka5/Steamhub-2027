@@ -110,6 +110,15 @@ Tick a phase here when it's done and checked in the browser.
 
 Test data: "Test double roller (delete me)" and "Test single roller (delete me)" under 3 Intake. Delete them from each prototype's Edit sheet when you're done.
 
+## Off-season projects (built 2026-11-18)
+
+- A project's subsystems have their own numbers (project 3 is not 3 Intake), so a prototype on one also stores the subsystem: `project_sub`. `subsystem_number` keeps the number for display. `project_sub` null means a season subsystem, matched by season and number as before.
+- `param_defs` and `subsystem_layouts` carry `project_sub` too, so a project subsystem has its own shared parameters and starting blocks.
+- In code, a subsystem is one key (`scopeOf` in `src/lib/proto.ts`): the number for a season one, the subsystem id for a project's, `none` for no subsystem. Filters, groups, Season summary, Compare and links use it (`?sub=<key>`).
+- `subsystemsOf(season)` lists the season's subsystems, then each active project's, shown as "3 Prototypes - Yoni · Before season Projects".
+- Deleting a project subsystem leaves its prototypes with no subsystem (trigger `subsystem_gone_prototypes`), never on the season's subsystem with the same number.
+- The subsystem page, the Calendar's prototype phases, SteamLab and the nightly recap all follow project prototypes.
+
 ## Open questions
 - **Prototypes in Manufacturing.** Wood or printed prototype parts sometimes need the workshop. For now that means making a "Prototype" robot in Manufacturing. Linking a prototype to a STEP upload directly can come later if it's used a lot.
 

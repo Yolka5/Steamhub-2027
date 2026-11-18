@@ -69,6 +69,8 @@ export interface Prototype {
   id: string
   season: number
   subsystem_number: number | null
+  /** An off-season project's subsystem (its number is in subsystem_number). Null: a season subsystem. */
+  project_sub?: string | null
   name: string
   concept: string
   status: ProtoStatus
@@ -84,6 +86,7 @@ export interface ParamDef {
   id: string
   season: number
   subsystem_number: number | null
+  project_sub?: string | null
   prototype_id: string | null
   name: string
   unit: string
@@ -182,27 +185,68 @@ export function useSeasons() {
   const seasonRobots = robots.filter((r) => !r.offseason)
   const seasons = useMemo(() => [...new Set([fallback, ...robots.filter((r) => !r.offseason).map((r) => r.season)])].sort((a, b) => b - a), [robots, fallback])
   const current = seasonRobots.length ? Math.max(...seasonRobots.map((r) => r.season)) : fallback
-  /** Subsystem numbers and names of a season, one per number. Active robots win over archived ones. */
+  /**
+   * Subsystems prototypes can hang off in a season: the season's, one per number (active robots win
+   * over archived ones), then each off-season project's own, which have numbers of their own.
+   */
   const subsystemsOf = useCallback(
-    (season: number) => {
-      const byNo = new Map<number, { number: number; name: string; lead_id: string | null; id: string; robotName: string }>()
-      // Off-season projects share the year but not the season's subsystem numbers.
+    (season: number): ProtoSub[] => {
+      const byNo = new Map<number, ProtoSub>()
       const rs = robots.filter((r) => r.season === season && !r.offseason).sort((a, b) => Number(a.archived) - Number(b.archived) || b.created_at.localeCompare(a.created_at))
       for (const r of rs)
         for (const s of subs.filter((x) => x.robot_id === r.id))
-          if (!byNo.has(s.number)) byNo.set(s.number, { number: s.number, name: s.name, lead_id: s.lead_id, id: s.id, robotName: r.name })
-      return [...byNo.values()].sort((a, b) => a.number - b.number)
+          if (!byNo.has(s.number)) byNo.set(s.number, { key: String(s.number), number: s.number, name: s.name, lead_id: s.lead_id, id: s.id, robotName: r.name, project_sub: null })
+      const projects = robots.filter((r) => r.season === season && r.offseason && !r.archived).sort((a, b) => a.name.localeCompare(b.name))
+      const own = projects.flatMap((r) =>
+        subs
+          .filter((x) => x.robot_id === r.id)
+          .sort((a, b) => a.number - b.number)
+          .map((s) => ({ key: s.id, number: s.number, name: s.name, lead_id: s.lead_id, id: s.id, robotName: r.name, project_sub: s.id })),
+      )
+      return [...[...byNo.values()].sort((a, b) => a.number - b.number), ...own]
     },
     [robots, subs],
   )
   return { seasons, current, subsystemsOf, loading, robots, subs }
 }
 
-export const subLabel = (n: number | null, list: { number: number; name: string }[]) => {
-  if (n == null) return 'No subsystem yet'
-  const s = list.find((x) => x.number === n)
-  return s ? `${s.number} ${s.name}` : `Subsystem ${n}`
+/** A subsystem prototypes hang off: a season one (key is its number) or a project's (key is its id). */
+export interface ProtoSub {
+  key: string
+  number: number
+  name: string
+  lead_id: string | null
+  id: string
+  robotName: string
+  project_sub: string | null
 }
+
+/** Which subsystem a prototype or parameter belongs to, as one string: "3", a project subsystem's id, or "none". */
+export const scopeOf = (x: { subsystem_number: number | null; project_sub?: string | null }) =>
+  x.project_sub ? x.project_sub : x.subsystem_number != null ? String(x.subsystem_number) : 'none'
+
+/** The columns that put a row on a subsystem, from a key (scopeOf) and the list it came from. */
+export const scopeColumns = (key: string, list: ProtoSub[]): { subsystem_number: number | null; project_sub: string | null } => {
+  const s = list.find((x) => x.key === key)
+  if (s) return { subsystem_number: s.number, project_sub: s.project_sub }
+  return /^\d+$/.test(key) ? { subsystem_number: Number(key), project_sub: null } : { subsystem_number: null, project_sub: null }
+}
+
+/** "3 Intake", "3 Prototypes - Yoni" for a project's, or "No subsystem yet". Takes a key or a prototype. */
+export const subLabel = (k: string | { subsystem_number: number | null; project_sub?: string | null }, list: ProtoSub[], withProject = false) => {
+  const key = typeof k === 'string' ? k : scopeOf(k)
+  if (key === 'none') return 'No subsystem yet'
+  const s = list.find((x) => x.key === key)
+  if (!s) return /^\d+$/.test(key) ? `Subsystem ${key}` : 'Off-season subsystem'
+  return `${s.number} ${s.name}${withProject && s.project_sub ? ` (${s.robotName})` : ''}`
+}
+
+/** Picker options: season subsystems, then each project's, named with the project. */
+export const subOptions = (list: ProtoSub[]) => list.map((s) => ({ value: s.key, label: s.project_sub ? `${s.number} ${s.name} · ${s.robotName}` : `${s.number} ${s.name}` }))
+
+/** The PostgREST filter for a subsystem's shared rows (param_defs, layouts). */
+const scopeFilter = (x: { season: number; subsystem_number: number | null; project_sub?: string | null }) =>
+  x.project_sub ? `season.eq.${x.season},project_sub.eq.${x.project_sub}` : `season.eq.${x.season},subsystem_number.eq.${x.subsystem_number},project_sub.is.null`
 
 // ---------- Signed links to private files ----------
 
@@ -313,7 +357,7 @@ export function usePrototype(id: string) {
   const tests = useLive<Test>('prototype_tests', `one-${id}`, () => supabase.from('prototype_tests').select('*').eq('prototype_id', id).order('n'))
   const blocks = useLive<Block>('prototype_blocks', `one-${id}`, () => supabase.from('prototype_blocks').select('*').eq('prototype_id', id).order('position'))
   const season = p?.season ?? 0
-  const sub = p?.subsystem_number ?? -1
+  const sub = p ? scopeOf(p) : 'none'
   // Waits for the prototype: before it loads there's no season or subsystem, and a query without
   // them finds no shared parameters, so the forms offered "+ Compression" for one already there.
   const params = useLive<ParamDef>(
@@ -323,7 +367,7 @@ export function usePrototype(id: string) {
       supabase
         .from('param_defs')
         .select('*')
-        .or(`prototype_id.eq.${id},and(prototype_id.is.null,season.eq.${season},subsystem_number.eq.${sub})`)
+        .or(p && sub !== 'none' ? `prototype_id.eq.${id},and(prototype_id.is.null,${scopeFilter(p)})` : `prototype_id.eq.${id}`)
         .order('position'),
     !p,
   )
@@ -348,13 +392,14 @@ export function usePrototype(id: string) {
  * Manufacturing, read live so a new lead there takes over every prototype of the subsystem, else
  * whoever made it.
  */
-export function leadOf(p: Pick<Prototype, 'owner_id' | 'subsystem_number' | 'created_by'>, subs: { number: number; lead_id: string | null }[]) {
-  return p.owner_id ?? subs.find((s) => s.number === p.subsystem_number)?.lead_id ?? p.created_by
+export function leadOf(p: Pick<Prototype, 'owner_id' | 'subsystem_number' | 'project_sub' | 'created_by'>, subs: ProtoSub[]) {
+  return p.owner_id ?? subs.find((s) => s.key === scopeOf(p))?.lead_id ?? p.created_by
 }
 
 /** Parameters of one prototype: its subsystem's set first, then its own. */
-export function paramsOf(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, all: ParamDef[]) {
-  const shared = all.filter((d) => !d.prototype_id && d.season === p.season && d.subsystem_number === p.subsystem_number && p.subsystem_number != null)
+export function paramsOf(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number' | 'project_sub'>, all: ParamDef[]) {
+  const key = scopeOf(p)
+  const shared = key === 'none' ? [] : all.filter((d) => !d.prototype_id && d.season === p.season && scopeOf(d) === key)
   const own = all.filter((d) => d.prototype_id === p.id)
   return [...shared.sort((a, b) => a.position - b.position), ...own.sort((a, b) => a.position - b.position)]
 }
@@ -384,7 +429,7 @@ export function startersFor(items: LibItem[], name: string) {
  * when it has no subsystem. Fields already there (same name) are skipped; "only when" links are
  * turned from field names into the new parameter ids.
  */
-export function addLibItems(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, items: LibItem[], existing: ParamDef[]): Promise<{ error?: string }> {
+export function addLibItems(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number' | 'project_sub'>, items: LibItem[], existing: ParamDef[]): Promise<{ error?: string }> {
   // One at a time, so a double tap waits for the first add and then skips what it added.
   const run = addQueue.then(() => addLibItemsNow(p, items, existing))
   addQueue = run.catch(() => undefined)
@@ -392,12 +437,12 @@ export function addLibItems(p: Pick<Prototype, 'id' | 'season' | 'subsystem_numb
 }
 let addQueue: Promise<unknown> = Promise.resolve()
 
-async function addLibItemsNow(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number'>, items: LibItem[], given: ParamDef[]): Promise<{ error?: string }> {
+async function addLibItemsNow(p: Pick<Prototype, 'id' | 'season' | 'subsystem_number' | 'project_sub'>, items: LibItem[], given: ParamDef[]): Promise<{ error?: string }> {
   // What's on screen can be behind the database (still loading, or someone else just added it),
   // so read the current set before adding.
-  const shared = p.subsystem_number != null
+  const shared = scopeOf(p) !== 'none'
   const { data: now, error: readError } = shared
-    ? await supabase.from('param_defs').select('*').or(`prototype_id.eq.${p.id},and(prototype_id.is.null,season.eq.${p.season},subsystem_number.eq.${p.subsystem_number})`)
+    ? await supabase.from('param_defs').select('*').or(`prototype_id.eq.${p.id},and(prototype_id.is.null,${scopeFilter(p)})`)
     : await supabase.from('param_defs').select('*').eq('prototype_id', p.id)
   if (readError) return { error: readError.message }
   const existing = [...given, ...((now ?? []) as ParamDef[]).filter((d) => !given.some((g) => g.id === d.id))]
@@ -416,6 +461,7 @@ async function addLibItemsNow(p: Pick<Prototype, 'id' | 'season' | 'subsystem_nu
         .insert({
           season: p.season,
           subsystem_number: p.subsystem_number,
+          ...(p.project_sub ? { project_sub: p.project_sub } : {}),
           prototype_id: shared ? null : p.id,
           name: f.name,
           unit: f.kind === 'number' ? f.unit : '',
@@ -528,8 +574,13 @@ export function bestTest(tests: Test[]) {
 
 // ---------- Actions ----------
 
+/** A subsystem's saved layout row: by number for a season subsystem, by id for a project's. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const layoutQuery = (q: any, x: { season: number; subsystem_number: number | null; project_sub?: string | null }) =>
+  x.project_sub ? q.eq('season', x.season).eq('project_sub', x.project_sub) : q.eq('season', x.season).eq('subsystem_number', x.subsystem_number).is('project_sub', null)
+
 export async function createPrototype(
-  row: { season: number; subsystem_number: number | null; name: string; concept: string },
+  row: { season: number; subsystem_number: number | null; project_sub?: string | null; name: string; concept: string },
   who: Who,
   /** The subsystem's name, which picks the starter parameters. */
   subName?: string | null,
@@ -537,22 +588,23 @@ export async function createPrototype(
   const { data, error } = await supabase
     .from('prototypes')
     // No owner: the lead follows the subsystem's lead (leadOf).
-    .insert({ ...row, owner_id: null, created_by: who.userId, status: 'idea' })
+    .insert({ ...row, project_sub: row.project_sub || undefined, owner_id: null, created_by: who.userId, status: 'idea' })
     .select()
     .single()
   if (error) return { error: error.message }
   // Start from the subsystem's saved layout, or the default one.
   let layout = DEFAULT_LAYOUT
-  if (row.subsystem_number != null) {
-    const { data: l } = await supabase.from('subsystem_layouts').select('layout').eq('season', row.season).eq('subsystem_number', row.subsystem_number).maybeSingle()
+  const scoped = scopeOf(row) !== 'none'
+  if (scoped) {
+    const { data: l } = await layoutQuery(supabase.from('subsystem_layouts').select('layout'), row).maybeSingle()
     if (Array.isArray(l?.layout) && l.layout.length) layout = l.layout as typeof DEFAULT_LAYOUT
   }
   await supabase.from('prototype_blocks').insert(layout.map((b, i) => ({ prototype_id: data.id, kind: b.kind, title: b.title, position: i + 1, updated_by: who.userId })))
   // Starter parameters from the library, by the subsystem's name (or the prototype's, with none
   // yet), unless the subsystem already has its set.
   const had =
-    row.subsystem_number != null
-      ? (await supabase.from('param_defs').select('id').is('prototype_id', null).eq('season', row.season).eq('subsystem_number', row.subsystem_number).limit(1)).data
+    scoped
+      ? (await supabase.from('param_defs').select('id').is('prototype_id', null).or(`and(${scopeFilter(row)})`).limit(1)).data
       : []
   if (!had?.length) {
     const { data: lib } = await supabase.from('param_library').select('*').order('position')
@@ -701,9 +753,11 @@ export async function deleteBlock(b: Block) {
   return {}
 }
 
-export async function saveLayout(season: number, subsystemNumber: number, blocks: Block[]) {
+export async function saveLayout(p: Pick<Prototype, 'season' | 'subsystem_number' | 'project_sub'>, blocks: Block[]) {
   const layout = blocks.sort((a, b) => a.position - b.position).map((b) => ({ kind: b.kind, title: b.title }))
-  const { error } = await supabase.from('subsystem_layouts').upsert({ season, subsystem_number: subsystemNumber, layout })
+  const { error } = await supabase
+    .from('subsystem_layouts')
+    .upsert({ season: p.season, subsystem_number: p.subsystem_number, project_sub: p.project_sub ?? null, layout }, { onConflict: 'season,subsystem_number,project_sub' })
   return error ? { error: error.message } : {}
 }
 

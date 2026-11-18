@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { ProtoStatusTag, ResultTag, TestVideo } from '../../components/proto'
 import { Select } from '../../components/Select'
-import { bestTest, fmtValue, measureScore, paramsOf, RESULT_WORD, resultScore, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
+import { bestTest, fmtValue, measureScore, paramsOf, RESULT_WORD, resultScore, scopeOf, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
 import { supabase } from '../../lib/supabase'
 
 // Two to four prototypes of one subsystem side by side: one row per parameter, differences
@@ -27,8 +27,8 @@ export default function Compare() {
   const { subsystemsOf } = useSeasons()
   const subs = season ? subsystemsOf(season) : []
   const chosen = ids.map((id) => prototypes.find((p) => p.id === id)).filter((p): p is Prototype => !!p)
-  const subNo = chosen[0]?.subsystem_number ?? null
-  const pool = prototypes.filter((p) => p.subsystem_number === subNo && tests.some((t) => t.prototype_id === p.id))
+  const subNo = chosen[0] ? scopeOf(chosen[0]) : 'none'
+  const pool = prototypes.filter((p) => scopeOf(p) === subNo && tests.some((t) => t.prototype_id === p.id))
 
   // Which test each column shows, in the URL as t=<protoId>:<n>,…
   const picked = useMemo(() => new Map((q.get('t') ?? '').split(',').filter(Boolean).map((s) => s.split(':') as [string, string])), [q])

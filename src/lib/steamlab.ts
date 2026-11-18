@@ -105,11 +105,11 @@ export async function loadDay(day: string, ctx: Ctx): Promise<DayData> {
       .limit(5000),
     supabase
       .from('prototype_tests')
-      .select('id, n, result, measure_name, measure_value, by_name, at, prototype:prototypes!inner(id, name, season, subsystem_number)')
+      .select('id, n, result, measure_name, measure_value, by_name, at, prototype:prototypes!inner(id, name, season, subsystem_number, project_sub)')
       .gte('at', dayFrom)
       .lt('at', until)
       .order('at'),
-    supabase.from('prototypes').select('id, name, season, subsystem_number, updated_at').eq('status', 'chosen').gte('updated_at', dayFrom).lt('updated_at', until),
+    supabase.from('prototypes').select('id, name, season, subsystem_number, project_sub, updated_at').eq('status', 'chosen').gte('updated_at', dayFrom).lt('updated_at', until),
     supabase.from('cal_updates').select('group_id, text, created_at').eq('day', day),
     supabase.from('cal_phases').select('group_id, name, done_at').gte('done_at', dayFrom).lt('done_at', until),
   ])
@@ -122,6 +122,8 @@ export async function loadDay(day: string, ctx: Ctx): Promise<DayData> {
     .filter((r) => (r.end ?? Infinity) > from && r.start < to)
     .map((r) => ({ ...r, subsystemId: partOf.get(r.partId)?.subsystem_id ?? '' }))
 
+  // A project prototype names its subsystem; a season one goes by number.
+  const subOfProto = (x: { season: number; subsystem_number: number | null; project_sub?: string | null }) => x.project_sub ?? subByNumber(x.season, x.subsystem_number)
   const subByNumber = (season: number, n: number | null) => ctx.subs.find((s) => s.number === n && ctx.robots.some((r) => r.id === s.robot_id && r.season === season && !r.offseason))?.id ?? null
   const feed: FeedItem[] = []
   for (const r of runs)
@@ -129,15 +131,15 @@ export async function loadDay(day: string, ctx: Ctx): Promise<DayData> {
       const p = partOf.get(r.partId)
       feed.push({ t: r.end, kind: 'done', text: `${first(r.who)} finished ${r.partNo} ${p?.name ?? ''}`.trim(), meta: `${r.machine} · ${ctx.nameOfSub(r.subsystemId)}`, sub: r.subsystemId, link: `/manufacturing/p/${r.partId}` })
     }
-  type Test = { id: string; n: number; result: string | null; measure_name: string; measure_value: number | null; by_name: string | null; at: string; prototype: { id: string; name: string; season: number; subsystem_number: number | null } }
+  type Test = { id: string; n: number; result: string | null; measure_name: string; measure_value: number | null; by_name: string | null; at: string; prototype: { id: string; name: string; season: number; subsystem_number: number | null; project_sub?: string | null } }
   for (const x of (tests.data as unknown as Test[] | null) ?? []) {
-    const sub = subByNumber(x.prototype.season, x.prototype.subsystem_number)
+    const sub = subOfProto(x.prototype)
     const measure = x.measure_value != null && x.measure_name ? `${x.measure_name} ${x.measure_value}` : x.result ? RESULT[x.result] ?? x.result : ''
     feed.push({ t: +new Date(x.at), kind: 'test', text: `${x.by_name ? first(x.by_name) : 'Someone'} filmed test ${x.n} of ${x.prototype.name}`, meta: ['Prototypes', ctx.nameOfSub(sub), measure].filter(Boolean).join(' · '), sub, link: `/prototypes/${x.prototype.id}` })
   }
-  type Pick = { id: string; name: string; season: number; subsystem_number: number | null; updated_at: string }
+  type Pick = { id: string; name: string; season: number; subsystem_number: number | null; project_sub?: string | null; updated_at: string }
   for (const x of (picks.data as Pick[] | null) ?? []) {
-    const sub = subByNumber(x.season, x.subsystem_number)
+    const sub = subOfProto(x)
     feed.push({ t: +new Date(x.updated_at), kind: 'pick', text: `${x.name} chosen for the robot`, meta: ['Prototypes', ctx.nameOfSub(sub)].filter(Boolean).join(' · '), sub, link: `/prototypes/${x.id}` })
   }
   const sent = new Set<string>()

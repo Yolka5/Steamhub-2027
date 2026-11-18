@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { ProtoStatusTag, ResultTag, TestVideo } from '../../components/proto'
 import { Select } from '../../components/Select'
-import { bestTest, keyLines, measureScore, paramsOf, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
+import { bestTest, keyLines, measureScore, paramsOf, scopeOf, subLabel, usePrototypes, useSeasons, type ParamDef, type Prototype, type Test } from '../../lib/proto'
 
 // One subsystem's season of prototyping on one page: what was tried, what was chosen and why,
 // and the best video of each. Written for next season's team to read before kickoff.
@@ -17,11 +17,12 @@ export default function Summary() {
   const { prototypes, tests, params, loading } = usePrototypes(season)
   const subs = subsystemsOf(season)
   const subParam = q.get('sub')
-  const subNo = subParam === 'none' || subParam == null ? null : Number(subParam)
+  const subNo = subParam ?? 'none'
 
   // Subsystems that have prototypes this season, for the switcher.
-  const withProtos = [...new Set(prototypes.map((p) => p.subsystem_number))].sort((a, b) => (a ?? 1e9) - (b ?? 1e9))
-  const mine = prototypes.filter((p) => p.subsystem_number === subNo).sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.created_at.localeCompare(b.created_at))
+  const rank = (k: string) => (k === 'none' ? 1e9 : (subs.findIndex((s) => s.key === k) + 1 || 1e8))
+  const withProtos = [...new Set(prototypes.map(scopeOf))].sort((a, b) => rank(a) - rank(b))
+  const mine = prototypes.filter((p) => scopeOf(p) === subNo).sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.created_at.localeCompare(b.created_at))
   const testsOf = (id: string) => tests.filter((t) => t.prototype_id === id)
   const allTests = mine.flatMap((p) => testsOf(p.id))
   const measureName = allTests.find((t) => t.measure_name)?.measure_name
@@ -52,9 +53,9 @@ export default function Summary() {
         {withProtos.length > 1 && (
           <Select
             className="field--inline"
-            value={subNo == null ? 'none' : String(subNo)}
+            value={subNo}
             onChange={(v) => set('sub', v)}
-            options={withProtos.map((n) => ({ value: n == null ? 'none' : String(n), label: subLabel(n, subs) }))}
+            options={withProtos.map((n) => ({ value: n, label: subLabel(n, subs, true) }))}
           />
         )}
       </div>

@@ -879,8 +879,8 @@ export const CHAPTERS: Chapter[] = [
             <A to="/tools">Tools</A> has every calculator, plus links to JVN, AMB and ReCalc further down. On a phone, open it from its tile on Home.
           </>
         ),
-        how: [<>The Calendar.</>, <>Motor and gearbox: gear ratio, current and battery budget.</>, <>Tap drills and holes.</>, <>Center distance for belts, chains and gears.</>],
-        shot: { name: 'tools', alt: 'The Tools page with Calendar, Motor and gearbox, Tap drills and holes and Center distance marked 1 to 4.' },
+        how: [<>Motor and gearbox: gear ratio, current and battery budget.</>, <>Tap drills and the full cheat sheet: screws, bearings, hex shaft.</>, <>Center distance for belts, chains and gears.</>, <>Swerve ratios.</>],
+        shot: { name: 'tools', alt: 'The Tools page with Motor and gearbox, Tap drills and cheat sheet, Center distance and Swerve ratios marked 1 to 4.' },
       },
       {
         title: 'Motor and gearbox calculator',

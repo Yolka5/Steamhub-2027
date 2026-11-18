@@ -412,22 +412,25 @@ function SheetTable({ title, head, rows, note, highlight }: { title: string; hea
 const withDrill = (mmv: number, drill?: string): string | number => (drill ? `${mmv.toFixed(2)} (${drill})` : mmv)
 const threadRow = (t: Thread): Row => [t.name, `${+t.pitch.toFixed(3)}`, withDrill(t.tap, t.tapDrill), withDrill(t.close, t.closeDrill), withDrill(t.free, t.freeDrill)]
 
+// Flange: the flanged version's (FR6, FR8, F608, F68xx). Flanged 6000-series bearings are rare, so
+// none is listed. From vendor drawings (NSK, SKDIN, QTEC); brands differ by a tenth, so check yours.
+const NONE = '–'
 const BEARINGS: Row[] = [
-  ['R6-2RS / FR6-2RS', 9.525, 22.225, 7.142],
-  ['R8-2RS / FR8-2RS', 12.7, 28.575, 7.938],
-  ['608', 8, 22, 7],
-  ['6800', 10, 19, 5],
-  ['6801', 12, 21, 5],
-  ['6802', 15, 24, 5],
-  ['6803', 17, 26, 5],
-  ['6804', 20, 32, 7],
-  ['6805', 25, 37, 7],
-  ['6806', 30, 42, 7],
-  ['6000', 10, 26, 8],
-  ['6001', 12, 28, 8],
-  ['6002', 15, 32, 9],
-  ['6003', 17, 35, 10],
-  ['6004', 20, 42, 12],
+  ['R6-2RS / FR6-2RS', 9.525, 22.225, 7.142, 24.613, 1.575],
+  ['R8-2RS / FR8-2RS', 12.7, 28.575, 7.938, 31.115, 1.575],
+  ['608 / F608', 8, 22, 7, 25, 1.5],
+  ['6800 / F6800', 10, 19, 5, 21, 1],
+  ['6801 / F6801', 12, 21, 5, 23, 1.1],
+  ['6802 / F6802', 15, 24, 5, 26, 1.1],
+  ['6803 / F6803', 17, 26, 5, 28, 1.1],
+  ['6804 / F6804', 20, 32, 7, 35, 1.5],
+  ['6805 / F6805', 25, 37, 7, 40, 1.5],
+  ['6806 / F6806', 30, 42, 7, 45, 1.5],
+  ['6000', 10, 26, 8, NONE, NONE],
+  ['6001', 12, 28, 8, NONE, NONE],
+  ['6002', 15, 32, 9, NONE, NONE],
+  ['6003', 17, 35, 10, NONE, NONE],
+  ['6004', 20, 42, 12, NONE, NONE],
 ]
 
 const HEX: Row[] = [
@@ -577,7 +580,12 @@ export function SheetTab() {
       />
       </div>
       <div className="sheet-grid">
-      <SheetTable title="Bearings" head={['Bearing', 'ID (mm)', 'OD (mm)', 'Width (mm)']} rows={BEARINGS} note="R6 and R8 widths are for sealed bearings (open ones are thinner). Flanged versions add a flange, so check the vendor drawing for the flange size before cutting a pocket." />
+      <SheetTable
+        title="Bearings"
+        head={['Bearing', 'ID (mm)', 'OD (mm)', 'Width (mm)', 'Flange OD (mm)', 'Flange width (mm)']}
+        rows={BEARINGS}
+        note="Width is the whole bearing, flange included. R6 and R8 widths are for sealed bearings (open ones are thinner). For a flanged bearing, the pocket is the OD, as deep as the width minus the flange width. Brands differ by a tenth, so check the drawing of the one you bought."
+      />
       <SheetTable title="Hex shaft" head={['Shaft', 'Across flats (mm)', 'Across corners (mm)', 'Hex bearing OD (mm)']} rows={HEX} note="Hex bearing ODs are 7/8 in and 1.125 in (same as R8). Width changes by vendor, so check the drawing." />
       </div>
       {/* Last on purpose: the team rarely uses imperial screws. */}

@@ -41,7 +41,7 @@ export const HELP = {
   wheelRpm: 'The wheel speed you want, in RPM.',
   ratio: 'The gear ratio you want to test. It is run at the target speed above.',
   travelPivot: 'How far one move swings, in degrees. Used for the move time below.',
-  travelLinear: 'How far the carriage goes in one move, in cm. Used for the move time below.',
+  travelLinear: 'How far the carriage goes in one move, in mm. Used for the move time below.',
 
   // Mechanism results
   heroRatio: 'The gear ratio the results are based on. Find ratio = suggested. Check a ratio = yours.',

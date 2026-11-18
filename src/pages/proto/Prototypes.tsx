@@ -6,7 +6,7 @@ import { Select } from '../../components/Select'
 import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { ago } from '../../lib/mfg'
-import { createPrototype, keyLines, paramsOf, STATUS_WORD, STATUSES, subLabel, usePrototypes, useSeasons, type Prototype, type ProtoStatus, type Test } from '../../lib/proto'
+import { createPrototype, keyLines, paramsOf, scopeColumns, scopeOf, STATUS_WORD, STATUSES, subLabel, subOptions, usePrototypes, useSeasons, type Prototype, type ProtoStatus, type ProtoSub, type Test } from '../../lib/proto'
 
 // Every prototype of the season, grouped by subsystem. Filters live in the URL.
 
@@ -20,7 +20,7 @@ export default function Prototypes() {
   const [adding, setAdding] = useState(q.get('new') === '1')
   const navigate = useNavigate()
 
-  const subFilter = q.get('sub') // a number, "none" or null for all
+  const subFilter = q.get('sub') // a subsystem key (scopeOf), "none" or null for all
   const status = (q.get('status') as ProtoStatus | null) ?? null
   const showDropped = q.get('dropped') === '1'
   const set = (k: string, v: string | null) => {
@@ -33,9 +33,11 @@ export default function Prototypes() {
   const shown = prototypes.filter(
     (p) =>
       (status ? p.status === status : showDropped || p.status !== 'dropped') &&
-      (subFilter == null || (subFilter === 'none' ? p.subsystem_number == null : p.subsystem_number === Number(subFilter))),
+      (subFilter == null || scopeOf(p) === subFilter),
   )
-  const groupKeys = [...new Set(shown.map((p) => p.subsystem_number))].sort((a, b) => (a ?? 1e9) - (b ?? 1e9))
+  // Season subsystems in number order, then the projects' in the picker's order, then no subsystem.
+  const rank = (k: string) => (k === 'none' ? 1e9 : (subs.findIndex((s) => s.key === k) + 1 || 1e8))
+  const groupKeys = [...new Set(shown.map(scopeOf))].sort((a, b) => rank(a) - rank(b))
   const testsOf = (id: string) => tests.filter((t) => t.prototype_id === id).sort((a, b) => b.n - a.n)
   const dropped = prototypes.filter((p) => p.status === 'dropped').length
 
@@ -61,7 +63,7 @@ export default function Prototypes() {
           className="field--inline"
           value={subFilter ?? ''}
           onChange={(v) => set('sub', v)}
-          options={[{ value: '', label: 'All subsystems' }, ...subs.map((s) => ({ value: String(s.number), label: `${s.number} ${s.name}` })), { value: 'none', label: 'No subsystem yet' }]}
+          options={[{ value: '', label: 'All subsystems' }, ...subOptions(subs), { value: 'none', label: 'No subsystem yet' }]}
         />
         <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label="Status">
           {[null, ...STATUSES.filter((s) => s !== 'dropped')].map((s) => (
@@ -94,14 +96,15 @@ export default function Prototypes() {
         <p className="soft">No prototypes match these filters.</p>
       ) : (
         groupKeys.map((n) => {
-          const list = shown.filter((p) => p.subsystem_number === n)
+          const list = shown.filter((p) => scopeOf(p) === n)
           const tested = list.filter((p) => testsOf(p.id).length > 0)
-          const sub = subs.find((s) => s.number === n)
+          const sub = subs.find((s) => s.key === n)
           return (
-            <section key={n ?? 'none'} className="mfg-group">
+            <section key={n} className="mfg-group">
               <div className="mfg-group__head">
                 <h2 className="section__title">{subLabel(n, subs)}</h2>
-                <Link className="soft small" to={`/prototypes/summary?sub=${n ?? 'none'}${season !== current ? `&season=${season}` : ''}`}>
+                {sub?.project_sub && <span className="soft small">{sub.robotName}</span>}
+                <Link className="soft small" to={`/prototypes/summary?sub=${n}${season !== current ? `&season=${season}` : ''}`}>
                   Season summary
                 </Link>
                 {sub && (
@@ -129,7 +132,7 @@ export default function Prototypes() {
         <NewPrototype
           season={season}
           subs={subs}
-          defaultSub={subFilter && subFilter !== 'none' ? Number(subFilter) : null}
+          defaultSub={subFilter && subFilter !== 'none' ? subFilter : null}
           onDone={(p) => {
             setAdding(false)
             navigate(`/prototypes/${p.id}`)
@@ -176,14 +179,15 @@ export function NewPrototype({
   onDone,
 }: {
   season: number
-  subs: { number: number; name: string }[]
-  defaultSub: number | null
+  subs: ProtoSub[]
+  /** A subsystem key (scopeOf). */
+  defaultSub: string | null
   onDone: (p: Prototype) => void
 }) {
   const who = useWho()
   const toast = useToast()
   const [name, setName] = useState('')
-  const [sub, setSub] = useState(defaultSub != null ? String(defaultSub) : '')
+  const [sub, setSub] = useState(defaultSub ?? '')
   const [concept, setConcept] = useState('')
   const [busy, run] = useBusy()
 
@@ -191,7 +195,7 @@ export function NewPrototype({
     run(async () => {
       if (!who) return
       if (!name.trim()) return toast('Give it a name, like "Double roller"')
-      const res = await createPrototype({ season, subsystem_number: sub ? Number(sub) : null, name: name.trim(), concept: concept.trim() }, who, subs.find((s) => String(s.number) === sub)?.name)
+      const res = await createPrototype({ season, ...scopeColumns(sub || 'none', subs), name: name.trim(), concept: concept.trim() }, who, subs.find((s) => s.key === sub)?.name)
       if (res.error) return toast(res.error)
       onDone(res.data!)
     })
@@ -210,7 +214,7 @@ export function NewPrototype({
       </label>
       <label className="ctl">
         <span className="ctl__name">Subsystem</span>
-        <Select value={sub} onChange={setSub} options={[{ value: '', label: 'No subsystem yet' }, ...subs.map((s) => ({ value: String(s.number), label: `${s.number} ${s.name}` }))]} />
+        <Select value={sub} onChange={setSub} options={[{ value: '', label: 'No subsystem yet' }, ...subOptions(subs)]} />
         <span className="soft small">
           {subs.length ? "It starts with the subsystem's parameters, so its tests line up with the others." : 'No subsystems this season yet. Add them under Manufacturing → Robots, or pick one later.'}
         </span>

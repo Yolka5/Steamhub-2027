@@ -43,7 +43,7 @@ const TABS: Rows = [
   ['Voltage map', 'One motor at several voltages: torque at every speed, and what a battery current from 1 to 40 A gives at each voltage.'],
   ['Motors', 'Motor datasheet numbers. Edit them or add a motor.'],
   ['Center distance', 'Belts, chain and gears: the center distance for real belt and chain sizes.'],
-  ['Cheat sheet', 'Tap drills, clearance holes, bearings and hex shaft.'],
+  ['Cheat sheet', 'Tap drills, clearance holes, bearings with their flanges and hex shaft.'],
 ]
 
 const IDEAS: Rows = [
@@ -60,8 +60,8 @@ const MODES: Rows = [
 ]
 
 const INPUTS: Rows = [
-  ['Pivot', 'Load mass (kg), distance to its center of mass (cm), target speed (deg/s).'],
-  ['Linear', 'Rigging (cascade or continuous), carriage mass, middle stage mass, stages, pulley radius (cm), target speed (m/s).'],
+  ['Pivot', 'Load mass (kg), distance to its center of mass (mm), target speed (deg/s).'],
+  ['Linear', 'Rigging (cascade or continuous), carriage mass, middle stage mass, stages, pulley radius (mm), target speed (m/s).'],
   ['Roller', 'Wheel diameter, spinning mass, drag torque, spin-up time, target speed (RPM).'],
 ]
 

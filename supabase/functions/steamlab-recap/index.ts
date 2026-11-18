@@ -109,8 +109,8 @@ async function collect(day: string) {
   const [parts, events, tests, picks, updates, groups, phases, people, notes] = await Promise.all([
     subIds.length ? db.from('parts').select('id, subsystem_id, status, machine, done_at').in('subsystem_id', subIds) : Promise.resolve({ data: [] }),
     db.from('part_events').select('part_id, action, by_name, details, at, part:parts!inner(part_no, machine, name, subsystem_id)').in('action', [...STARTS, ...ENDS]).gte('at', iso(from - 12 * 60 * MIN)).lt('at', iso(to)).order('at').limit(5000),
-    db.from('prototype_tests').select('n, result, measure_name, measure_value, by_name, at, prototype:prototypes!inner(name, season, subsystem_number)').gte('at', iso(from)).lt('at', iso(to)),
-    db.from('prototypes').select('name, season, subsystem_number').eq('status', 'chosen').gte('updated_at', iso(from)).lt('updated_at', iso(to)),
+    db.from('prototype_tests').select('n, result, measure_name, measure_value, by_name, at, prototype:prototypes!inner(name, season, subsystem_number, project_sub)').gte('at', iso(from)).lt('at', iso(to)),
+    db.from('prototypes').select('name, season, subsystem_number, project_sub').eq('status', 'chosen').gte('updated_at', iso(from)).lt('updated_at', iso(to)),
     db.from('cal_updates').select('group_id, text').eq('day', day),
     seasons.length ? db.from('cal_groups').select('id, season, kind, subsystem_number, subsystem_id, name, lead_id').in('season', seasons) : Promise.resolve({ data: [] }),
     db.from('cal_phases').select('id, group_id, name, kind, robot_id, sort, starts_on, ends_on, done_at'),
@@ -124,6 +124,8 @@ async function collect(day: string) {
   const subOfGroup = (g: Group) =>
     g.kind === 'project' ? subs.find((s) => s.id === g.subsystem_id) : g.kind === 'subsystem' ? subs.find((s) => s.number === g.subsystem_number && active.some((r) => r.id === s.robot_id && r.season === g.season && !r.offseason)) : undefined
   const subByNumber = (season: number, n: number | null) => subs.find((s) => s.number === n && active.some((r) => r.id === s.robot_id && r.season === season && !r.offseason))
+  // A project prototype names its own subsystem.
+  const subOfProto = (p: { season: number; subsystem_number: number | null; project_sub?: string | null }) => (p.project_sub ? subs.find((s) => s.id === p.project_sub) : subByNumber(p.season, p.subsystem_number))
 
   const runs = pairRuns(((events.data ?? []) as unknown as Ev[])).filter((r) => (r.end ?? Infinity) > from && r.start < to)
   const counted = (r: Run) => Math.max(0, Math.min(r.end ?? to, to, r.start + STALE) - Math.max(r.start, from))
@@ -203,16 +205,16 @@ async function collect(day: string) {
     byPerson.set(k, v)
   }
 
-  type Test = { n: number; result: string | null; measure_name: string; measure_value: number | null; by_name: string | null; prototype: { name: string; season: number; subsystem_number: number | null } }
+  type Test = { n: number; result: string | null; measure_name: string; measure_value: number | null; by_name: string | null; prototype: { name: string; season: number; subsystem_number: number | null; project_sub?: string | null } }
   const testList = ((tests.data ?? []) as unknown as Test[]).map((t) => ({
     prototype: t.prototype.name,
-    subsystem: subByNumber(t.prototype.season, t.prototype.subsystem_number)?.name ?? null,
+    subsystem: subOfProto(t.prototype)?.name ?? null,
     test: t.n,
     result: t.result,
     measured: t.measure_value != null && t.measure_name ? `${t.measure_name} ${t.measure_value}` : null,
     by: first(t.by_name),
   }))
-  const chosen = ((picks.data ?? []) as { name: string; season: number; subsystem_number: number | null }[]).map((p) => ({ prototype: p.name, subsystem: subByNumber(p.season, p.subsystem_number)?.name ?? null }))
+  const chosen = ((picks.data ?? []) as { name: string; season: number; subsystem_number: number | null; project_sub?: string | null }[]).map((p) => ({ prototype: p.name, subsystem: subOfProto(p)?.name ?? null }))
   const phasesDone = ps.filter((p) => p.done_at && +new Date(p.done_at) >= from && +new Date(p.done_at) < to).map((p) => ({ group: gs.find((g) => g.id === p.group_id)?.name ?? null, phase: p.name }))
   const expected = subsystems.filter((s) => s.daily_update_expected)
 

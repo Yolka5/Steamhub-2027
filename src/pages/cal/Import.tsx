@@ -133,7 +133,123 @@ function GoogleCalendar() {
         !linked && <p className="soft small">An admin links it once, from this page.</p>
       )}
       <p className="soft small">Events that come from Google are changed in Google; the next sync puts back edits made here.</p>
+      {linked && <SendToGoogle />}
     </section>
+  )
+}
+
+// ----- Steamhub to Google -----
+
+type Push = { on?: boolean; pushed_at?: string; tried_at?: string; count?: number; error?: string | null; email?: string }
+
+/** The other way: events made in Steamhub written into the same Google calendar (gcal-push). */
+function SendToGoogle() {
+  const { isAdmin } = useAuth()
+  const toast = useToast()
+  const [busy, run] = useBusy()
+  const [push, setPush] = useState<Push | null>(null)
+  const [who, setWho] = useState<{ email: string | null } | null>(null)
+  const load = () =>
+    supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'google_calendar_push')
+      .maybeSingle()
+      .then(({ data }) => setPush((data?.value as Push) ?? {}))
+  useEffect(() => {
+    load()
+    // Which account to share the calendar with: the service account in the server's secrets.
+    supabase.functions.invoke('gcal-push', { body: { who: true } }).then(({ data }) => setWho((data as { email: string | null }) ?? { email: null }))
+  }, [])
+
+  const send = () =>
+    run(async () => {
+      const { data, error } = await supabase.functions.invoke('gcal-push', { body: {} })
+      await load()
+      if (error) {
+        let why: string | undefined
+        try {
+          why = (await (error as { context?: Response }).context?.json())?.error
+        } catch {
+          /* no body */
+        }
+        return toast(why ?? 'Sending did not run. Try again in a minute.')
+      }
+      const d = data as { sent: number; removed: number }
+      toast(d.sent || d.removed ? `${d.sent} sent to Google${d.removed ? `, ${d.removed} removed` : ''}` : 'Google is up to date')
+    })
+
+  const turn = (on: boolean) =>
+    run(async () => {
+      const { error } = await supabase.from('settings').upsert({ key: 'google_calendar_push', value: { ...(push ?? {}), on, error: null }, updated_at: new Date().toISOString() })
+      if (error) return toast(error.message)
+      await load()
+      if (on) {
+        // Everything made here so far goes out now.
+        const { error: e2 } = await supabase.functions.invoke('gcal-push', { body: {} })
+        await load()
+        if (e2) return toast('Turned on, but the first send failed. The reason is below.')
+        toast('Steamhub events now go to Google too')
+      }
+    })
+
+  if (push == null) return null
+  const email = who?.email ?? push.email ?? null
+  return (
+    <div className="imp__push">
+      <h3 className="imp__h">Steamhub to Google</h3>
+      <p className="soft">Events made here go into the same Google calendar right after each change. Each event is edited where it was made.</p>
+      {push.on ? (
+        <div className="imp__status">
+          <Icon name="calendar" size={20} />
+          <span className="imp__status-main">
+            <span className="strong">{push.error ? 'Last send failed' : `${push.count ?? 0} events sent to Google`}</span>
+            <span className={`small ${push.error ? 'imp__bad' : 'soft'}`}>{push.error ?? (push.pushed_at ? `Last sent ${ago(push.pushed_at)}` : 'Not sent yet')}</span>
+          </span>
+          <button type="button" className="q-btn" onClick={send}>
+            {busy ? 'Sending' : 'Send now'}
+          </button>
+        </div>
+      ) : null}
+      {isAdmin ? (
+        email ? (
+          <>
+            {!push.on && (
+              <ol className="imp__steps soft small">
+                <li>
+                  In Google Calendar, open the team calendar's settings, then <strong>Share with specific people</strong>.
+                </li>
+                <li>
+                  Add <span className="strong num">{email}</span> with <strong>Make changes to events</strong>.
+                </li>
+                <li>Turn sending on here.</li>
+              </ol>
+            )}
+            <button type="button" className={push.on ? 'text-btn' : 'q-btn'} onClick={() => turn(!push.on)}>
+              {push.on ? 'Stop sending to Google' : 'Turn on sending to Google'}
+            </button>
+          </>
+        ) : (
+          <div className="soft small">
+            <p>Sending needs a Google service account, set up once:</p>
+            <ol className="imp__steps">
+              <li>
+                At console.cloud.google.com, make a project and turn on the <strong>Google Calendar API</strong>.
+              </li>
+              <li>
+                Under IAM, Service accounts, create one, then Keys, Add key, JSON. A file downloads.
+              </li>
+              <li>
+                In Supabase, Edge Functions, Secrets, add <span className="num">GOOGLE_SERVICE_ACCOUNT</span> with the whole file as the value.
+              </li>
+              <li>Come back here: it shows the account's email to share the calendar with.</li>
+            </ol>
+          </div>
+        )
+      ) : (
+        !push.on && <p className="soft small">An admin turns this on, from this page.</p>
+      )}
+    </div>
   )
 }
 

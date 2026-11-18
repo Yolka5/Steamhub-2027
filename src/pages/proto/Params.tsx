@@ -22,7 +22,7 @@ export function ParamsPanel({ proto, params, current, subName }: { proto: Protot
   const own = params.filter((d) => d.prototype_id)
   const library = useLibrary().items
   const suggestions = libSuggestions(library, params).slice(0, 6)
-  const hasSub = proto.subsystem_number != null
+  const hasSub = proto.subsystem_number != null || !!proto.project_sub
   const nameOf = (id: string) => params.find((d) => d.id === id)?.name ?? 'another parameter'
 
   const quickAdd = async (item: (typeof library)[number]) => {
@@ -92,7 +92,7 @@ export function ParamsPanel({ proto, params, current, subName }: { proto: Protot
 
 function ParamForm({ proto, def, params, subName, onDone }: { proto: Prototype; def: ParamDef | null; params: ParamDef[]; subName: string | null; onDone: () => void }) {
   const toast = useToast()
-  const hasSub = proto.subsystem_number != null
+  const hasSub = proto.subsystem_number != null || !!proto.project_sub
   const [name, setName] = useState(def?.name ?? '')
   const [unit, setUnit] = useState(def?.unit ?? '')
   const [kind, setKind] = useState<ParamKind>(def?.kind ?? 'number')
@@ -123,6 +123,7 @@ function ParamForm({ proto, def, params, subName, onDone }: { proto: Prototype; 
       prototype_id: shared && hasSub ? null : proto.id,
       season: proto.season,
       subsystem_number: proto.subsystem_number,
+      ...(proto.project_sub ? { project_sub: proto.project_sub } : {}),
     }
     const res = def ? await updateParam(def.id, row) : await addParam(row, params)
     if (res.error) return toast(res.error)

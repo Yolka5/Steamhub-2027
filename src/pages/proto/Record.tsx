@@ -36,7 +36,7 @@ export default function Record() {
                   <span className="strong" dir="auto">
                     {p.name}
                   </span>
-                  <span className="soft small">{subLabel(p.subsystem_number, subs)}</span>
+                  <span className="soft small">{subLabel(p, subs, true)}</span>
                 </span>
                 <ProtoStatusTag status={p.status} />
               </Link>

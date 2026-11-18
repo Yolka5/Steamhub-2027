@@ -1,3 +1,5 @@
+import { numIn } from '../lib/units'
+import { UnitInput } from './UnitInput'
 import { useState } from 'react'
 import { cutPiece } from '../lib/actions'
 import { useAuth } from '../lib/auth'
@@ -17,7 +19,7 @@ export function CutSheet({ piece, onClose }: { piece: Piece | null; onClose: () 
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<{ id: string; leftover: number } | null>(null)
 
-  const final = Number(text.replace(',', '.'))
+  const final = numIn(text, 'mm') ?? NaN
   const valid = text.trim() !== '' && Number.isFinite(final) && final > 0 && piece != null && final <= piece.length
   const leftover = piece && valid ? Math.max(0, Math.round((piece.length - final - KERF) * 10) / 10) : null
 
@@ -72,11 +74,10 @@ export function CutSheet({ piece, onClose }: { piece: Piece | null; onClose: () 
             </p>
             <label className="ctl">
               <span className="ctl__name">Final length from the drawing (mm)</span>
-              <input
-                className="field num"
-                inputMode="decimal"
+              <UnitInput
+                unit="mm"
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={setText}
                 placeholder={piece.planned_length ? `Planned ${piece.planned_length}` : undefined}
                 data-autofocus
               />

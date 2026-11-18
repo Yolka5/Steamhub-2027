@@ -1,3 +1,4 @@
+import { readTyped } from '../../lib/units'
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
@@ -96,7 +97,11 @@ export default function TestForm() {
       const v = values[d.id]
       if (v === undefined || v === null || v === '') continue
       if (d.kind !== 'number') clean[d.id] = v
-      else if (Number.isFinite(Number(v))) clean[d.id] = Number(v)
+      else {
+        // "50mm" typed for an inch parameter counts in inches.
+        const n = typeof v === 'number' ? v : readTyped(String(v), d.unit).value
+        if (n != null && Number.isFinite(n)) clean[d.id] = n
+      }
     }
     // Values of parameters that were deleted since stay as they were on an edited test.
     if (existing) for (const [k, v] of Object.entries(existing.values)) if (!params.some((d) => d.id === k)) clean[k] = v

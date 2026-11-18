@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom'
 import { Poster, ProtoStatusTag } from '../../components/proto'
-import { keyLines, paramsOf, usePrototypes } from '../../lib/proto'
+import { keyLines, paramsOf, scopeOf, usePrototypes } from '../../lib/proto'
 
 // On a Manufacturing subsystem page: the chosen prototype first with its key parameters, then the
-// others. Matched by season and subsystem number, so V1 and V2 show the same prototypes.
+// others. Matched by season and subsystem number, so V1 and V2 show the same prototypes; an
+// off-season project's subsystem (projectSub) by its own id.
 
-export function SubsystemPrototypes({ season, number, name }: { season: number; number: number; name: string }) {
+export function SubsystemPrototypes({ season, number, name, projectSub }: { season: number; number: number; name: string; projectSub?: string }) {
   const { prototypes, tests, params } = usePrototypes(season)
-  const mine = prototypes.filter((p) => p.subsystem_number === number)
+  const key = projectSub ?? String(number)
+  const mine = prototypes.filter((p) => scopeOf(p) === key)
   if (!mine.length) return null
   const chosen = mine.filter((p) => p.status === 'chosen')
   const others = mine.filter((p) => p.status !== 'chosen' && p.status !== 'dropped')
@@ -18,10 +20,10 @@ export function SubsystemPrototypes({ season, number, name }: { season: number; 
       <div className="mfg-bar-head">
         <h2 className="section__title">Prototypes</h2>
         <span className="pt-subsys__links small">
-          <Link to={`/prototypes/summary?sub=${number}&season=${season}`} className="soft">
+          <Link to={`/prototypes/summary?sub=${key}&season=${season}`} className="soft">
             Season summary
           </Link>
-          <Link to={`/prototypes?sub=${number}`} className="soft">
+          <Link to={`/prototypes?sub=${key}`} className="soft">
             All {mine.length} {name} prototypes
           </Link>
         </span>

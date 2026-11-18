@@ -256,7 +256,7 @@ function MechEditor({
           {m.type === 'pivot' && (
             <>
               <NumField help={HELP.pivotMass} label="Load mass" unit="kg" value={m.pivotMass} min={0} step={0.1} onChange={(v) => edit({ pivotMass: v })} />
-              <NumField help={HELP.pivotDist} label="Distance to centre of mass" unit="cm" value={m.pivotDist} min={0} step={1} onChange={(v) => edit({ pivotDist: v })} />
+              <NumField help={HELP.pivotDist} label="Distance to centre of mass" unit="mm" store="cm" value={m.pivotDist} min={0} step={1} onChange={(v) => edit({ pivotDist: v })} />
               <NumField help={HELP.pivotSpeed} label="Target speed" unit="deg/s" value={m.pivotSpeed} min={0} step={10} onChange={(v) => edit({ pivotSpeed: v })} />
               <NumField help={HELP.travelPivot} label="Angle of one move" unit="deg" value={travelOf(m)} min={1} step={5} onChange={(v) => edit({ travel: v })} />
             </>
@@ -279,14 +279,14 @@ function MechEditor({
                 <Help text={HELP.rigging} />
               </div>
               <NumField help={HELP.stages} label="Stages" value={m.stages} min={1} max={6} whole step={1} onChange={(v) => edit({ stages: v })} />
-              <NumField help={HELP.pulleyRadius} label="Pulley radius" unit="cm" value={m.pulleyRadius} min={0.1} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
+              <NumField help={HELP.pulleyRadius} label="Pulley radius" unit="mm" store="cm" value={m.pulleyRadius} min={0.1} step={0.05} onChange={(v) => edit({ pulleyRadius: v })} />
               <NumField help={HELP.linearSpeed} label="Target speed" unit="m/s" value={m.linearSpeed} min={0} step={0.1} onChange={(v) => edit({ linearSpeed: v })} />
-              <NumField help={HELP.travelLinear} label="Carriage travel" unit="cm" value={travelOf(m)} min={1} step={5} onChange={(v) => edit({ travel: v })} />
+              <NumField help={HELP.travelLinear} label="Carriage travel" unit="mm" store="cm" value={travelOf(m)} min={1} step={5} onChange={(v) => edit({ travel: v })} />
             </>
           )}
           {m.type === 'roller' && (
             <>
-              <NumField help={HELP.wheelDiameter} label="Wheel diameter" unit="cm" value={m.wheelDiameter} min={0.1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
+              <NumField help={HELP.wheelDiameter} label="Wheel diameter" unit="mm" store="cm" value={m.wheelDiameter} min={0.1} step={0.1} onChange={(v) => edit({ wheelDiameter: v })} />
               <NumField help={HELP.spinMass} label="Spinning mass" unit="kg" value={m.spinMass} min={0} step={0.05} onChange={(v) => edit({ spinMass: v })} />
               <NumField help={HELP.dragTorque} label="Drag from game piece" unit="Nm" value={m.dragTorque} min={0} step={0.05} onChange={(v) => edit({ dragTorque: v })} />
               <NumField help={HELP.spinUp} label="Spin-up time" unit="s" value={m.spinUp} min={0.01} step={0.05} onChange={(v) => edit({ spinUp: v })} />
@@ -331,7 +331,7 @@ function MechEditor({
         {m.type !== 'roller' && (
           <Stat
             help={HELP.moveTime}
-            label={m.type === 'pivot' ? `Time to move ${f(travelOf(m), 0)}°` : `Time to travel ${f(travelOf(m), 0)} cm`}
+            label={m.type === 'pivot' ? `Time to move ${f(travelOf(m), 0)}°` : `Time to travel ${f(travelOf(m) * 10, 0)} mm`}
             value={f(r.move?.time, 2)}
             unit="s"
           />

@@ -1966,6 +1966,31 @@
   gap: 0.75rem;
 }
 
+.imp__push {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+}
+
+.imp__push > .imp__status {
+  justify-self: stretch;
+}
+
+.imp__steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+/* On the Calendar while Google isn't linked: one quiet line, gone once it is. */
+.cal-connect {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+}
+
 .imp__form .q-btn {
   justify-self: start;
 }

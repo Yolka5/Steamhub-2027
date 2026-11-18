@@ -67,8 +67,9 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
     for (const ph of cal.phases) {
       const g = groupOf.get(ph.group_id)
       if (!g) continue
-      if (ph.kind === 'prototypes' && g.subsystem_number != null) {
-        const mine = prototypes.filter((p) => p.subsystem_number === g.subsystem_number && p.status !== 'dropped')
+      // A season group follows its number's prototypes; a project group its own subsystem's.
+      if (ph.kind === 'prototypes' && (g.kind === 'project' ? !!g.subsystem_id : g.subsystem_number != null)) {
+        const mine = prototypes.filter((p) => (g.kind === 'project' ? p.project_sub === g.subsystem_id : !p.project_sub && p.subsystem_number === g.subsystem_number) && p.status !== 'dropped')
         const t = tests.filter((x) => mine.some((p) => p.id === x.prototype_id)).length
         const chosen = mine.find((p) => p.status === 'chosen')
         out.set(ph.id, {

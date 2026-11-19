@@ -59,8 +59,24 @@ export function registerServiceWorker() {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reg.update().catch(() => {})
     })
+    // Wall screens (the TV, the full-screen PCs) are never hidden, so they also check on a timer.
+    window.setInterval(() => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {})
+    }, CHECK_EVERY)
   })
+
+  // A screen left on Home with nobody touching it takes the new version by itself: there is no
+  // half-typed form to lose, and a touch-only kiosk may have no one around to tap Refresh.
+  for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart'])
+    window.addEventListener(ev, () => (lastInput = Date.now()), { passive: true, capture: true })
+  window.setInterval(() => {
+    if (waiting && location.pathname === '/' && Date.now() - lastInput > IDLE_BEFORE_SWITCH) applyUpdate()
+  }, 30000)
 }
+
+const CHECK_EVERY = 10 * 60 * 1000
+const IDLE_BEFORE_SWITCH = 3 * 60 * 1000
+let lastInput = Date.now()
 
 /** Switch to the new version now. The page reloads once the new worker takes over. */
 export function applyUpdate() {

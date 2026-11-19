@@ -59,9 +59,8 @@ export function WorkshopNow() {
     return parts.filter((p) => p.machine !== 'Bought' && p.status !== 'cancelled' && active.has(p.subsystem_id))
   }, [parts, robots, subs])
 
-  // Nothing released yet (between seasons): no card.
-  if (!live.length) return null
-
+  // Nothing released (between seasons) still shows the rooms, every machine idle: the TV and PC
+  // Homes are built around this card, and a blank half-screen reads as broken.
   // PC and TV have room for both rooms, side by side, each with its own machines.
   if (!phone)
     return (

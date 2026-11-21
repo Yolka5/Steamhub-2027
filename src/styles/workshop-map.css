@@ -699,6 +699,10 @@
   margin-bottom: 0.75rem;
 }
 
+.people__bulk {
+  margin: 0.75rem 0;
+}
+
 .people__add .field {
   flex: 1;
   min-width: 0;

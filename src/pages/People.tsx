@@ -142,7 +142,7 @@ function Admin({ userId, edits }: { userId: string | null; edits: boolean }) {
   )
 }
 
-/** People who asked to join from the sign-in screen (request_join). Approving adds their email to the list. */
+/** People who asked for access from the sign-in screen (request_join). Approving adds their email to the list. */
 function JoinRequests({ edits, onApproved }: { edits: boolean; onApproved: () => void }) {
   const toast = useToast()
   const [rows, setRows] = useState<{ id: number; shown_email: string; name: string; note: string | null; created_at: string }[]>([])
@@ -160,13 +160,27 @@ function JoinRequests({ edits, onApproved }: { edits: boolean; onApproved: () =>
     if (ok) onApproved()
     toast(ok ? `${name} can sign in now` : `Declined ${name}`)
   }
+  // When the link goes out to the whole team, requests come in by the dozen.
+  const approveAll = async () => {
+    const results = await Promise.all(rows.map((r) => supabase.rpc('decide_join', { p_id: r.id, p_ok: true })))
+    const failed = results.filter((r) => r.error).length
+    await load()
+    onApproved()
+    const done = rows.length - failed
+    toast(failed ? `Approved ${done}, ${failed} didn't go through. Try again.` : done === 1 ? `${rows[0].name} can sign in now` : `${done} people can sign in now`)
+  }
   if (!rows.length) return null
   return (
     <section className="section">
       <h2 className="section__title">
-        Asked to join <span className="soft num">{rows.length}</span>
+        Asking for access <span className="soft num">{rows.length}</span>
       </h2>
       <p className="soft small">Sent from the sign-in screen. Approving adds the email to the list below; tell them they can sign in.</p>
+      {edits && rows.length > 1 && (
+        <button type="button" className="q-btn q-btn--main people__bulk" onClick={approveAll}>
+          Approve all {rows.length}
+        </button>
+      )}
       <ul className="rows">
         {rows.map((r) => (
           <li key={r.id} className="row">
@@ -179,7 +193,7 @@ function JoinRequests({ edits, onApproved }: { edits: boolean; onApproved: () =>
             </span>
             {edits && (
               <span className="row__end">
-                <button type="button" className="q-btn q-btn--small q-btn--main" onClick={() => decide(r.id, true, r.name)}>
+                <button type="button" className={`q-btn q-btn--small${rows.length === 1 ? ' q-btn--main' : ''}`} onClick={() => decide(r.id, true, r.name)}>
                   Approve
                 </button>
                 <button type="button" className="q-btn q-btn--small" onClick={() => decide(r.id, false, r.name)}>

@@ -29,17 +29,16 @@ function refusedSignIn() {
     : err
 }
 
-const NOT_LISTED = "That Google account isn't on Steamhub's list yet. Ask to join below, then sign in again once you're approved."
+const NOT_LISTED = "That Google account doesn't have access yet. Ask for access below, then sign in again once Yoni lets you in."
 
 /**
- * For someone who isn't on the list yet: their name and Google email go to the admin as a
- * request (request_join in the database). The answer is the same whether or not the email is
+ * For someone who isn't on the list yet, new or not: their name and Google email go to the admin
+ * as an access request (request_join in the database). The answer is the same whether or not the email is
  * already listed, so this can't be used to find out who is on the team.
  */
-function AskToJoin({ onCancel }: { onCancel: () => void }) {
+function AskForAccess({ onCancel }: { onCancel: () => void }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
@@ -50,7 +49,7 @@ function AskToJoin({ onCancel }: { onCancel: () => void }) {
     if (name.trim().length < 2) return setMsg('Write your full name first.')
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setMsg('Write the Google email you sign in with.')
     setBusy(true)
-    const { data, error } = await supabase.rpc('request_join', { p_email: email.trim(), p_name: name.trim(), p_note: note.trim() || null })
+    const { data, error } = await supabase.rpc('request_join', { p_email: email.trim(), p_name: name.trim() })
     setBusy(false)
     if (error) return setMsg(navigator.onLine ? "The request didn't go through. Try again." : 'No connection. Try again when you are online.')
     if (data === 'bad_email') return setMsg('Write the Google email you sign in with.')
@@ -63,7 +62,7 @@ function AskToJoin({ onCancel }: { onCancel: () => void }) {
   if (sent)
     return (
       <div className="gate__ask">
-        <p className="gate__sent">Request sent. Yoni gets a notification.</p>
+        <p className="gate__sent">Request sent. Yoni lets you in, usually the same day.</p>
         <p className="soft small">Once you're approved, come back here and sign in with {email.trim()}.</p>
         <button type="button" className="q-btn q-btn--wide" onClick={onCancel}>
           Back to sign in
@@ -81,13 +80,9 @@ function AskToJoin({ onCancel }: { onCancel: () => void }) {
         <span className="ctl__name">Google email you'll sign in with</span>
         <input className="field" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="name@gmail.com" />
       </label>
-      <label className="ctl">
-        <span className="ctl__name">Anything Yoni should know (optional)</span>
-        <input className="field" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="New on the CAD team" />
-      </label>
       {msg && <p className="error small">{msg}</p>}
       <button type="submit" className="q-btn q-btn--main q-btn--wide">
-        {busy ? 'Sending' : 'Ask to join'}
+        {busy ? 'Sending…' : 'Ask for access'}
       </button>
       <button type="button" className="q-btn q-btn--wide" onClick={onCancel}>
         Back to sign in
@@ -109,16 +104,16 @@ export function SignIn() {
         <p className="soft gate__sub">FRC 1577 Steampunk's stock, tools and manufacturing. Sign in with Google to come in.</p>
         {error && <p className="error small">{error}</p>}
         {asking ? (
-          <AskToJoin onCancel={() => setAsking(false)} />
+          <AskForAccess onCancel={() => setAsking(false)} />
         ) : (
           <>
             <button type="button" className="q-btn q-btn--big q-btn--wide" onClick={async () => setError(await signIn())}>
               <GoogleMark /> Sign in with Google
             </button>
             <p className="soft small gate__new">
-              New on the team?{' '}
+              First time on Steamhub?{' '}
               <button type="button" className="text-btn" onClick={() => setAsking(true)}>
-                Ask to join
+                Ask for access
               </button>
             </p>
           </>

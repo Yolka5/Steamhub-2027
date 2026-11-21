@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 
@@ -96,6 +96,11 @@ export function SignIn() {
   const [error, setError] = useState<string | null>(refusedSignIn)
   // Someone who was just refused lands straight on the request form.
   const [asking, setAsking] = useState(() => error === NOT_LISTED)
+  // While sign-ups are open to everyone (signups_open_until), there's nothing to ask for.
+  const [open, setOpen] = useState<boolean | null>(null)
+  useEffect(() => {
+    supabase.rpc('signups_open_until').then(({ data }) => setOpen(!!data), () => setOpen(false))
+  }, [])
   return (
     <main className="gate">
       <div className="shell gate__box">
@@ -110,12 +115,12 @@ export function SignIn() {
             <button type="button" className="q-btn q-btn--big q-btn--wide" onClick={async () => setError(await signIn())}>
               <GoogleMark /> Sign in with Google
             </button>
-            <p className="soft small gate__new">
+            {open === false && <p className="soft small gate__new">
               First time on Steamhub?{' '}
               <button type="button" className="text-btn" onClick={() => setAsking(true)}>
                 Ask for access
               </button>
-            </p>
+            </p>}
           </>
         )}
       </div>

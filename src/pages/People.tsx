@@ -209,6 +209,52 @@ function JoinRequests({ edits, onApproved }: { edits: boolean; onApproved: () =>
 }
 
 /**
+ * While settings 'signups_open_until' is in the future, any Google account can make an account
+ * (handle_new_user). It closes by itself at that time; Close now ends it early.
+ */
+function OpenSignups({ edits }: { edits: boolean }) {
+  const toast = useToast()
+  const [until, setUntil] = useState<Date | null | undefined>(undefined)
+  const load = async () => {
+    const { data } = await supabase.rpc('signups_open_until')
+    setUntil(data ? new Date(data as string) : null)
+  }
+  useEffect(() => {
+    load()
+  }, [])
+  const set = async (to: Date | null) => {
+    const { error } = to
+      ? await supabase.from('settings').upsert({ key: 'signups_open_until', value: to.toISOString(), updated_at: new Date().toISOString() })
+      : await supabase.from('settings').delete().eq('key', 'signups_open_until')
+    if (error) return toast(error.message)
+    await load()
+    toast(to ? 'Sign-ups open for 24 hours' : 'Sign-ups closed. Only the list below can join.')
+  }
+  if (until === undefined) return null
+  if (!until)
+    return edits ? (
+      <button type="button" className="q-btn people__bulk" onClick={() => set(new Date(Date.now() + 24 * 3600e3))}>
+        Open sign-ups for 24 hours
+      </button>
+    ) : null
+  const when = until.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return (
+    <div className="mfg-note mfg-note--warn">
+      <p>
+        <span className="strong">Sign-ups are open until {when}.</span> Any Google account can sign in and get an account, not only the list below. After that the list applies again by itself.
+      </p>
+      {edits && (
+        <span>
+          <button type="button" className="q-btn q-btn--small" onClick={() => set(null)}>
+            Close now
+          </button>
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
  * Emails that may make a new account. Accounts that already exist sign in as before; anyone else
  * gets "not on the list" (handle_new_user in the database refuses them).
  */
@@ -258,6 +304,7 @@ function WhoCanJoin({ userId, edits }: { userId: string | null; edits: boolean }
     <section className="section">
       <h2 className="section__title">Who can join</h2>
       <p className="soft small">Only these emails can make a new account. Everyone above already has one and keeps it. Removing an email here doesn't remove an account; use Ban for that.</p>
+      <OpenSignups edits={edits} />
       {edits && <form className="inline-form people__add" onSubmit={add}>
         <input className="field" type="text" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" aria-label="Email to allow" />
         <button type="submit" className="q-btn">

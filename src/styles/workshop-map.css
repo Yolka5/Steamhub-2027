@@ -691,7 +691,12 @@
 
 .people__acts {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.people__acts .q-btn {
+  white-space: nowrap;
 }
 
 .people__add {

@@ -98,6 +98,12 @@ export default function Board() {
       }
       toggle(p.id, e.shiftKey, order)
     } else if (selecting) {
+      // A card in select mode is a <label> round its checkbox, which toggles it. Handling the tap
+      // here too ran two toggles, and cancelling a tap on the box itself left it out of step.
+      if ((e.target as HTMLElement).closest('.task--select')) {
+        anchor.current = p.id
+        return
+      }
       e.preventDefault()
       e.stopPropagation()
       toggle(p.id, false, order)
@@ -293,7 +299,7 @@ export default function Board() {
           <Icon name="people" /> Hand out
         </button>
       )}
-      {selecting && <p className="soft small">Tick parts, Shift-click for a run of them, or All on a column. Then pick who makes them.</p>}
+      {selecting && <p className="soft small">Tick parts<span className="mouse-only">, Shift-click for a run of them,</span> or All on a column. Then pick who makes them.</p>}
 
       {error && !tasks.length ? (
         <LoadError onRetry={reload} />

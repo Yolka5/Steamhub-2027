@@ -36,6 +36,7 @@ import Guide from './pages/mfg/Guide'
 import Board, { MfgStart } from './pages/mfg/Board'
 import PersonList from './pages/mfg/PersonList'
 import LabelPage from './pages/mfg/Label'
+import DrawingsPage from './pages/mfg/Drawings'
 import Prototypes from './pages/proto/Prototypes'
 import PrototypePage from './pages/proto/PrototypePage'
 import TestForm from './pages/proto/TestForm'
@@ -377,6 +378,7 @@ export default function App() {
             <Route path="/manufacturing/s/:id/guide" element={<Guide />} />
             <Route path="/manufacturing/wishlist" element={<Wishlist />} />
             <Route path="/manufacturing/label" element={<LabelPage />} />
+            <Route path="/manufacturing/drawings" element={<DrawingsPage />} />
             <Route path="/prototypes" element={<Prototypes />} />
             <Route path="/prototypes/record" element={<Record />} />
             <Route path="/prototypes/compare" element={<Compare />} />

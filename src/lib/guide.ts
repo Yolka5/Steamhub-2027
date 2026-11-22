@@ -3,6 +3,7 @@ import { download, gunzip } from './mfg'
 import { buildPDFz, jointHardware, setHardwareStock, Svg, textW, wrapText } from './step/engine'
 import type { AJoint, Analysis, Res } from './step/worker'
 import { supabase } from './supabase'
+import { count } from './words'
 
 // Bolt table and assembly guide, read from what the upload saved (see upload.ts, saveAnalysis).
 // Pictures are vector data drawn into SVG on screen and into the PDF for printing.
@@ -169,7 +170,7 @@ export async function guidePdf(a: Analysis, analysisPath: string, title: string,
   header(cover, 1)
   cover.text(12, 184, 'Assembly guide', 9)
   cover.text(12, 175, title, 5)
-  cover.text(12, 168, `${a.steps.length} steps, one for each pair of parts that go together`, 3.4)
+  cover.text(12, 168, `${count(a.steps.length, 'step')}, one for each pair of parts that go together`, 3.4)
   let y = 156
   cover.text(12, y, 'Tools you need', 4.2)
   y -= 6.5

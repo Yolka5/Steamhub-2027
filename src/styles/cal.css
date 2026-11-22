@@ -1986,9 +1986,18 @@
 /* On the Calendar while Google isn't linked: one quiet line, gone once it is. */
 .cal-connect {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
   margin: 0 0 0.75rem;
+}
+
+.cal-connect > span {
+  flex: 1 1 12rem;
+}
+
+.cal-connect .q-btn {
+  white-space: nowrap;
 }
 
 .imp__form .q-btn {

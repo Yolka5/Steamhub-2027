@@ -35,7 +35,7 @@ export const CHAPTERS: Chapter[] = [
         title: 'Sign in',
         how: [
           <>
-            Open <A to="/">steamhub1577.com</A> and press <B>Sign in with Google</B>. Any Google account works.
+            Open <A to="/">steamhub1577.com</A> and press <B>Sign in with Google</B>. If your account is new to Steamhub, press <B>Ask for access</B> and sign in again once you're let in.
           </>,
         ],
         tip: 'You stay signed in after that. To open it like an app, add it to your home screen: Share, then Add to Home Screen on an iPhone; the ⋮ menu, then Add to Home screen on Android.',

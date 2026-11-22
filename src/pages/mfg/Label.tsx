@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { LoadError, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { loadGeometry } from '../../lib/drawing'
@@ -181,7 +181,10 @@ export default function LabelPage() {
     <div className="page label">
       <header className="page__head">
         <h1 className="page__title">Label parts</h1>
-        <p className="soft">The right machines for each part, so we can score how well uploads guess.</p>
+        <p className="soft">
+          The right machines for each part, so we can score how well uploads guess. Drawings are corrected in{' '}
+          <Link to="/manufacturing/drawings">drawing training</Link>.
+        </p>
       </header>
 
       <div className="label__bar">

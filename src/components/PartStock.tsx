@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { reservePiece } from '../lib/actions'
 import { useWho } from '../lib/auth'
 import { loadGeometry } from '../lib/drawing'
-import { barDims, hexDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
+import { barDims, bentThickness, hexDims, stockLength, updatePart, type Part, type Subsystem } from '../lib/mfg'
 import { cutFromPlate, fitGroups, plateArea, plateMaterialOf, STATE_WORD, tText, usePlates, type PlateState } from '../lib/plates'
 import { tubeWall } from '../lib/step/engine'
 import { findMatches, sizeLabel, type Query } from '../lib/stock'
@@ -49,9 +49,15 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
   const { plates, setPlates } = usePlates()
   const who = useWho()
   const toast = useToast()
-  const fits = useMemo(() => fitGroups(plates, part.size.map(Number), plateMaterialOf(part.material)), [plates, part.size, part.material])
+  // A bent part's box is the bent shape: match on its sheet thickness and leave the size to the
+  // maker, who knows the flat blank.
+  const bent = bentThickness(part)
+  const fits = useMemo(
+    () => (bent ? fitGroups(plates, [bent, bent, bent], plateMaterialOf(part.material)) : fitGroups(plates, part.size.map(Number), plateMaterialOf(part.material))),
+    [plates, part.size, part.material, bent],
+  )
   const used = plates.find((p) => p.id === part.plate_id)
-  const thick = Math.round(Math.min(...part.size.map(Number)) * 100) / 100
+  const thick = bent ?? Math.round(Math.min(...part.size.map(Number)) * 100) / 100
   const [busy, run] = useBusy()
 
   const cutFrom = (plateId: string, state: PlateState) =>
@@ -97,7 +103,9 @@ function PlatePick({ part, onPart }: { part: Part; onPart: (p: Part) => void }) 
         </p>
       ) : (
         <>
-          <p className="soft small num">{tText(thick)} mm plates that fit, partly used first. Tap what's left after you cut.</p>
+          <p className="soft small num">
+            {bent ? `Bent part: ${tText(thick)} mm plates, partly used first. Pick one big enough for the flat shape, then tap what's left after you cut.` : `${tText(thick)} mm plates that fit, partly used first. Tap what's left after you cut.`}
+          </p>
           {fits.map(({ plate: pl, n }) => (
             <div key={pl.id} className="stock-pick__row">
               <span className="num">

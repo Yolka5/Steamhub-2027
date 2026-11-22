@@ -341,7 +341,7 @@ export default function SubsystemPage() {
           <ol>
             <li>Open the subsystem's Assembly tab, not a Part Studio.</li>
             <li>Right-click the tab, choose Export, pick STEP and millimeters, one file.</li>
-            <li>Drop the file above. Every part gets a number from {sub.number}001, a machine, a material and a drawing.</li>
+            <li>Drop or choose the file above. Every part gets a number from {sub.number}001, a machine, a material and a drawing.</li>
           </ol>
           <p className="soft">Nothing reaches the workshop until you release it.</p>
         </div>
@@ -539,7 +539,8 @@ function Drop({ onFile, last }: { onFile: (f: File[], progress: (t: string) => v
             <span className="num">{busy}</span>
           ) : (
             <>
-              <strong>Drop the assembly STEP here</strong> or choose the file
+              <span className="mouse-only"><strong>Drop the assembly STEP here</strong> or choose the file</span>
+              <strong className="touch-only">Choose the assembly STEP</strong>
             </>
           )}
         </span>

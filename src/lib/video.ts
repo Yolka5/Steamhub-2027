@@ -60,34 +60,78 @@ export async function prepareVideo(file: File, onProgress: (p: number) => void):
   }
 }
 
-/** A JPEG of the frame at 1 s (or the middle of short clips), so lists show pictures, never video. */
+/**
+ * A JPEG of the frame at 1 s (or the middle of short clips), so lists show pictures, never video.
+ * Phones can report a seek done before the frame is drawn, and clips often open dark, so a black
+ * frame is tried again further in.
+ */
 export function posterOf(video: Blob): Promise<Blob | null> {
   return new Promise((resolve) => {
     const el = document.createElement('video')
     const url = URL.createObjectURL(video)
+    let finished = false
     const done = (b: Blob | null) => {
+      if (finished) return
+      finished = true
       URL.revokeObjectURL(url)
       el.removeAttribute('src')
       resolve(b)
     }
+    let times: number[] = []
+    let canvas: HTMLCanvasElement | null = null
     el.muted = true
     el.playsInline = true
     el.preload = 'auto'
     el.onloadedmetadata = () => {
-      el.currentTime = Math.min(1, (el.duration || 2) / 2)
+      const d = el.duration || 2
+      times = [Math.min(1, d / 2), d * 0.25, d * 0.5, d * 0.75].filter((t, i, a) => a.indexOf(t) === i)
+      el.currentTime = times.shift()!
     }
-    el.onseeked = () => {
+    const grab = () => {
       const scale = Math.min(1, 640 / Math.max(el.videoWidth, el.videoHeight))
-      const c = document.createElement('canvas')
+      const c = (canvas ??= document.createElement('canvas'))
       c.width = Math.round(el.videoWidth * scale)
       c.height = Math.round(el.videoHeight * scale)
-      c.getContext('2d')!.drawImage(el, 0, 0, c.width, c.height)
+      const ctx = c.getContext('2d', { willReadFrequently: true })!
+      ctx.drawImage(el, 0, 0, c.width, c.height)
+      if (isBlack(ctx, c.width, c.height) && times.length) {
+        el.currentTime = times.shift()!
+        return
+      }
       c.toBlob((b) => done(b), 'image/jpeg', 0.8)
+    }
+    el.onseeked = () => {
+      // Wait for the frame to be painted, where the browser can say so.
+      const v = el as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }
+      if (v.requestVideoFrameCallback) {
+        let called = false
+        const once = () => {
+          if (called) return
+          called = true
+          grab()
+        }
+        v.requestVideoFrameCallback(once)
+        setTimeout(once, 300)
+      } else setTimeout(grab, 120)
     }
     el.onerror = () => done(null)
     setTimeout(() => done(null), 15000)
     el.src = url
   })
+}
+
+/** True when a frame is (nearly) all black: sampled on a coarse grid. */
+function isBlack(ctx: CanvasRenderingContext2D, w: number, h: number): boolean {
+  if (!w || !h) return true
+  const d = ctx.getImageData(0, 0, w, h).data
+  const step = Math.max(1, Math.floor((w * h) / 400)) * 4
+  let sum = 0
+  let n = 0
+  for (let i = 0; i < d.length; i += step) {
+    sum += d[i] + d[i + 1] + d[i + 2]
+    n++
+  }
+  return sum / (n * 3) < 8
 }
 
 /**

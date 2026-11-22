@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase'
 import { useCal } from '../../lib/useCal'
 import { usePeople } from '../../lib/useMfg'
 import { readXlsx } from '../../lib/xlsx'
+import { count } from '../../lib/words'
 
 // Bringing other calendars and task lists in: Google Calendar on its own every hour, and Monday
 // boards from their Excel export.
@@ -73,7 +74,7 @@ function GoogleCalendar() {
         return toast(why ?? 'The sync did not run. Try again in a minute.')
       }
       const d = data as { count: number; removed: number }
-      toast(`${d.count} events from Google Calendar${d.removed ? `, ${d.removed} removed` : ''}`)
+      toast(`${count(d.count, 'event')} from Google Calendar${d.removed ? `, ${d.removed} removed` : ''}`)
     })
 
   const save = () =>
@@ -98,7 +99,7 @@ function GoogleCalendar() {
         <div className="imp__status">
           <Icon name="calendar" size={20} />
           <span className="imp__status-main">
-            <span className="strong">{feed.error ? 'Last sync failed' : `${feed.count ?? 0} events in sync`}</span>
+            <span className="strong">{feed.error ? 'Last sync failed' : `${count(feed.count ?? 0, 'event')} in sync`}</span>
             <span className={`small ${feed.error ? 'imp__bad' : 'soft'}`}>
               {feed.error ?? (feed.synced_at ? `Last read ${ago(feed.synced_at)}` : 'Not read yet')}
             </span>
@@ -203,7 +204,7 @@ function SendToGoogle() {
         <div className="imp__status">
           <Icon name="calendar" size={20} />
           <span className="imp__status-main">
-            <span className="strong">{push.error ? 'Last send failed' : `${push.count ?? 0} events sent to Google`}</span>
+            <span className="strong">{push.error ? 'Last send failed' : `${count(push.count ?? 0, 'event')} sent to Google`}</span>
             <span className={`small ${push.error ? 'imp__bad' : 'soft'}`}>{push.error ?? (push.pushed_at ? `Last sent ${ago(push.pushed_at)}` : 'Not sent yet')}</span>
           </span>
           <button type="button" className="q-btn" onClick={send}>
@@ -352,9 +353,9 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
       const owners = rows.flatMap((r) => r.owners.ids.map((user_id) => ({ task_id: ids.get(key(r))!, user_id }))).filter((o) => o.task_id)
       if (owners.length) await supabase.from('task_owners').upsert(owners, { onConflict: 'task_id,user_id', ignoreDuplicates: true })
       onDone()
-      setResult(`${payload.length} tasks from ${board.board} are on the Calendar${missing.length ? `. Not matched to anyone: ${missing.join(', ')}` : ''}.`)
+      setResult(`${count(payload.length, 'task')} from ${board.board} ${payload.length === 1 ? 'is' : 'are'} on the Calendar${missing.length ? `. Not matched to anyone: ${missing.join(', ')}` : ''}.`)
       setBoard(null)
-      toast(`${payload.length} tasks imported`)
+      toast(`${count(payload.length, 'task')} imported`)
     })
 
   const onDrop = (e: DragEvent) => {
@@ -389,7 +390,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
       {board && cols && (
         <div className="imp__map">
           <h3 className="imp__h">
-            {board.board} <span className="soft num">· {rows.length} tasks · {file}</span>
+            {board.board} <span className="soft num">· {count(rows.length, 'task')} · {file}</span>
           </h3>
 
           <div className="imp__grid">
@@ -408,7 +409,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
               <li key={g} className="row imp__group">
                 <span className="row__main">
                   <span className="strong">{g}</span>
-                  <span className="soft small num">{rows.filter((r) => r.group === g).length} tasks</span>
+                  <span className="soft small num">{count(rows.filter((r) => r.group === g).length, 'task')}</span>
                 </span>
                 <Select
                   className="field--inline"
@@ -438,7 +439,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
 
           <div className="imp__acts">
             <button type="button" className="q-btn q-btn--main" onClick={doImport}>
-              {busy ? 'Importing' : `Import ${rows.length} tasks`}
+              {busy ? 'Importing' : `Import ${count(rows.length, 'task')}`}
             </button>
             <button type="button" className="q-btn" onClick={() => setBoard(null)}>
               Cancel

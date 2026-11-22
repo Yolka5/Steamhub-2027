@@ -9,6 +9,7 @@ import { ReserveSheet } from '../components/ReserveSheet'
 import { KERF, KINDS, findMatches, nearMatches, parseQuery, type Kind, type Piece, type Query } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { usePhone } from '../lib/usePhone'
+import { count } from '../lib/words'
 
 const KIND_PICKS: { value: string; label: string }[] = [
   { value: '', label: 'Any' },
@@ -192,7 +193,7 @@ export default function Stock() {
               {q.length != null && ` (+${KERF} mm for the cut)`}.{' '}
             </>
           ) : (
-            `${available} pieces available. `
+            `${count(available, 'piece')} available. `
           )}
           {matches.length > 0 && (words.length ? `${matches.length} fit, least waste first.` : '')}
         </p>

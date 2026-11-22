@@ -35,7 +35,7 @@ export function YourTasks() {
       <div className="your-tasks__head">
         <h2 className="section__title">Your tasks</h2>
         <Link to="/calendar?mine=1" className="soft small">
-          All {openCount} open
+          {openCount ? `All ${openCount} open` : 'Calendar'}
         </Link>
       </div>
       {unsent.length > 0 && (

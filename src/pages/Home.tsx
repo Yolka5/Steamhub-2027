@@ -16,6 +16,7 @@ import { PartRow } from '../components/mfg'
 import { queueSort, type Part } from '../lib/mfg'
 import CncHome from './CncHome'
 import { useSteamlabAccess } from '../lib/steamlab'
+import { count } from '../lib/words'
 
 /** `tabbar`: the phone tab bar already has it, so phones hide the tile. `dock`: so does the TV's. */
 const QUICK: { to: string; label: string; hint: string; icon: IconName; tabbar?: boolean; dock?: boolean }[] = [
@@ -114,7 +115,7 @@ export default function Home() {
 function TeamHome() {
   const navigate = useNavigate()
   const openPalette = useOpenPalette()
-  const { pieces } = useStore()
+  const { pieces, loading } = useStore()
   const { userId, name, canAssign } = useAuth()
   const steamlab = useSteamlabAccess(userId)
   const asks = useAsksForMe(userId, canAssign)
@@ -156,7 +157,7 @@ function TeamHome() {
           </button>
         </form>
         <p className="soft small">
-          {available} pieces in stock.<span className="desk-only"> Press <kbd>Ctrl K</kbd> anywhere to search.</span>
+          {loading ? 'Loading stock…' : `${count(available, 'piece')} in stock.`}<span className="desk-only"> Press <kbd>Ctrl K</kbd> anywhere to search.</span>
         </p>
       </section>
 

@@ -424,3 +424,38 @@ a.tcol__name:hover {
   padding: 0;
   list-style: none;
 }
+
+/* Phone: the name and facts get two lines instead of being cut to a few letters. */
+@media (max-width: 599px) {
+  .task__name {
+    display: -webkit-box;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.25;
+  }
+
+  /* Number above the name, beside the picture. */
+  .task__link {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.6rem;
+    row-gap: 0;
+  }
+
+  .task__link > .thumb {
+    grid-row: span 2;
+  }
+
+  .task__link > .task__no {
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .task__link > :only-of-type.task__no,
+  .task__link:not(:has(> .thumb)) > .task__no,
+  .task__link:not(:has(> .thumb)) > .task__main {
+    grid-column: 1 / -1;
+  }
+}

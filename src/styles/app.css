@@ -1943,3 +1943,43 @@ dialog {
 .written__do {
   font-weight: 600;
 }
+
+/* Phone: a segmented picker that wraps gets even rows (3 + 3, 2 + 2) instead of 5 + a lone "Hex". */
+@media (max-width: 599px) {
+  .picks--seg.picks--wrap:not(:has(> .pick:nth-of-type(7))) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .picks--seg.picks--wrap:has(> .pick:nth-of-type(4)):not(:has(> .pick:nth-of-type(5))) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .picks--seg.picks--wrap:not(:has(> .pick:nth-of-type(4))) {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+
+  .picks--seg.picks--wrap:not(:has(> .pick:nth-of-type(7))) .pick {
+    justify-content: center;
+    text-align: center;
+    min-width: 0;
+  }
+}
+
+/* Wording for fingers vs a mouse: phones can't drag files in. */
+.touch-only {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .touch-only {
+    display: inline;
+  }
+
+  .mouse-only {
+    display: none;
+  }
+}

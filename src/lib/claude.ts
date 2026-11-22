@@ -59,7 +59,7 @@ export function usePartReviews(subsystemId: string) {
 }
 
 /** The drawing as a picture Claude can read: white paper, 1400 px wide. */
-async function svgToPng(svg: string): Promise<string> {
+export async function svgToPng(svg: string): Promise<string> {
   const withNs = /<svg[^>]*xmlns=/.test(svg) ? svg : svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')
   const url = URL.createObjectURL(new Blob([withNs], { type: 'image/svg+xml' }))
   try {
@@ -154,3 +154,11 @@ export function useRejectReports(subsystemId: string) {
   }
   return { reports, close }
 }
+
+// ---------- Drawing training (DRAWING_TRAINING.md) ----------
+
+/** Claude's upload check on a training example. Findings are stored on the example. */
+export const checkExample = (example_id: string, image: string) => ai<{ findings: Finding[] }>({ feature: 'part_review', example_id, image })
+
+/** Claude reads the corrections since the last notes and proposes new rules. */
+export const writeDrawingNotes = () => ai<{ added: number }>({ feature: 'drawing_notes' })

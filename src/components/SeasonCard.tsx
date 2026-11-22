@@ -10,6 +10,7 @@ import { createRobot, type Part, type Robot, type Subsystem } from '../lib/mfg'
 import { usePrototypes } from '../lib/proto'
 import { selectAll, supabase } from '../lib/supabase'
 import { usePeople, useRobots } from '../lib/useMfg'
+import { count } from '../lib/words'
 
 // The season card on Home, in the countdown's place once kickoff is past: one compact band with
 // the season's numbers, what it is, and the one thing to do next.
@@ -118,7 +119,7 @@ export function SeasonCard({ since, season }: { since: number; season: number })
       line={
         offerNext
           ? `${pct}% made. Start V${next} with the same subsystems?`
-          : `${total.done} of ${total.made} parts made${total.bought ? ` · ${total.got} of ${total.bought} bought in` : ''} · week ${week}, day ${day}`
+          : `${total.done} of ${count(total.made, 'part')} made${total.bought ? ` · ${total.got} of ${total.bought} bought in` : ''} · week ${week}, day ${day}`
       }
       actions={
         <>
@@ -169,7 +170,7 @@ function PrototypeWeek({ robot, subs, season }: { robot: Robot; subs: Subsystem[
 
   return (
     <Card
-      label={`Prototype week: ${prototypes.length} prototypes, ${tests.length} tests`}
+      label={`Prototype week: ${count(prototypes.length, 'prototype')}, ${count(tests.length, 'test')}`}
       units={
         <>
           <Unit value={prototypes.length} label="Prototypes" />
@@ -179,7 +180,7 @@ function PrototypeWeek({ robot, subs, season }: { robot: Robot; subs: Subsystem[
       }
       title="Prototype week"
       go={{ to: '/prototypes', label: 'Prototypes' }}
-      line={`${robot.name} · ${subs.length ? `${covered} of ${subs.length} subsystems have a prototype` : 'no subsystems yet'}`}
+      line={`${robot.name} · ${subs.length ? `${covered} of ${count(subs.length, 'subsystem')} ${covered === 1 ? 'has' : 'have'} a prototype` : 'no subsystems yet'}`}
       actions={
         <>
           <Link to="/prototypes/record" className="q-btn q-btn--main">
@@ -222,7 +223,7 @@ function SetupForm({ season, version, from, onDone }: { season: number; version:
         list.map((r) => ({ number: Number(r.number), name: r.name.trim(), lead_id: r.lead || null })),
       )
       if (res.error) return toast(res.error)
-      toast(`${name.trim()} is set up${list.length ? ` with ${list.length} subsystems` : ''}`)
+      toast(`${name.trim()} is set up${list.length ? ` with ${count(list.length, 'subsystem')}` : ''}`)
       onDone()
     })
 

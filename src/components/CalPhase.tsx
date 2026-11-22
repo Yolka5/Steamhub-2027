@@ -37,6 +37,7 @@ import type { Profile } from '../lib/mfg'
 import { useSigned } from '../lib/proto'
 import { applyRow, putRows, type Cal } from '../lib/useCal'
 import { QuickAdd } from '../pages/cal/Board'
+import { count } from '../lib/words'
 
 // The Calendar's rows, shared by the Board and the group page so they read the same everywhere:
 //   name · progress · notes · status · dates
@@ -436,7 +437,7 @@ export function PhaseRow({
   const all = cal.tasks.filter((t) => t.phase_id === p.id && !t.parent_id)
   const tasks = filterTasks ? all.filter(filterTasks) : all
   const doneCount = all.filter((t) => t.status === 'done').length
-  const line = prog?.line ?? (all.length ? `${doneCount} of ${all.length} tasks done` : 'No tasks yet')
+  const line = prog?.line ?? (all.length ? `${doneCount} of ${count(all.length, 'task')} done` : 'No tasks yet')
   const share = prog ? prog.share : all.length ? doneCount / all.length : null
   const notes = cal.notes.filter((n) => n.phase_id === p.id && !n.parent_id).length
   const suggest = !big && showSuggest(p, prog)

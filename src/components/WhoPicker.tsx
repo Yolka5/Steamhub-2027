@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import type { Maker, Part } from '../lib/mfg'
 import { usePeople } from '../lib/useMfg'
@@ -6,7 +7,8 @@ import { Sheet } from './ui'
 
 // The workshop PC signs in with one shared account (People marks it). Start on that account asks
 // who is really making the part, so the map, history and "manufactured by" name the person.
-// The same sheet picks who the workshop lead hands parts to. Both put recent picks first.
+// The same sheet picks who the workshop lead hands parts to. Both put recent picks first: whoever
+// was handed parts lately, by any lead on any device, then this device's own picks.
 
 const RECENT_KEY = 'steamhub.recentPicks'
 const RECENT_MAX = 8
@@ -28,6 +30,30 @@ function remember(m: Maker) {
   } catch {
     // Private mode: no recent picks, the search still works.
   }
+}
+
+/** People handed parts in the last two weeks, newest first, from any lead on any device. */
+function useTeamRecent(open: boolean) {
+  const [ids, setIds] = useState<string[]>([])
+  useEffect(() => {
+    if (!open) return
+    let live = true
+    const since = new Date(Date.now() - 14 * 86400000).toISOString()
+    supabase
+      .from('parts')
+      .select('assignee_id, assigned_at')
+      .not('assignee_id', 'is', null)
+      .gte('assigned_at', since)
+      .order('assigned_at', { ascending: false })
+      .limit(300)
+      .then(({ data }) => {
+        if (live && data) setIds([...new Set(data.map((r) => r.assignee_id as string))])
+      })
+    return () => {
+      live = false
+    }
+  }, [open])
+  return ids
 }
 
 /**
@@ -105,12 +131,30 @@ function PersonSheet({ open, title, sub, typed, onDone }: { open: boolean; title
 
   // Real people only: not the shared account, nobody banned. The shared PC can't pick itself.
   const real = useMemo(() => people.filter((p) => !p.shared && !p.banned && !(shared && p.id === userId)), [people, shared, userId])
+  const teamIds = useTeamRecent(open)
+  // Recent first: people handed parts lately, then this device's picks. Only real accounts (or
+  // typed names, where those are allowed).
+  const recent = useMemo(() => {
+    const team: Maker[] = teamIds.flatMap((id) => {
+      const p = real.find((x) => x.id === id)
+      return p ? [{ id: p.id, name: p.name }] : []
+    })
+    const mine = (open ? recentPicks() : []).filter((m) => (m.id ? real.some((p) => p.id === m.id) : !!typed))
+    const seen = new Set<string>()
+    return [...team, ...mine].filter((m) => {
+      const k = m.id ?? `name:${m.name}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    }).slice(0, RECENT_MAX)
+  }, [teamIds, open, real, typed])
   const list = useMemo(() => {
     const t = q.trim().toLowerCase()
-    return real.filter((p) => !t || p.name.toLowerCase().includes(t))
-  }, [real, q])
-  // Recent picks that are still real accounts (or typed names, where those are allowed).
-  const recent = useMemo(() => (open ? recentPicks() : []).filter((m) => (m.id ? real.some((p) => p.id === m.id) : !!typed)), [open, real, typed])
+    const rank = new Map(recent.flatMap((m, i) => (m.id ? [[m.id, i] as const] : [])))
+    return real
+      .filter((p) => !t || p.name.toLowerCase().includes(t))
+      .sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9))
+  }, [real, q, recent])
 
   const close = (m: Maker | null) => {
     if (m) remember(m)

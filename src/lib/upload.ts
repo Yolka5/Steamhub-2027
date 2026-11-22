@@ -1,4 +1,4 @@
-import { fileSafe, fromMethod, guessMaterial, gzip, logPart, MACHINES, notify, partName, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
+import { bentThickness, fileSafe, fromMethod, guessMaterial, gzip, logPart, MACHINES, notify, partName, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
 import type { Analysis, Res, WorkerMsg, WorkerPart } from './step/worker'
 import { supabase } from './supabase'
 
@@ -235,7 +235,7 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
       name: p.item.name,
       qty: p.item.qty,
       machine,
-      material: guessMaterial(machine, p.item.cls, p.item.size, p.item.name),
+      material: guessMaterial(machine, p.item.cls, p.item.size, p.item.name, bentThickness({ notes: routeNote(p.item) })),
       size: p.item.size.map((v) => Math.round(v * 100) / 100),
       cls: p.item.cls,
       bad: p.item.bad,

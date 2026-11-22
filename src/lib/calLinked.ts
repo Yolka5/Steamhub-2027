@@ -6,6 +6,7 @@ import { usePrototypes } from './proto'
 import { selectAll, supabase } from './supabase'
 import { useRobots } from './useMfg'
 import type { Cal } from './useCal'
+import { count } from './words'
 
 // Progress inside each phase, from what Steamhub already knows. Nobody types a percentage.
 //   Prototypes     prototypes and tests for the subsystem, and the chosen one
@@ -90,8 +91,8 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
         if (ph.kind === 'cad') {
           out.set(ph.id, {
             share: c.made ? c.released / c.made : null,
-            line: c.made ? `${c.released} of ${c.made} parts released` : 'No STEP uploaded yet',
-            suggest: c.made && c.released === c.made ? `All ${c.made} parts released. Finish ${ph.name}?` : null,
+            line: c.made ? `${c.released} of ${count(c.made, 'part')} released` : 'No STEP uploaded yet',
+            suggest: c.made && c.released === c.made ? `${c.made === 1 ? 'The part is' : `All ${c.made} parts`} released. Finish ${ph.name}?` : null,
             key: `c:${c.released}/${c.made}`,
             doneAt: latest(mineParts.map((p) => p.released_at)),
           })
@@ -99,7 +100,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
           const ready = (c.made > 0 && c.done === c.made && c.got === c.bought) || !!sub?.assembled
           out.set(ph.id, {
             share: c.made ? c.done / c.made : null,
-            line: c.made ? `${c.done} of ${c.made} parts made${c.bought ? ` · ${c.got} of ${c.bought} bought in` : ''}` : 'Nothing released yet',
+            line: c.made ? `${c.done} of ${count(c.made, 'part')} made${c.bought ? ` · ${c.got} of ${c.bought} bought in` : ''}` : 'Nothing released yet',
             suggest: ready ? `Every part is made${c.bought ? ' and in' : ''}. Finish ${ph.name}?` : null,
             key: `m:${c.done}/${c.made}/${c.got}/${c.bought}`,
             doneAt: latest(mineParts.map((p) => p.done_at)),
@@ -111,7 +112,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
       const done = list.filter((t) => t.status === 'done').length
       out.set(ph.id, {
         share: list.length ? done / list.length : null,
-        line: list.length ? `${done} of ${list.length} tasks done` : 'No tasks yet',
+        line: list.length ? `${done} of ${count(list.length, 'task')} done` : 'No tasks yet',
         suggest: list.length && done === list.length ? `Every task is done. Finish ${ph.name}?` : null,
         key: `t:${done}/${list.length}`,
         doneAt: latest(list.map((t) => t.done_at)),

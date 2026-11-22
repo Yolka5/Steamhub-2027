@@ -239,7 +239,7 @@ export const isDefaultName = (name: string) => /^\s*(part|body|solid)[\s_-]*\d+\
  * the workshop list never shows six different "Part 1"s. The stored name stays as it came from the
  * STEP, because a re-upload matches parts by that name.
  */
-export function partName(p: Pick<Part, 'name' | 'cls' | 'size'> & { part_no?: number; machine?: Machine }): string {
+export function partName(p: Pick<Part, 'name' | 'cls' | 'size'> & { part_no?: number; machine?: Machine; notes?: string | null }): string {
   // "3035 - Wheels Shaft" numbered 3035 shows as "Wheels Shaft": the number is already beside it.
   if (p.part_no != null) {
     const m = /^\s*(\d{3,5})\s*[-–_. ]\s*(\S.*)$/.exec(p.name)
@@ -251,6 +251,8 @@ export function partName(p: Pick<Part, 'name' | 'cls' | 'size'> & { part_no?: nu
   const [w, h] = section
   // Steamhub: the CNC cuts everything from plate or block, so a long CNC part reads as a plate, as
   // its drawing does (drawing.ts).
+  const bent = bentThickness(p)
+  if (bent) return `Bent plate ${fmtMm(bent)} mm, ${sizeText(s)}`
   const cls = p.machine === 'CNC' && p.cls !== 'print' ? 'plate' : p.cls
   // Hex first: a short hex spacer is classed as a block by its proportions.
   const hex = cls !== 'plate' && cls !== 'print' ? hexDims(s) : null
@@ -296,6 +298,15 @@ export function plateThickness(size: number[]): number {
   return Math.abs(near - t) <= 0.2 ? near : Math.round(t * 100) / 100
 }
 
+/**
+ * A bent sheet part's thickness, from the route note the upload writes ("bent plate, 3.0 mm, 2
+ * bends"). Its box is the bent shape, so the box's thinnest side isn't the plate.
+ */
+export function bentThickness(p: { notes?: string | null }): number | null {
+  const m = /bent plate, ([\d.]+) mm/.exec(p.notes ?? '')
+  return m ? Number(m[1]) : null
+}
+
 /** Plate thicknesses in the team's stock sheet (mm). */
 export const PLATE_THICKNESS = [0.5, 1, 1.2, 1.5, 1.524, 2, 3, 4, 5, 6, 6.35, 8, 10]
 
@@ -303,10 +314,12 @@ export const PLATE_THICKNESS = [0.5, 1, 1.2, 1.5, 1.524, 2, 3, 4, 5, 6, 6.35, 8,
  * A first guess. The STEP doesn't carry Onshape's material, so the uploader fixes it when it's
  * wrong; the Onshape API replaces this later (phase 6).
  */
-export function guessMaterial(machine: Machine, cls: string | null, size: number[], name: string): string {
+export function guessMaterial(machine: Machine, cls: string | null, size: number[], name: string, sheetT?: number | null): string {
   if (machine === 'Bought') return ''
   if (machine === '3D print') return /tpu/i.test(name) ? 'TPU' : 'PLA'
-  const thin = Math.min(...size.filter((v) => v > 0))
+  // A bent part is cut from plate of its sheet thickness.
+  if (sheetT) cls = 'plate'
+  const thin = cls === 'plate' && sheetT ? sheetT : Math.min(...size.filter((v) => v > 0))
   const poly = /poly|lexan|pc\b|polycarb/i.test(name)
   if (cls === 'plate' && Number.isFinite(thin)) {
     if (thin > 12) return 'Aluminum block'

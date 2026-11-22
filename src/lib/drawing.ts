@@ -42,7 +42,13 @@ function titleBlock(p: Part, ctx: Ctx): TitleBlock {
   }
 }
 
-async function prepared(p: Part) {
+/**
+ * Stamped on every drawing-training review (DRAWING_TRAINING.md). Bump it with every change to how
+ * drawings or routes come out of the engine, so the training page can show before and after.
+ */
+export const ENGINE_VERSION = '2026-11-22'
+
+async function prepared(p: Pick<Part, 'geometry_path' | 'machine' | 'name'>) {
   const G = await loadGeometry(p.geometry_path!)
   // CNC parts are cut from the file, so they all get the plate drawing (width and bearing checks),
   // even a long bar. The machine is part of the key: changing it redraws the part.
@@ -59,6 +65,21 @@ async function prepared(p: Part) {
 export async function partDrawing(p: Part, ctx: Ctx) {
   const { G, info, pre } = await prepared(p)
   return makeDrawing(G, info, titleBlock(p, ctx), pre)
+}
+
+/** A drawing-training example, drawn exactly as a real part with the same machine would be. */
+export async function trainingDrawing(x: { geometry_path: string; machine: string; name: string; material: string; qty: number }) {
+  const { G, info, pre } = await prepared(x as Pick<Part, 'geometry_path' | 'machine' | 'name'>)
+  return makeDrawing(G, info, {
+    team: 'STEAMPUNK 1577',
+    subsystem: 'DRAWING TRAINING',
+    name: x.name,
+    partNo: '',
+    version: 'Training',
+    material: x.material,
+    tolerance: x.machine === '3D print' ? '±0.15' : '',
+    qty: x.qty,
+  }, pre)
 }
 
 /** A page that stands in for a part with no drawing, so the printed stack stays complete. */

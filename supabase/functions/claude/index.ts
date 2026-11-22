@@ -3,6 +3,8 @@
 // it names a feature and hands over ids, a question or a drawing.
 //
 //   POST { feature: 'part_review', part_id, image }   checks one part's drawing and route
+//   POST { feature: 'part_review', example_id, image } the same, on a drawing-training example
+//   POST { feature: 'drawing_notes' }                 admin: turn training feedback into rules
 //   POST { feature: 'ask', question }                 SteamLab: a question about the synced CAD data
 //   POST { feature: 'reject_reports' }                the 5-minute run: one report per subsystem
 //
@@ -17,7 +19,7 @@ const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SE
 const MODEL = 'claude-opus-5-5'
 // $ per million tokens, for the cost column. Opus 5.5.
 const PRICE = { input: 4, output: 20 }
-const CAP: Record<string, number> = { part_review: 600, ask: 40 }
+const CAP: Record<string, number> = { part_review: 600, ask: 40, drawing_notes: 20 }
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -129,17 +131,58 @@ const REVIEW_SCHEMA = {
   },
 }
 
+/**
+ * Rules learned from drawing training (DRAWING_TRAINING.md), approved by an admin. They come from
+ * real corrections, so they win over the two general checks, but never over the fixed Rules. They
+ * go in the request, right before the answer: at the end of the system prompt they were ignored.
+ */
+async function reviewNotes(): Promise<string | null> {
+  const { data } = await db.from('drawing_lessons').select('text, kind').eq('status', 'live').order('approved_at').limit(30)
+  if (!data?.length) return null
+  const lines = (data as Any[]).map((l) => `- ${l.kind === 'engine_gap' ? "(Steamhub draws this, the student can't fix it) " : ''}${l.text}`)
+  return `Notes from the team's mentor, learned from drawings they corrected. They take priority over "Check two things": before you answer, drop every finding a note says not to make, even if the checks would make it, and look for what a note says to flag. They never override the Rules.
+${lines.join('\n')}`
+}
+
 async function partReview(who: Caller, b: Any) {
   await underCap(who, 'part_review')
   const image = String(b.image ?? '')
   const m = image.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/)
   if (!m) throw new Say('The drawing picture is missing.')
   if (m[2].length > 4_000_000) throw new Say('The drawing picture is too big to check.')
+  const notes = await reviewNotes()
+  const check = (facts: Any) => claude<{ findings: { kind: string; text: string }[] }>(who, 'part_review', 'low', REVIEW_SYSTEM, [
+    { type: 'image', source: { type: 'base64', media_type: `image/${m[1]}`, data: m[2] } },
+    { type: 'text', text: `Facts about this part:\n${JSON.stringify(facts)}${notes ? `\n\n${notes}` : ''}` },
+  ], REVIEW_SCHEMA)
+
+  // A drawing-training example: admin only, findings stored on the example.
+  if (b.example_id) {
+    if (!who.admin) throw new Say('Drawing training is for the admin.')
+    const { data: e } = await db.from('drawing_examples').select('id, name, qty, machine, route, why, material, size, cls').eq('id', String(b.example_id)).maybeSingle()
+    if (!e) throw new Say("That example isn't there anymore.")
+    const { out, model } = await check({
+      name: e.name,
+      subsystem: null,
+      machine: e.machine,
+      route: e.route?.length > 1 ? `${e.route.join(' → ')}${e.why ? ` (${e.why})` : ''}` : null,
+      material: e.material || null,
+      size_mm: e.size,
+      shape_class: e.cls,
+      quantity: e.qty,
+      onshape_says_bought: null,
+      onshape_material: null,
+    })
+    const findings = (out.findings ?? []).slice(0, 2).filter((f) => f.text?.trim())
+    await db.from('drawing_examples').update({ claude_findings: findings, claude_at: new Date().toISOString(), claude_engine: model }).eq('id', e.id)
+    return { findings }
+  }
+
   const { data: p } = await db.from('parts').select('id, sig, part_no, name, qty, machine, material, size, cls, notes, os_bought, os_material, subsystem_id').eq('id', String(b.part_id)).maybeSingle()
   if (!p) throw new Say("That part isn't there anymore.")
   const { data: sub } = await db.from('subsystems').select('number, name').eq('id', p.subsystem_id).maybeSingle()
   const route = /^Route: (.+?)(?: \(|$)/m.exec(p.notes ?? '')?.[1] ?? null
-  const facts = {
+  const { out, model } = await check({
     name: p.name,
     subsystem: sub ? `${sub.number} ${sub.name}` : null,
     machine: p.machine,
@@ -150,14 +193,76 @@ async function partReview(who: Caller, b: Any) {
     quantity: p.qty,
     onshape_says_bought: p.os_bought ?? null,
     onshape_material: p.os_material ?? null,
-  }
-  const { out, model } = await claude<{ findings: { kind: string; text: string }[] }>(who, 'part_review', 'low', REVIEW_SYSTEM, [
-    { type: 'image', source: { type: 'base64', media_type: `image/${m[1]}`, data: m[2] } },
-    { type: 'text', text: `Facts about this part:\n${JSON.stringify(facts)}` },
-  ], REVIEW_SCHEMA)
+  })
   const findings = (out.findings ?? []).slice(0, 2).filter((f) => f.text?.trim())
   await db.from('part_reviews').upsert({ part_id: p.id, sig: p.sig, findings, dismissed: [], model, reviewed_at: new Date().toISOString() }, { onConflict: 'part_id' })
   return { findings }
+}
+
+// ---------- Drawing notes: training feedback turned into rules for the part review ----------
+
+const NOTES_SYSTEM = `You help improve an automatic drawing check for FRC team 1577 Steampunk. Steamhub turns each uploaded STEP part into a workshop drawing with its own engine, and guesses whether the part is made or bought, its machine route (CNC, Lathe, Mill, 3D print, Bend) and its material. Then Claude checks each drawing with a fixed prompt (below, under "The check's prompt").
+
+The team's mentor reviewed training drawings: they marked fix chips, put notes on the drawing, corrected the engine's guesses, and marked each of the check's findings right or wrong. You get those reviews as JSON, and the rules already in use.
+
+Write new short rules for the check, so it stops repeating mistakes they already corrected:
+- A finding marked wrong again and again means the check should stop saying it. Write a "don't flag" rule.
+- A problem they marked that the check missed means it should look for it. Write a "flag" rule, only for things a student can fix in CAD (a wrong material, a part that should be bought) or that a workshop student must be warned about.
+- A problem the drawing engine causes (a missing flat pattern, a view chosen badly, overlapping dimension text) is not the student's to fix. Write it as kind "engine_gap": a rule that tells the check not to blame the student for it.
+- Route or made/bought corrections that follow a pattern become "route" or "bought" rules.
+
+Rules:
+- Only rules backed by at least two reviews, unless one review is unmistakable. Say how many reviews back each one in "sources".
+- Never repeat or contradict a rule already in use; never contradict the check's prompt (CNC drawings are minimal on purpose; 3D prints need no dimensions; never comment on the title block).
+- Each rule is one or two plain sentences, at most 40 words, general (no part names or numbers).
+- At most 8 rules. Return none if nothing new is worth a rule.`
+
+const NOTES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['rules'],
+  properties: {
+    rules: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['text', 'kind', 'sources'],
+        properties: { text: { type: 'string' }, kind: { type: 'string', enum: ['drawing', 'route', 'bought', 'engine_gap'] }, sources: { type: 'integer' } },
+      },
+    },
+  },
+}
+
+async function drawingNotes(who: Caller) {
+  if (!who.admin || who.cron) throw new Say('Drawing training is for the admin.')
+  await underCap(who, 'drawing_notes')
+  const { data: lessons } = await db.from('drawing_lessons').select('text, kind, status, created_at').neq('status', 'dropped').order('created_at', { ascending: false })
+  const since = (lessons as Any[] | null)?.[0]?.created_at ?? '1970-01-01'
+  const { data: reviews } = await db
+    .from('drawing_reviews')
+    .select('verdict, fixes, marks, made, route, material, cls, claude_marks, note, engine_version, at, drawing_examples(name, machine, route, why, material, cls, size, custom)')
+    .gt('at', since)
+    .order('at', { ascending: false })
+    .limit(300)
+  const useful = ((reviews ?? []) as Any[]).filter((r) => r.verdict !== 'skipped' && (r.verdict !== 'right' || r.claude_marks?.length))
+  if (!useful.length) return { added: 0 }
+  const rows = useful.map((r) => ({
+    verdict: r.verdict,
+    engine_picked: r.drawing_examples ? { name: r.drawing_examples.name, made: r.drawing_examples.custom ? 'made' : 'bought', machine: r.drawing_examples.machine, route: r.drawing_examples.route, why: r.drawing_examples.why, material: r.drawing_examples.material, shape: r.drawing_examples.cls, size_mm: r.drawing_examples.size } : null,
+    corrected: { made: r.made, route: r.route, material: r.material, shape: r.cls },
+    fixes: r.fixes,
+    marks: (r.marks ?? []).map((m: Any) => [m.note, m.fix].filter(Boolean).join(' · ')).filter(Boolean),
+    note: r.note || undefined,
+    claude_findings_marked: r.claude_marks,
+  }))
+  const inUse = ((lessons ?? []) as Any[]).map((l) => `- [${l.status}] ${l.text}`).join('\n') || '(none)'
+  const { out } = await claude<{ rules: { text: string; kind: string; sources: number }[] }>(who, 'drawing_notes', 'medium', NOTES_SYSTEM, [
+    { type: 'text', text: `The check's prompt:\n${REVIEW_SYSTEM}\n\nRules already in use or waiting for approval:\n${inUse}\n\nReviews since the last notes:\n${JSON.stringify(rows)}` },
+  ], NOTES_SCHEMA)
+  const add = (out.rules ?? []).filter((r) => r.text?.trim()).slice(0, 8)
+  if (add.length) await db.from('drawing_lessons').insert(add.map((r) => ({ text: r.text.trim(), kind: r.kind, sources: Math.max(0, r.sources | 0), status: 'proposed' })))
+  return { added: add.length }
 }
 
 // ---------- Ask: a question about the synced CAD and parts data ----------
@@ -361,6 +466,7 @@ Deno.serve(async (req) => {
   try {
     if (body.feature === 'part_review') return json(await partReview(who, body))
     if (body.feature === 'ask') return json(await ask(who, body))
+    if (body.feature === 'drawing_notes') return json(await drawingNotes(who))
     if (body.feature === 'reject_reports') return json(await rejectReports(who))
     return json({ error: "Steamhub doesn't know that Claude feature." })
   } catch (e) {

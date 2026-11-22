@@ -16,6 +16,7 @@ import { useParts, usePeople, useRobots } from '../lib/useMfg'
 import { usePhone } from '../lib/usePhone'
 import { STALE_MS } from '../lib/workshopMap'
 import { ROOM } from '../lib/workshopRoom'
+import { count } from '../lib/words'
 
 // SteamLab (STEAMLAB.md): a bird's-eye view for mentors and leads. Are we on schedule, where is
 // everyone, what happened, and Claude's recap of each day. Any day can be replayed on the
@@ -621,7 +622,7 @@ function RecapCard(props: {
             )}
           </div>
           <div className="sl-recap__foot soft small">
-            <span className="num">From {r.events} events</span>
+            <span className="num">From {count(r.events, 'event')}</span>
             <button type="button" className="q-btn q-btn--small" onClick={() => props.onCopy(r)}>
               Copy
             </button>

@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { needsPhoto, sizeLabel } from '../lib/stock'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
+import { count } from '../lib/words'
 
 // Optional photos. Every piece is drawn from its profile, so a photo only helps for odd pieces
 // (holes, bends). Also where Drive photos get copied into Steamhub's own storage.
@@ -38,7 +39,7 @@ export default function NeedsPhoto() {
     }
     setCopying(null)
     await reload()
-    toast(failed ? `${total} photos copied, ${failed} couldn't be read from Drive` : `${total} photos copied`)
+    toast(failed ? `${count(total, 'photo')} copied, ${failed} couldn't be read from Drive` : `${count(total, 'photo')} copied`)
   }
 
   return (
@@ -51,12 +52,12 @@ export default function NeedsPhoto() {
       </div>
       <p className="soft">
         Photos are optional: every piece is already drawn from its profile and length. Add one only when it helps, like a piece with holes or a bend.
-        {list.length ? ` ${list.length} pieces have no photo.` : ''}
+        {list.length ? ` ${count(list.length, 'piece')} ${list.length === 1 ? 'has' : 'have'} no photo.` : ''}
       </p>
       {onDrive > 0 && (
         <div className="draft" role="status">
           <div className="draft__text">
-            <strong>{onDrive} photos still live on Google Drive.</strong> Copy them into Steamhub so they keep working if the folder stops being shared.
+            <strong>{count(onDrive, 'photo')} still {onDrive === 1 ? 'lives' : 'live'} on Google Drive.</strong> Copy them into Steamhub so they keep working if the folder stops being shared.
           </div>
           <div className="draft__actions">
             <button type="button" className="q-btn" onClick={copyFromDrive} disabled={!!copying}>

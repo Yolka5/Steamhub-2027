@@ -10,6 +10,7 @@ import { useRobots } from '../lib/useMfg'
 import { Combo, Select } from '../components/Select'
 import { Working } from '../components/Working'
 import { cutListWorking } from '../lib/workings'
+import { count } from '../lib/words'
 
 // Every length a mechanism needs, matched to the fewest pieces in one go. The query lives in the
 // URL, so a cut list can be shared with whoever is going to the saw.
@@ -70,9 +71,6 @@ export default function CutList() {
     <div className="page">
       <div className="page__head">
         <h1 className="page__title">Cut list</h1>
-        <Link to="/stock" className="q-btn">
-          Back to stock
-        </Link>
       </div>
 
       <div className="cut-inputs">
@@ -115,7 +113,7 @@ export default function CutList() {
         lengths.length > 0 && (
           <>
             <p className="finder__said soft">
-              {lengths.length} cuts, {Math.round(total)} mm in total, from {candidates.length} matching pieces. Each cut takes {KERF} mm.
+              {count(lengths.length, 'cut')}, {Math.round(total)} mm in total, from {count(candidates.length, 'matching piece')}. Each cut takes {KERF} mm.
             </p>
 
             <Working id="cut-list" lines={cutListWorking(lengths, result.plans)} />
@@ -198,7 +196,7 @@ function ReserveAll({ count, busy, onReserve }: { count: number; busy: boolean; 
       )}
       {!sub && <Combo label="What for" value={forWhat} onChange={setForWhat} options={recent} placeholder="For which mechanism" />}
       <button type="button" className="q-btn q-btn--main" disabled={busy} onClick={() => onReserve(sub ? `${sub.number} ${sub.name}` : forWhat.trim(), sub?.id ?? null)}>
-        {busy ? 'Reserving' : `Reserve these ${count} pieces`}
+        {busy ? 'Reserving' : count === 1 ? 'Reserve this piece' : `Reserve these ${count} pieces`}
       </button>
     </div>
   )

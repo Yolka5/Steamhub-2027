@@ -7,7 +7,7 @@ import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
 import { ago } from '../../lib/mfg'
 import { dayLabel, groupOrder, TEAM_WORD, type CalGroup } from '../../lib/cal'
-import { guessColumns, ownersOf, parseMonday, priorityOf, span, statusOf, day, type Field, type MondayBoard } from '../../lib/monday'
+import { guessColumns, matchGroup, ownersOf, parseMonday, priorityOf, span, statusOf, day, type Field, type MondayBoard } from '../../lib/monday'
 import { supabase } from '../../lib/supabase'
 import { useCal } from '../../lib/useCal'
 import { usePeople } from '../../lib/useMfg'
@@ -256,6 +256,9 @@ function SendToGoogle() {
 
 // ----- Monday -----
 
+/** The group picker's "Leave out": that Monday group's items aren't imported. */
+const LEAVE_OUT = '-'
+
 const FIELDS: { key: Field; label: string; hint: string }[] = [
   { key: 'name', label: 'Task name', hint: 'Required' },
   { key: 'owner', label: 'Owner', hint: 'Matched to people by name' },
@@ -290,9 +293,10 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
       setFile(f.name)
       setBoard(b)
       setCols(guessColumns(b.headers))
-      // Each Monday group goes to the Steamhub group with the same name, else to Mechanics.
+      // Each Monday group goes to the Steamhub group it most likely means ("Programing" →
+      // Programming, "Plastic prototypes" → Prototypes - 3D prints), else to Mechanics as a section.
       const fallback = sorted.find((g) => g.kind === 'team')?.id ?? sorted[0]?.id ?? ''
-      setMap(Object.fromEntries(b.groups.map((name) => [name, sorted.find((g) => g.name.toLowerCase() === name.toLowerCase() || name.toLowerCase().includes(g.name.toLowerCase()))?.id ?? fallback])))
+      setMap(Object.fromEntries(b.groups.map((name) => [name, matchGroup(name, sorted)?.id ?? fallback])))
     } catch (e) {
       toast(e instanceof Error ? e.message : String(e))
     }
@@ -308,6 +312,20 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
         let due_on = t.end ?? day(v('due'))
         if (starts_on && due_on && due_on < starts_on) [starts_on, due_on] = [due_on, starts_on]
         const owners = ownersOf(v('owner'), active)
+        // Subitems have their own columns; read them by the same kind of header.
+        const subs = it.subs
+          .map((s) => {
+            const pick = (re: RegExp) => Object.entries(s).find(([h]) => h !== 'Name' && re.test(h))?.[1] ?? ''
+            const when = span(pick(/timeline|date|due|תאריך|ציר זמן/i))
+            return {
+              title: s.Name ?? '',
+              status: statusOf(pick(/status|סטטוס/i)),
+              starts_on: when.start,
+              due_on: when.end,
+              owners: ownersOf(pick(/person|people|owner|אחראי/i), active),
+            }
+          })
+          .filter((s) => s.title)
         return {
           group: it.group,
           title: v('name'),
@@ -317,6 +335,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
           due_on,
           notes: v('notes'),
           owners,
+          subs,
         }
       })
       .filter((r) => r.title)
@@ -324,16 +343,25 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board, cols, people])
 
-  const missing = [...new Set(rows.flatMap((r) => r.owners.missing))]
+  const taken = rows.filter((r) => map[r.group] !== LEAVE_OUT)
+  const missing = [...new Set(taken.flatMap((r) => [...r.owners.missing, ...r.subs.flatMap((s) => s.owners.missing)]))]
+  const subCount = taken.reduce((n, r) => n + r.subs.length, 0)
 
   const doImport = () =>
     run(async () => {
       if (!who || !board) return
       if (!cols?.name) return toast('Pick the column with the task names first')
+      if (!taken.length) return toast('Every group is left out. Pick where at least one goes.')
       const key = (r: (typeof rows)[number]) => `monday:${board.board}:${r.group}:${r.title}`.toLowerCase()
-      const payload = rows.map((r, i) => ({
+      // A Monday group that lands in a team group (To-Do December in Mechanics) stays a section there.
+      const sectionOf = (mondayGroup: string, groupId: string) => {
+        const g = groups.find((x) => x.id === groupId)
+        return g && g.kind === 'team' && g.name.toLowerCase() !== mondayGroup.toLowerCase() ? mondayGroup : null
+      }
+      const payload = taken.map((r, i) => ({
         import_key: key(r),
         group_id: map[r.group],
+        section: sectionOf(r.group, map[r.group]),
         title: r.title,
         status: r.status,
         priority: r.priority,
@@ -347,13 +375,41 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
       const ids = new Map<string, string>()
       for (let i = 0; i < payload.length; i += 200) {
         const { data, error } = await supabase.from('tasks').upsert(payload.slice(i, i + 200), { onConflict: 'import_key' }).select('id, import_key')
-        if (error) return toast(error.message.includes('import_key') ? 'The import migration has not run on the database yet.' : error.message)
+        if (error) return toast(error.message.includes('import_key') || error.message.includes('section') ? 'The import migration has not run on the database yet.' : error.message)
         for (const d of data ?? []) ids.set(d.import_key as string, d.id as string)
       }
-      const owners = rows.flatMap((r) => r.owners.ids.map((user_id) => ({ task_id: ids.get(key(r))!, user_id }))).filter((o) => o.task_id)
+      // Subitems: subtasks of their item, in the same group.
+      const subPayload = taken.flatMap((r, i) =>
+        r.subs.map((s, j) => ({
+          import_key: `${key(r)}:sub:${s.title}`.toLowerCase(),
+          parent_id: ids.get(key(r))!,
+          group_id: map[r.group],
+          title: s.title,
+          status: s.status,
+          priority: 'normal' as const,
+          starts_on: s.starts_on && s.due_on && s.due_on < s.starts_on ? s.due_on : s.starts_on,
+          due_on: s.starts_on && s.due_on && s.due_on < s.starts_on ? s.starts_on : s.due_on,
+          notes: '',
+          created_by: who.userId,
+          sort: Date.now() / 1000 + i + j / 100,
+        })),
+      ).filter((s) => s.parent_id)
+      for (let i = 0; i < subPayload.length; i += 200) {
+        const { data, error } = await supabase.from('tasks').upsert(subPayload.slice(i, i + 200), { onConflict: 'import_key' }).select('id, import_key')
+        if (error) return toast(error.message)
+        for (const d of data ?? []) ids.set(d.import_key as string, d.id as string)
+      }
+      const owners = taken
+        .flatMap((r) => [
+          ...r.owners.ids.map((user_id) => ({ task_id: ids.get(key(r))!, user_id })),
+          ...r.subs.flatMap((s) => s.owners.ids.map((user_id) => ({ task_id: ids.get(`${key(r)}:sub:${s.title}`.toLowerCase())!, user_id }))),
+        ])
+        .filter((o) => o.task_id)
       if (owners.length) await supabase.from('task_owners').upsert(owners, { onConflict: 'task_id,user_id', ignoreDuplicates: true })
       onDone()
-      setResult(`${count(payload.length, 'task')} from ${board.board} ${payload.length === 1 ? 'is' : 'are'} on the Calendar${missing.length ? `. Not matched to anyone: ${missing.join(', ')}` : ''}.`)
+      setResult(
+        `${count(payload.length, 'task')}${subPayload.length ? ` and ${count(subPayload.length, 'subtask')}` : ''} from ${board.board} on the Calendar${missing.length ? `. Not matched to anyone: ${missing.join(', ')}` : ''}.`,
+      )
       setBoard(null)
       toast(`${count(payload.length, 'task')} imported`)
     })
@@ -409,14 +465,23 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
               <li key={g} className="row imp__group">
                 <span className="row__main">
                   <span className="strong">{g}</span>
-                  <span className="soft small num">{count(rows.filter((r) => r.group === g).length, 'task')}</span>
+                  <span className="soft small num">
+                    {count(rows.filter((r) => r.group === g).length, 'task')}
+                    {(() => {
+                      const to = sorted.find((x) => x.id === map[g])
+                      return to && to.kind === 'team' && to.name.toLowerCase() !== g.toLowerCase() ? ` · a section named ${g} in ${to.name}` : ''
+                    })()}
+                  </span>
                 </span>
                 <Select
                   className="field--inline"
                   label={`Steamhub group for ${g}`}
                   value={map[g] ?? ''}
                   onChange={(v) => setMap({ ...map, [g]: v })}
-                  options={sorted.map((x) => ({ value: x.id, label: x.kind === 'team' ? x.name : `${TEAM_WORD[x.team]} · ${x.name}` }))}
+                  options={[
+                    ...sorted.map((x) => ({ value: x.id, label: x.kind === 'team' ? x.name : `${TEAM_WORD[x.team]} · ${x.name}` })),
+                    { value: LEAVE_OUT, label: 'Leave out' },
+                  ]}
                 />
               </li>
             ))}
@@ -439,7 +504,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
 
           <div className="imp__acts">
             <button type="button" className="q-btn q-btn--main" onClick={doImport}>
-              {busy ? 'Importing' : `Import ${count(rows.length, 'task')}`}
+              {busy ? 'Importing' : `Import ${count(taken.length, 'task')}${subCount ? ` and ${count(subCount, 'subtask')}` : ''}`}
             </button>
             <button type="button" className="q-btn" onClick={() => setBoard(null)}>
               Cancel

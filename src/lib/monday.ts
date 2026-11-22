@@ -1,12 +1,15 @@
 import type { TaskStatus } from './cal'
 
 // A Monday board exported to Excel: the board's name on top, then each group as its name, a header
-// row ("Name", "Person", "Status", "Date"…) and its items. Subitems sit under their item with the
-// first column empty; they're left out. Columns are matched by their header, and can be changed.
+// row ("Name", "Person", "Status", "Date"…) and its items. Subitems sit under their item one column
+// in, after their own "Subitems" header row; they come in as subtasks. Columns are matched by their
+// header, and can be changed.
 
 export interface MondayItem {
   group: string
   cells: Record<string, string>
+  /** Subitems, by their own header ("Subitems" is the name column). */
+  subs: Record<string, string>[]
 }
 
 export interface MondayBoard {
@@ -24,11 +27,13 @@ export function parseMonday(rows: string[][]): MondayBoard {
   const groups: string[] = []
   const items: MondayItem[] = []
   let head: string[] | null = null
+  let subHead: string[] | null = null
   let group = 'Items'
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i] ?? []
     if (isHeader(row)) {
       head = row.map((h) => h.trim())
+      subHead = null
       // The group's name is the last one-cell row above its header.
       for (let j = i - 1; j >= 0; j--) {
         const filled = (rows[j] ?? []).filter(Boolean)
@@ -48,12 +53,28 @@ export function parseMonday(rows: string[][]): MondayBoard {
       continue
     }
     // Subitems and their header start one column in.
-    if (!(row[0] ?? '').trim()) continue
+    if (!(row[0] ?? '').trim()) {
+      const second = (row[1] ?? '').trim()
+      if (/^(subitems?|subitem name|תת[- ]?פריטים?)$/i.test(second)) {
+        subHead = row.slice(1).map((h) => h.trim())
+        continue
+      }
+      const parent = items[items.length - 1]
+      if (subHead && second && parent) {
+        const sub: Record<string, string> = {}
+        subHead.forEach((h, k) => {
+          if (h) sub[k === 0 ? 'Name' : h] = (row[k + 1] ?? '').trim()
+        })
+        parent.subs.push(sub)
+      }
+      continue
+    }
+    subHead = null
     const cells: Record<string, string> = {}
     head.forEach((h, k) => {
       if (h) cells[h] = (row[k] ?? '').trim()
     })
-    items.push({ group, cells })
+    items.push({ group, cells, subs: [] })
   }
   return { board, headers, groups, items }
 }
@@ -74,6 +95,55 @@ export function guessColumns(headers: string[]): Record<Field, string> {
     priority: find(/priority|עדיפות/i),
     notes: find(/notes|text|description|update|הערות|תיאור/i),
   }
+}
+
+/** Lower case, letters and digits only: "Prototypes wood- Micha" → "prototypeswoodmicha". */
+const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+const words = (s: string) =>
+  s
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w.length > 1)
+    // "prototypes" and "prototype", "prints" and "print"
+    .map((w) => w.replace(/s$/, ''))
+
+function edits(a: string, b: string) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+  return d[a.length][b.length]
+}
+
+/** Words that mean the same thing in Monday group names and Steamhub group names. */
+const ALIKE: Record<string, string> = { plastic: 'print', '3d': 'print', printed: 'print', dev: 'woodbot' }
+
+/**
+ * The Steamhub group a Monday group most likely goes to, or null. Same name first, then a small
+ * spelling difference ("Programing"), then shared words ("Plastic prototypes" → "Prototypes - 3D
+ * prints"), where a word that only one group has wins over "prototype", which many share.
+ */
+export function matchGroup<G extends { id: string; name: string }>(name: string, groups: G[]): G | null {
+  const n = norm(name)
+  const same = groups.find((g) => norm(g.name) === n)
+  if (same) return same
+  const close = groups.find((g) => n.length > 4 && edits(norm(g.name), n) <= 2)
+  if (close) return close
+  const mine = new Set(words(name).map((w) => ALIKE[w] ?? w))
+  const common = new Map<string, number>()
+  for (const g of groups) for (const w of new Set(words(g.name))) common.set(w, (common.get(w) ?? 0) + 1)
+  let best: G | null = null
+  let score = 0
+  for (const g of groups) {
+    let s = 0
+    for (const w of new Set(words(g.name))) if (mine.has(w)) s += 1 / (common.get(w) ?? 1)
+    if (s > score) {
+      score = s
+      best = g
+    }
+  }
+  // At least one word only a single group has, or a few shared ones.
+  return score >= 1 ? best : null
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')

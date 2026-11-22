@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Icon } from './Icon'
 import { Select } from './Select'
 import { Sheet, useBusy, useToast } from './ui'
 import { useWho } from '../lib/auth'
@@ -7,6 +8,12 @@ import {
   deleteEvent,
   EVENT_KINDS,
   EVENT_WORD,
+  eventStatus,
+  setEventStatus,
+  STATUSES,
+  STATUS_WORD,
+  statusTone,
+  type TaskStatus,
   groupOrder,
   isoDay,
   longDay,
@@ -47,6 +54,71 @@ export function EventSheetHost({ cal }: { cal: Cal }) {
         <p className="soft">Loading</p>
       )}
     </Sheet>
+  )
+}
+
+/**
+ * Where the event stands: follow a task (its status shows, so a Monday task drives a Google
+ * block), or set one by hand. Saved at once, apart from the form, so Google events take it too.
+ */
+function EventStatus({ ev, cal }: { ev: CalEvent; cal: Cal }) {
+  const toast = useToast()
+  const task = ev.task_id ? cal.tasks.find((t) => t.id === ev.task_id) : undefined
+  const shown = eventStatus(ev, cal.tasks)
+  const end = ev.ends_at ? isoDay(new Date(ev.ends_at)) : null
+  const start = isoDay(new Date(ev.starts_at))
+
+  const set = async (patch: { status: TaskStatus | null; task_id: string | null }) => {
+    const before = ev
+    putRows('events', [{ ...ev, ...patch }])
+    const res = await setEventStatus(ev.id, patch)
+    if (res.error) {
+      putRows('events', [before])
+      return toast(res.error)
+    }
+    putRows('events', [res.data!])
+  }
+
+  const groupName = new Map(cal.groups.map((g) => [g.id, g.name]))
+  const taskOptions = [
+    { value: '', label: 'No task' },
+    ...cal.tasks
+      .filter((t) => !t.parent_id)
+      .sort((a, b) => (groupName.get(a.group_id) ?? '').localeCompare(groupName.get(b.group_id) ?? '') || a.title.localeCompare(b.title))
+      .map((t) => ({ value: t.id, label: t.title, group: groupName.get(t.group_id) })),
+  ]
+
+  return (
+    <div className="cal-event__status">
+      <div className="ctl">
+        <span className="ctl__name">Status</span>
+        <div className="cal-st-picks" role="radiogroup" aria-label="Status">
+          <button type="button" role="radio" className="cal-st" data-tone="none" aria-checked={shown == null} onClick={() => set({ status: null, task_id: null })}>
+            None
+          </button>
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              className="cal-st"
+              data-tone={statusTone(s, start, end)}
+              aria-checked={shown === s}
+              // A task drives it: changing it here changes the event and stops following.
+              onClick={() => set({ status: s, task_id: null })}
+            >
+              {s === 'done' && <Icon name="check" size={14} />}
+              {STATUS_WORD[s]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="ctl">
+        <span className="ctl__name">Follows task</span>
+        <Select label="Follows task" value={ev.task_id ?? ''} onChange={(v) => set({ status: v ? null : (shown ?? null), task_id: v || null })} options={taskOptions} />
+        <span className="soft small">{task ? `Shows the status of ${task.title}, ${groupName.get(task.group_id) ?? ''}. Picking a status above stops following it.` : 'Pick a task and the event shows its status, as it changes.'}</span>
+      </div>
+    </div>
   )
 }
 
@@ -144,7 +216,8 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
         save()
       }}
     >
-      {ev?.source === 'google' && <p className="soft small">From the team’s Google Calendar. Change it there: the next hourly sync puts back edits made here.</p>}
+      {ev?.source === 'google' && <p className="soft small">From the team’s Google Calendar. Change it there: the next hourly sync puts back edits made here. Its status below stays.</p>}
+      {ev && <EventStatus ev={ev} cal={cal} />}
       <label className="ctl">
         <span className="ctl__name">Name</span>
         <input className="field" data-autofocus={!ev || undefined} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'meeting' ? 'Team meeting' : kind === 'competition' ? 'District event #1' : 'Order deadline'} />

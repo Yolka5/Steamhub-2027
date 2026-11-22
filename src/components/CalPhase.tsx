@@ -346,6 +346,29 @@ export function CalTaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: 
   )
 }
 
+/**
+ * A group's tasks split by section ("To-Do December", from the Monday group they came from):
+ * tasks with no section first, then each section under its name, the add line at the end.
+ */
+export function SectionedTasks(props: Parameters<typeof TaskList>[0]) {
+  const { tasks, addTo, ...rest } = props
+  const names = [...new Set(tasks.map((t) => t.section?.trim()).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b))
+  if (!names.length) return <TaskList {...props} />
+  const plain = tasks.filter((t) => !t.section?.trim())
+  return (
+    <div className="cal-sections">
+      {plain.length > 0 && <TaskList tasks={plain} {...rest} />}
+      {names.map((name) => (
+        <section key={name} className="cal-section">
+          <h3 className="cal-loose__head">{name}</h3>
+          <TaskList tasks={tasks.filter((t) => t.section?.trim() === name)} {...rest} />
+        </section>
+      ))}
+      {addTo && <TaskList tasks={[]} addTo={addTo} {...rest} />}
+    </div>
+  )
+}
+
 /** Open tasks, then "4 done" folded, then a line to add one. */
 export function TaskList({
   tasks,

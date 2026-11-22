@@ -69,6 +69,8 @@ export interface Task {
   starts_on: string | null
   due_on: string | null
   notes: string
+  /** A label inside the group, from the Monday group it was imported from ("To-Do December"). */
+  section?: string | null
   prototype_id: string | null
   part_id: string | null
   sort: number
@@ -130,6 +132,10 @@ export interface CalEvent {
   notes: string
   /** 'google' when it comes from the linked Google Calendar. Missing before the import migration. */
   source?: string | null
+  /** Not started / In progress / Done on the event itself. Null: no status. */
+  status?: TaskStatus | null
+  /** A task the event follows: the task's status wins over `status`. */
+  task_id?: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -690,7 +696,24 @@ export async function uploadNotePhoto(phaseId: string, blob: Blob) {
   return error ? { error: error.message } : { path }
 }
 
-export type EventInput = Omit<CalEvent, 'id' | 'created_by' | 'created_at' | 'updated_at'>
+/** An event's status: its task's when it follows one, else its own, else none. */
+export function eventStatus(e: Pick<CalEvent, 'status' | 'task_id'>, tasks: Pick<Task, 'id' | 'status'>[]): TaskStatus | null {
+  if (e.task_id) {
+    const t = tasks.find((x) => x.id === e.task_id)
+    if (t) return t.status
+  }
+  return e.status ?? null
+}
+
+/** Status or the task it follows, on its own: works on Google events too, which sync can't undo. */
+export async function setEventStatus(id: string, patch: Pick<CalEvent, 'status' | 'task_id'>): Promise<Res<CalEvent>> {
+  const { data, error } = await supabase.from('events').update(patch).eq('id', id).select().maybeSingle()
+  if (error) return { error: error.message.includes('status') || error.message.includes('task_id') ? 'The event status migration has not run on the database yet.' : error.message }
+  if (!data) return { error: 'This event was deleted.' }
+  return { data: data as CalEvent }
+}
+
+export type EventInput = Omit<CalEvent, 'id' | 'created_by' | 'created_at' | 'updated_at' | 'status' | 'task_id'>
 
 export async function saveEvent(input: EventInput, who: Who, id?: string): Promise<Res<CalEvent>> {
   const q = id

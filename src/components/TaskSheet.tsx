@@ -60,6 +60,42 @@ export function TaskSheetHost({ cal }: { cal: Cal }) {
   )
 }
 
+/** A label inside the group: type a new one or pick one the group already has. Empty clears it. */
+function SectionField({ task, cal, onSave }: { task: Task; cal: Cal; onSave: (section: string | null) => void }) {
+  const [text, setText] = useState(task.section ?? '')
+  useEffect(() => setText(task.section ?? ''), [task.section])
+  const listId = `sections-${task.id}`
+  const names = [...new Set(cal.tasks.filter((t) => t.group_id === task.group_id && t.section).map((t) => t.section!.trim()))].sort()
+  const commit = () => {
+    const v = text.trim() || null
+    if (v !== (task.section ?? null)) onSave(v)
+  }
+  return (
+    <>
+      <input
+        className="field"
+        aria-label="Section"
+        list={listId}
+        value={text}
+        placeholder="None"
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            e.currentTarget.blur()
+          }
+        }}
+      />
+      <datalist id={listId}>
+        {names.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+    </>
+  )
+}
+
 function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
   const who = useWho()
   const toast = useToast()
@@ -279,6 +315,9 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
             />
           )}
         </div>
+
+        <span className="tsheet__label">Section</span>
+        <SectionField task={task} cal={cal} onSave={(section) => save({ section })} />
 
         <span className="tsheet__label">Status</span>
         <div className="cal-st-picks" role="radiogroup" aria-label="Status">

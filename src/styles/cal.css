@@ -651,9 +651,67 @@
   cursor: pointer;
 }
 
+/* An event with no status is plain: outlined, so it never reads as Not started grey. */
 .cal-bar-item--event {
   color: var(--ink);
-  background: var(--surface-3);
+  background: var(--surface-0);
+  box-shadow: inset 0 0 0 1px var(--surface-3);
+}
+
+/* With a status (its own or its task's), the same colours as the status pills. */
+.cal-bar-item--event[data-tone='wait'] {
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.cal-bar-item--event[data-tone='doing'] {
+  color: var(--tone-yellow-ink);
+  background: var(--tone-yellow-track);
+  box-shadow: none;
+}
+
+.cal-bar-item--event[data-tone='late'] {
+  color: var(--tone-red-ink);
+  background: var(--tone-red-track);
+  box-shadow: none;
+}
+
+.cal-bar-item--event[data-tone='done'] {
+  color: var(--tone-green-ink);
+  background: var(--tone-green-track);
+  box-shadow: none;
+}
+
+.cal-dot--event[data-tone='doing'] {
+  background: var(--tone-yellow-bar);
+}
+
+.cal-dot--event[data-tone='late'] {
+  background: var(--meaning-c);
+}
+
+.cal-dot--event[data-tone='done'] {
+  background: var(--meaning-b);
+}
+
+.cal-agenda__st {
+  flex-shrink: 0;
+  width: auto;
+  min-height: 1.6rem;
+}
+
+.cal-event__status {
+  display: grid;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.cal-st[data-tone='none'][aria-checked='true'] {
+  color: var(--ink);
+  background: var(--surface-0);
+  box-shadow: inset 0 0 0 1px var(--surface-3);
 }
 
 .cal-bar-item--phase {

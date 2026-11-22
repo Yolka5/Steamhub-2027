@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { useOpenTask } from '../../components/cal'
 import { Sheet } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addDays, dayLabel, isoDay, longDay, occurrences, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task } from '../../lib/cal'
+import { addDays, dayLabel, eventStatus, isoDay, longDay, occurrences, STATUS_WORD, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task } from '../../lib/cal'
 import type { Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
 import { usePhone } from '../../lib/usePhone'
@@ -69,6 +69,11 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
       }
     for (const e of cal.events) {
       if (!inTeam(e.group_id)) continue
+      // An event with a status (its own, or its task's) takes the status colours; one without stays plain.
+      const status = eventStatus(e, cal.tasks)
+      const evStart = isoDay(new Date(e.starts_at))
+      const evEnd = e.ends_at ? isoDay(new Date(e.ends_at)) : null
+      const tone = status ? statusTone(status, evStart, evEnd, today) : undefined
       for (const o of occurrences(e, from, to)) {
         items.push({
           key: `e${e.id}${o.day}`,
@@ -76,6 +81,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
           title: e.title,
           start: o.day,
           end: e.repeat_days?.length ? o.day : isoDay(o.end),
+          tone,
           note: e.all_day ? undefined : timeLabel(o.start),
           open: () => {
             const next = new URLSearchParams(params)
@@ -209,7 +215,7 @@ function Month({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
                   {label}
                 </Link>
               ) : (
-                <button key={item.key} type="button" className={cls} style={style} data-state={item.state} title={item.note && item.kind === 'task' ? `${item.title} · ${item.note}` : item.title} onClick={item.open}>
+                <button key={item.key} type="button" className={cls} style={style} data-state={item.state} data-tone={item.tone} title={item.note && item.kind === 'task' ? `${item.title} · ${item.note}` : item.title} onClick={item.open}>
                   {label}
                 </button>
               )
@@ -235,7 +241,7 @@ function DayList({ items, onPick }: { items: Item[]; onPick?: () => void }) {
       {items.map((i) => {
         const body = (
           <>
-            <span className={`cal-dot cal-dot--${i.kind}`} data-state={i.state} aria-hidden="true" />
+            <span className={`cal-dot cal-dot--${i.kind}`} data-state={i.state} data-tone={i.tone} aria-hidden="true" />
             <span className="row__main">
               <span className="cal-agenda__title" data-state={i.state}>
                 {i.title}
@@ -246,6 +252,11 @@ function DayList({ items, onPick }: { items: Item[]; onPick?: () => void }) {
                 </span>
               )}
             </span>
+            {i.kind === 'event' && i.tone && (
+              <span className="cal-st cal-agenda__st" data-tone={i.tone}>
+                {STATUS_WORD[i.tone === 'wait' || i.tone === 'late' ? 'todo' : i.tone]}
+              </span>
+            )}
             {i.state === 'late' && <span className="tag tag--bad">Late</span>}
             {i.state === 'high' && <span className="tag tag--bad">High</span>}
           </>

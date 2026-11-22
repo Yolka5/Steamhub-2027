@@ -295,3 +295,20 @@ From a 13-round Q&A with Yoni. The Calendar works but takes effort to read: almo
   - Each event is edited where it was made. The Google copy says so in its description.
 - Until the calendar is linked, admins see "Connect Google Calendar" at the top of the Calendar.
 
+## Monday import fixes and event status (built 2026-11-22)
+
+The first Monday import (board "Pre Season 2026-2027") put every group whose name didn't match exactly into Mechanics. Fixed with Yoni:
+
+- **Group matching** (`matchGroup` in `src/lib/monday.ts`): same name, then a small spelling difference ("Programing"), then shared words, where a word only one group has counts most ("Plastic prototypes" → Prototypes - 3D prints, "Wood prototypes" → Prototypes wood- Micha, "Dev Bot" → Woodbot). Every Monday group can also be **Left out**.
+- **Sections** (`tasks.section`): a Monday group that lands in a team group stays a labelled section there ("To-Do December" in Mechanics). Editable in the task window (Section, with the group's existing ones offered). The Board shows tasks with no section first, then each section.
+- **Subitems** come in as subtasks (`import_key` = the item's key + `:sub:` + name).
+- Importing again still updates by `import_key`, so it puts back the group, section and status from Monday over changes made here.
+- **Woodbot** (was Monday's Dev Bot) is subsystem 6 of Before season Projects, lead tom moyal, with CAD → Manufacturing → Assembly → Testing. Dev Bot's CAD / Manufactoring / Assembly / Testing rows became those phases.
+- **strategy** (Practice Kickoff 1 and 2, Scouting training) were already Google events (קיקאוף מדומה 1 and 2, Scouting Training); the tasks were removed and the events took Not started. Monday has Kickoff 2 on 31 Dec, Google on 27 Dec.
+
+**Event status** (`events.status`, `events.task_id`, migration `20261129_monday_sections_event_status.sql`):
+
+- Any event, Google ones included, can have a status (None / Not started / In progress / Done) or **follow a task** and show that task's status as it changes. Set in the event window; saved at once, apart from the form. ical-sync only writes its own columns and `events_gcal_mark` ignores these, so the hourly sync keeps them and nothing goes to Google.
+- The month grid and the phone agenda colour an event by its status like the pills (grey, yellow, red once its start passed, green). An event with no status is an outlined bar, so it never reads as Not started.
+- הכשרות תוכנה לשכבת י' follows Programming's הכשרות (In progress). The rest are left for the team to set.
+

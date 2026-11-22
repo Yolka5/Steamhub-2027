@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { useOpenTask } from '../../components/cal'
-import { LineHead, PhaseRow, TaskList, useOpenPhases } from '../../components/CalPhase'
+import { LineHead, PhaseRow, SectionedTasks, useOpenPhases } from '../../components/CalPhase'
 import { useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { addDays, createTask, currentPhase, dayLabel, firstName, groupOrder, parseQuick, phaseBars, PRIORITY_WORD, taskOrder, TEAM_WORD, todayIso, type CalGroup, type Task, type Team } from '../../lib/cal'
@@ -145,7 +145,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
         {!big && (
           <div className="cal-loose">
             {loose.length > 0 && <h3 className="cal-loose__head">Other tasks</h3>}
-            <TaskList tasks={loose} cal={cal} nameOf={nameOf} people={people} addTo={{ group: g, phaseId: null }} showDone={filter.done} />
+            <SectionedTasks tasks={loose} cal={cal} nameOf={nameOf} people={people} addTo={{ group: g, phaseId: null }} showDone={filter.done} />
           </div>
         )}
       </>
@@ -153,7 +153,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
   }
 
   const tasks = ({ g, shown }: Item, add = true) => (
-    <TaskList tasks={shown} cal={cal} nameOf={nameOf} people={people} addTo={add ? { group: g, phaseId: null } : undefined} showDone={filter.done} />
+    <SectionedTasks tasks={shown} cal={cal} nameOf={nameOf} people={people} addTo={add ? { group: g, phaseId: null } : undefined} showDone={filter.done} />
   )
 
   /** CNC and Workshop: how many parts wait on their machines, linked to the manufacturing board. */

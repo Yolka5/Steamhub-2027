@@ -378,6 +378,11 @@ export function seed() {
   Object.assign(gh2, { source: 'github', gh_number: 145, gh_url: 'https://github.com/example/robot/issues/145', parent_id: gh1.id, phase_id: null, gh_people: [] })
   const gh3 = task(G('Vision'), 'AprilTag pose filter', 'todo', 3, 10, [people[2]])
   Object.assign(gh3, { source: 'github', gh_number: 150, gh_url: 'https://github.com/example/robot/issues/150', phase_id: null, gh_people: [] })
+  const gh4 = task(G('Programming'), 'Swerve odometry drift check', 'done', -6, -1, [people[2]])
+  Object.assign(gh4, { source: 'github', gh_number: 138, gh_url: 'https://github.com/example/robot/issues/138', phase_id: null, gh_people: [] })
+  const gh5 = task(G('Programming'), 'Try PathPlanner 2027 beta', 'todo', 6, 14, [])
+  Object.assign(gh5, { source: 'github', gh_number: null, gh_url: 'https://github.com/orgs/frc1577/projects/3', phase_id: null, gh_people: ['itay-codes'] })
+  db.settings.push({ key: 'github', value: { project: 'https://github.com/orgs/frc1577/projects/3', repo: null, synced_at: ago(60 * 4), count: 5, last_change: '#142 Auto path for the 3-piece' }, updated_at: ago(60 * 4) })
   db.task_waits = [{ task_id: t3.id, waits_for_id: t2.id }, { task_id: t2.id, waits_for_id: t1.id }]
   db.cal_updates = [
     { id: uuid(), group_id: intake.id, phase_id: phase(intake, 'prototypes'), day: day(0), author_id: ME.id, text: 'Double roller at 18 mm took 10 of 10. Picking the concept tomorrow, then CAD.', created_at: ago(90), updated_at: ago(90) },

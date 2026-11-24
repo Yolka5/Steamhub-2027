@@ -505,6 +505,8 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
               const s = s0 ?? e0
               const en = e0 ?? s0
               const late = t.status !== 'done' && !!t.due_on && t.due_on < today
+              // GitHub tasks only show: their dates are GitHub's, so the bar doesn't move.
+              const gh = t.source === 'github'
               return (
                 <div key={r.id} className="gantt__row gantt__row--task">
                   <div className="gantt__label gantt__label--task">
@@ -515,7 +517,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                       <span className="gantt__title">{t.title}</span>
                     </button>
                   </div>
-                  <div className="gantt__track" style={{ width }} onPointerUp={(e) => !s && !drag && e.target === e.currentTarget && place(e, 'task', t.id)}>
+                  <div className="gantt__track" style={{ width }} onPointerUp={(e) => !gh && !s && !drag && e.target === e.currentTarget && place(e, 'task', t.id)}>
                     {s && en ? (
                       <div
                         className="gantt__task"
@@ -528,18 +530,19 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                         aria-label={`${t.title}, ${s === en ? en : `${s} to ${en}`}`}
                         title={t.title}
                         style={{ left: x(s), width: Math.max(day, (daysBetween(s, en) + 1) * day) }}
-                        onPointerDown={(e) => startDrag(e, 'task', t.id, 'move')}
-                        onPointerUp={() => endDrag(() => openTask(t.id))}
+                        data-gh={gh || undefined}
+                        onPointerDown={gh ? undefined : (e) => startDrag(e, 'task', t.id, 'move')}
+                        onPointerUp={() => (gh ? openTask(t.id) : endDrag(() => openTask(t.id)))}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') openTask(t.id)
-                          keyMove(e, 'task', t.id)
+                          if (!gh) keyMove(e, 'task', t.id)
                         }}
                       >
                         <span className="gantt__text">{zoom === 'season' ? '' : t.title}</span>
                         {edit && (
                           <>
-                            <span className="gantt__grip gantt__grip--start" onPointerDown={(e) => startDrag(e, 'task', t.id, 'start')} />
-                            <span className="gantt__grip gantt__grip--end" onPointerDown={(e) => startDrag(e, 'task', t.id, 'end')} />
+                            {!gh && <span className="gantt__grip gantt__grip--start" onPointerDown={(e) => startDrag(e, 'task', t.id, 'start')} />}
+                            {!gh && <span className="gantt__grip gantt__grip--end" onPointerDown={(e) => startDrag(e, 'task', t.id, 'end')} />}
                             <span
                               className="gantt__link"
                               title="Drag onto a task that waits for this one"
@@ -555,7 +558,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                     ) : (
                       edit && (
                         <span className="gantt__ghost soft small" style={{ left: Math.max(4, x(today) + day) }}>
-                          No dates. Click a day to set its due day.
+                          {gh ? 'No dates in GitHub.' : 'No dates. Click a day to set its due day.'}
                         </span>
                       )
                     )}

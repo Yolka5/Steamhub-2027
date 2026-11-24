@@ -485,7 +485,9 @@ const endOf = (t: Pick<Task, 'starts_on' | 'due_on'>) => t.due_on ?? t.starts_on
  * now starts on or before its predecessor's end moves later just enough to start the day after.
  * Tasks with room to spare stay put. Returns every change, `moved` first.
  */
-export function pushWaiting(moved: DateMove, tasks: Pick<Task, 'id' | 'starts_on' | 'due_on'>[], waits: Wait[]): DateMove[] {
+export function pushWaiting(moved: DateMove, tasks: (Pick<Task, 'id' | 'starts_on' | 'due_on'> & { source?: string | null })[], waits: Wait[]): DateMove[] {
+  // GitHub tasks keep GitHub's dates: nothing in Steamhub moves them.
+  const fixed = new Set(tasks.filter((t) => t.source === 'github').map((t) => t.id))
   const now = new Map(tasks.map((t) => [t.id, { id: t.id, starts_on: t.starts_on, due_on: t.due_on }]))
   now.set(moved.id, { ...moved })
   const changes = new Map<string, DateMove>([[moved.id, { ...moved }]])
@@ -497,7 +499,7 @@ export function pushWaiting(moved: DateMove, tasks: Pick<Task, 'id' | 'starts_on
     if (!end) continue
     for (const w of waits.filter((x) => x.waits_for_id === id)) {
       const t = now.get(w.task_id)
-      if (!t) continue
+      if (!t || fixed.has(t.id)) continue
       const first = t.starts_on ?? t.due_on
       if (!first) continue
       const need = addDays(end, 1)

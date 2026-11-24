@@ -1,4 +1,9 @@
-// Brings Programming's GitHub issues into the Calendar as tasks (CALENDAR_V2_PLAN.md, part 4).
+// Brings Programming's GitHub work into the Calendar as tasks (CALENDAR_V2_PLAN.md, part 4).
+// Two ways, by what's saved in settings 'github':
+//  - A Project board (Programming uses the org board "2026OffSeason"): every card on it, from any
+//    repo, draft cards too. Status, people, dates and sub-issues come from the board. Cards taken
+//    off the board leave the Calendar. This is the main way.
+//  - Only a repo: its issues, as before.
 // GitHub → Steamhub only: GitHub stays the truth for name, status and owners; Steamhub keeps its own
 // comments, waits, list and which group a task sits in.
 //
@@ -89,7 +94,7 @@ Deno.serve(async (req) => {
   const cfg = (setting?.value ?? {}) as Cfg
   const save = (patch: Partial<Cfg>) => db.from('settings').upsert({ key: 'github', value: { ...cfg, ...patch }, updated_at: new Date().toISOString() })
   const token = Deno.env.get('GITHUB_TOKEN')
-  if (!cfg.repo) return json({ error: 'No GitHub repo saved yet' }, 400)
+  if (!cfg.repo && !cfg.project) return json({ error: 'No GitHub board or repo saved yet' }, 400)
   if (!token) {
     await save({ tried_at: new Date().toISOString(), error: 'No GitHub key yet. Add it in Supabase as the secret GITHUB_TOKEN.' })
     return json({ error: 'No GitHub key yet. Add it in Supabase as the secret GITHUB_TOKEN.' }, 400)
@@ -107,7 +112,12 @@ Deno.serve(async (req) => {
     })
 
   try {
-    const repo = cfg.repo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '')
+    if (cfg.project) {
+      const out = await syncBoard(db, token, cfg.project)
+      await save({ synced_at: started, count: out.count, error: null, ...(out.changed ? { last_change: out.last } : {}) })
+      return json({ changed: out.changed, count: out.count, last: out.changed === 1 ? out.last : null })
+    }
+    const repo = (cfg.repo ?? '').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '')
     if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('The repo should look like owner/name')
 
     // ----- Issues changed since the last run -----
@@ -254,3 +264,228 @@ Deno.serve(async (req) => {
     return json({ error: message }, 502)
   }
 })
+
+// ----- The board way -----
+
+type Named = { name?: string } | null
+type FieldValue = {
+  name?: string
+  date?: string
+  startDate?: string
+  duration?: number
+  field?: Named
+}
+type BoardItem = {
+  databaseId: number
+  isArchived: boolean
+  type: 'ISSUE' | 'DRAFT_ISSUE' | 'PULL_REQUEST' | 'REDACTED'
+  fieldValues: { nodes: (FieldValue | null)[] }
+  content: {
+    databaseId?: number
+    number?: number
+    title?: string
+    url?: string
+    state?: 'OPEN' | 'CLOSED'
+    closedAt?: string | null
+    assignees?: { nodes: { login: string }[] }
+    labels?: { nodes: { name: string }[] }
+    milestone?: { dueOn: string | null } | null
+    parent?: { databaseId: number } | null
+  } | null
+}
+
+const BOARD_QUERY = (root: 'organization' | 'user') => `query($login: String!, $num: Int!, $after: String) {
+  ${root}(login: $login) { projectV2(number: $num) { url items(first: 100, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes { databaseId isArchived type
+      fieldValues(first: 20) { nodes {
+        ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+        ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } }
+        ... on ProjectV2ItemFieldIterationValue { startDate duration field { ... on ProjectV2FieldCommon { name } } }
+      } }
+      content {
+        ... on Issue { databaseId number title url state closedAt assignees(first: 10) { nodes { login } } labels(first: 20) { nodes { name } } milestone { dueOn } parent { databaseId } }
+        ... on DraftIssue { title assignees(first: 10) { nodes { login } } }
+      }
+    }
+  } } }
+}`
+
+const addDays = (day: string, n: number) => {
+  const d = new Date(`${day}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+// deno-lint-ignore no-explicit-any
+async function syncBoard(db: any, token: string, link: string): Promise<{ changed: number; count: number; last: string }> {
+  const pm = /github\.com\/(orgs|users)\/([\w.-]+)\/projects\/(\d+)/i.exec(link)
+  if (!pm) throw new Error('The board link should look like github.com/orgs/<org>/projects/<number>')
+  const root = pm[1].toLowerCase() === 'orgs' ? 'organization' : 'user'
+  const login = pm[2]
+  const num = Number(pm[3])
+
+  // ----- Every card on the board (a few points of GitHub's 5,000 an hour) -----
+  const items: BoardItem[] = []
+  let boardUrl = link
+  let after: string | null = null
+  let complete = false
+  for (let page = 0; page < 30; page++) {
+    const res = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'User-Agent': 'steamhub-calendar' },
+      body: JSON.stringify({ query: BOARD_QUERY(root), variables: { login, num, after } }),
+    })
+    if (res.status === 401) throw new Error('GitHub refused the key. Check GITHUB_TOKEN in Supabase, and that an org owner approved it.')
+    if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
+    // deno-lint-ignore no-explicit-any
+    const out = (await res.json()) as { data?: any; errors?: { message: string }[] }
+    const project = out.data?.[root]?.projectV2
+    if (!project) {
+      const why = out.errors?.[0]?.message ?? ''
+      throw new Error(`GitHub can't show board ${num} of ${login}${why ? `: ${why}` : ''}. The key needs Projects: Read-only, and an org owner's approval.`)
+    }
+    boardUrl = project.url ?? link
+    items.push(...(project.items.nodes as BoardItem[]).filter(Boolean))
+    if (!project.items.pageInfo.hasNextPage) {
+      complete = true
+      break
+    }
+    after = project.items.pageInfo.endCursor
+  }
+
+  // Issues by their GitHub id; draft cards by minus their card id, so the two never clash.
+  const keyOf = (it: BoardItem) => (it.type === 'ISSUE' ? it.content?.databaseId ?? null : it.type === 'DRAFT_ISSUE' ? -it.databaseId : null)
+  const cards = items.filter((it) => !it.isArchived && keyOf(it) != null && it.content)
+
+  // ----- Where they go -----
+  const { data: seasonRow } = await db.from('cal_groups').select('season').order('season', { ascending: false }).limit(1).maybeSingle()
+  const season = seasonRow?.season as number | undefined
+  if (season == null) throw new Error('The Calendar has no season yet')
+  const { data: groups } = await db.from('cal_groups').select('id, team, kind, github_label').eq('season', season).eq('team', 'programming')
+  const home = (groups ?? []).find((g: { kind: string }) => g.kind === 'team')
+  if (!home) throw new Error('No Programming group this season')
+  // A group's GitHub label matches an issue label or any board field value (like an "Area" column).
+  const byLabel = new Map<string, string>((groups ?? []).filter((g: { github_label: string | null }) => g.github_label).map((g: { github_label: string; id: string }) => [g.github_label.toLowerCase(), g.id]))
+  const groupFor = (it: BoardItem) => {
+    const words = [...(it.content?.labels?.nodes ?? []).map((l) => l.name), ...it.fieldValues.nodes.map((v) => v?.name).filter((x): x is string => !!x)]
+    return words.map((w) => byLabel.get(w.toLowerCase())).find(Boolean) ?? (home.id as string)
+  }
+
+  const { data: profiles } = await db.from('profiles').select('id, github').not('github', 'is', null)
+  const personOf = new Map<string, string>((profiles ?? []).map((p: { github: string; id: string }) => [p.github.toLowerCase(), p.id]))
+
+  // ----- What each card says -----
+  const onBoard = new Map<number, BoardItem>(cards.map((it) => [keyOf(it)!, it]))
+  const parentKey = (it: BoardItem) => {
+    const p = it.content?.parent?.databaseId
+    return p != null && onBoard.has(p) ? p : null
+  }
+  // Subtasks hang under the top card of their chain that's on the board.
+  const topOf = (k: number) => {
+    let cur = k
+    for (let guard = 0; guard < 10; guard++) {
+      const p = parentKey(onBoard.get(cur)!)
+      if (p == null) break
+      cur = p
+    }
+    return cur
+  }
+  const read = (it: BoardItem) => {
+    const values = it.fieldValues.nodes.filter((v): v is FieldValue => !!v)
+    const statusCol = values.find((v) => v.name && v.field?.name?.toLowerCase() === 'status')?.name ?? null
+    const dated = (re: RegExp) => values.find((v) => v.date && re.test(v.field?.name ?? ''))?.date ?? null
+    let start = dated(/start|begin/i)
+    let end = dated(/target|end|due|finish|deadline/i)
+    const iter = values.find((v) => v.startDate)
+    if (!start && !end && iter?.startDate) {
+      start = iter.startDate
+      end = addDays(iter.startDate, Math.max(0, (iter.duration ?? 1) - 1))
+    }
+    if (!end && it.content?.milestone?.dueOn) end = israelDay(it.content.milestone.dueOn)
+    if (start && end && start > end) [start, end] = [end, start]
+    const closed = it.content?.state === 'CLOSED'
+    const status = closed ? 'done' : (statusOfColumn(statusCol) ?? 'todo')
+    const logins = (it.content?.assignees?.nodes ?? []).map((a) => a.login)
+    return {
+      title: (it.content?.title ?? 'Untitled').slice(0, 300),
+      status,
+      starts_on: start,
+      due_on: end,
+      gh_number: it.content?.number ?? null,
+      gh_url: it.content?.url ?? boardUrl,
+      gh_people: logins.filter((l) => !personOf.has(l.toLowerCase())).sort(),
+      owners: logins.map((l) => personOf.get(l.toLowerCase())).filter((x): x is string => !!x).sort(),
+      closedLongAgo: closed && !!it.content?.closedAt && Date.now() - Date.parse(it.content.closedAt) > 60 * 86_400_000,
+    }
+  }
+
+  // ----- Write only what changed -----
+  const { data: had } = await db.from('tasks').select('id, gh_id, title, status, starts_on, due_on, gh_number, gh_url, gh_people, parent_id, group_id, task_owners(user_id)').eq('source', 'github')
+  type Row = { id: string; gh_id: number; title: string; status: string; starts_on: string | null; due_on: string | null; gh_number: number | null; gh_url: string | null; gh_people: string[] | null; parent_id: string | null; group_id: string; task_owners: { user_id: string }[] }
+  const byKey = new Map<number, Row>(((had ?? []) as Row[]).map((t) => [Number(t.gh_id), t]))
+
+  // Top cards first, so subtasks can point at them.
+  const ordered = [...cards].sort((a, b) => Number(parentKey(a) != null) - Number(parentKey(b) != null))
+  let changed = 0
+  let last = ''
+  for (const it of ordered) {
+    const key = keyOf(it)!
+    const r = read(it)
+    const prev = byKey.get(key)
+    // The first time, cards closed long ago stay out: they'd only fill the done list.
+    if (!prev && r.closedLongAgo) continue
+    const pk = parentKey(it)
+    const parent = pk != null ? byKey.get(topOf(key)) ?? null : null
+    const fields = {
+      title: r.title,
+      status: r.status,
+      starts_on: r.starts_on,
+      due_on: r.due_on,
+      gh_number: r.gh_number,
+      gh_url: r.gh_url,
+      gh_people: r.gh_people,
+      parent_id: parent?.id ?? null,
+      source: 'github',
+    }
+    let id: string
+    if (prev) {
+      const prevOwners = prev.task_owners.map((o) => o.user_id).sort()
+      const same =
+        prev.title === fields.title && prev.status === fields.status && prev.starts_on === fields.starts_on && prev.due_on === fields.due_on &&
+        prev.gh_number === fields.gh_number && prev.gh_url === fields.gh_url && (prev.gh_people ?? []).slice().sort().join() === fields.gh_people.join() &&
+        prev.parent_id === fields.parent_id && prevOwners.join() === r.owners.join() && (!parent || prev.group_id === parent.group_id)
+      if (same) continue
+      // Which group a task sits in is Steamhub's; a subtask follows its parent.
+      const { error } = await db.from('tasks').update(parent ? { ...fields, group_id: parent.group_id } : fields).eq('id', prev.id)
+      if (error) throw new Error(error.message)
+      id = prev.id
+    } else {
+      const { data, error } = await db
+        .from('tasks')
+        .insert({ ...fields, gh_id: key, group_id: parent ? parent.group_id : groupFor(it), priority: 'normal', notes: '', sort: Date.now() / 1000 })
+        .select('id, gh_id, title, status, starts_on, due_on, gh_number, gh_url, gh_people, parent_id, group_id')
+        .single()
+      if (error) throw new Error(error.message)
+      byKey.set(key, { ...data, task_owners: [] })
+      id = data.id
+    }
+    await db.from('task_owners').delete().eq('task_id', id)
+    if (r.owners.length) await db.from('task_owners').insert(r.owners.map((user_id) => ({ task_id: id, user_id })))
+    changed++
+    last = r.gh_number != null ? `#${r.gh_number} ${r.title}` : r.title
+  }
+
+  // ----- Cards taken off the board (or archived) leave the Calendar -----
+  // Only after a full, clean read, and never more than half at once, in case GitHub answered oddly.
+  const gone = [...byKey.entries()].filter(([k]) => !onBoard.has(k)).map(([, t]) => t.id)
+  if (complete && cards.length > 0 && gone.length && gone.length <= Math.max(3, byKey.size / 2)) {
+    const { error } = await db.from('tasks').delete().in('id', gone)
+    if (error) throw new Error(error.message)
+    changed += gone.length
+    if (!last) last = `${gone.length} taken off the board`
+  }
+
+  const { count } = await db.from('tasks').select('id', { count: 'exact', head: true }).eq('source', 'github')
+  return { changed, count: count ?? 0, last: changed > 1 ? `${changed} cards` : last }
+}

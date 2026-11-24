@@ -2704,7 +2704,8 @@ button.cal-line__title {
    Measured on the list itself, so a narrow column stacks too. */
 .cal-board,
 .cal-phases,
-.cal-group-page {
+.cal-group-page,
+.cal-group-page > div {
   container-type: inline-size;
 }
 
@@ -3848,5 +3849,31 @@ button.cal-line__title {
 
   .cal-sec__name {
     max-width: none;
+  }
+}
+
+/* Touch screens (phones and the 9:16 TV): names and small icons get a finger-sized target
+   without changing how the rows look. */
+@media (max-width: 899px) {
+  .cal-line__title,
+  .cal-group__name,
+  .cal-add-list {
+    min-height: 2.5rem;
+  }
+
+  .cal-note-chip {
+    min-width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .cal-list-head .cal-line__edit {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  /* A section's count on its own line, so + Group and + Task sit side by side under it. */
+  .cal-group--host > .cal-group__head .cal-count {
+    flex-basis: 100%;
+    text-align: right;
   }
 }

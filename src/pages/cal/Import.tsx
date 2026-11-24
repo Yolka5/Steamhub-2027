@@ -89,14 +89,15 @@ function GitHub({ cal }: { cal: Cal }) {
   const save = () =>
     run(async () => {
       const r = repo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '')
-      if (!/^[\w.-]+\/[\w.-]+$/.test(r)) return toast('Type the repo as owner/name, or paste its GitHub address')
-      const p = project.trim()
-      if (p && !/github\.com\/(orgs|users)\/[\w.-]+\/projects\/\d+/i.test(p)) return toast('Paste the board’s address, like github.com/orgs/team1577/projects/3')
+      const p = project.trim().replace(/\/views\/.*$/, '').replace(/[?#].*$/, '')
+      if (!p && !r) return toast('Paste the board’s address, or a repo')
+      if (p && !/github\.com\/(orgs|users)\/[\w.-]+\/projects\/\d+/i.test(p)) return toast('Paste the board’s address, like github.com/orgs/frc1577/projects/3')
+      if (r && !/^[\w.-]+\/[\w.-]+$/.test(r)) return toast('Type the repo as owner/name, or paste its GitHub address')
       // A new repo starts from scratch; the same repo keeps where the last sync got to.
       const same = cfg?.repo === r
       const { error } = await supabase
         .from('settings')
-        .upsert({ key: 'github', value: { ...(same ? cfg : {}), repo: r, project: p || null, error: null }, updated_at: new Date().toISOString() })
+        .upsert({ key: 'github', value: { ...(same ? cfg : {}), repo: r || null, project: p || null, error: null }, updated_at: new Date().toISOString() })
       if (error) return toast(error.message)
       await load()
       toast('Saved')
@@ -112,13 +113,14 @@ function GitHub({ cal }: { cal: Cal }) {
     toast(`${login} is ${people.find((p) => p.id === userId)?.name}. The next sync makes them the owner.`)
   }
 
-  const linked = !!cfg?.repo
+  const linked = !!(cfg?.repo || cfg?.project)
+  const where = cfg?.project ? `Board ${cfg.project.replace(/^https?:\/\/github\.com\//i, '')}` : cfg?.repo
   return (
     <section className="section imp">
       <h2 className="section__title">GitHub</h2>
       <p className="soft">
-        Programming’s issues show up as Programming tasks, and their sub-issues as subtasks. Name, status and owners follow GitHub. Comments, waits and lists stay in Steamhub. Changes arrive within seconds once the webhook is
-        set, and every 15 minutes in the day anyway.
+        Every card on Programming’s GitHub board shows up as a Programming task, and sub-issues as subtasks. Name, status, people and dates follow GitHub and can’t be changed here. Comments, waits and lists stay in
+        Steamhub. It reads GitHub every 15 minutes in the day, and within seconds once a webhook is set.
       </p>
       {cfg == null ? (
         <p className="soft">Loading</p>
@@ -127,7 +129,7 @@ function GitHub({ cal }: { cal: Cal }) {
           <Icon name="link" size={20} />
           <span className="imp__status-main">
             <span className="strong">
-              {cfg.repo}
+              {where}
               {cfg.error ? ': last sync failed' : cfg.synced_at ? `: ${count(cfg.count ?? 0, 'task')} from GitHub` : ''}
             </span>
             <span className={`small ${cfg.error ? 'imp__bad' : 'soft'}`}>
@@ -151,13 +153,13 @@ function GitHub({ cal }: { cal: Cal }) {
             }}
           >
             <label className="ctl">
-              <span className="ctl__name">Repo</span>
-              <input className="field" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="team1577/robot-2027" autoComplete="off" />
+              <span className="ctl__name">Project board</span>
+              <input className="field" value={project} onChange={(e) => setProject(e.target.value)} placeholder="https://github.com/orgs/frc1577/projects/3" autoComplete="off" />
+              <span className="soft small">Every card on it, from any repo. Its Status column (Todo, In Progress, Done) and date fields set the task. Cards taken off the board leave the Calendar.</span>
             </label>
             <label className="ctl">
-              <span className="ctl__name">Project board, if they use one</span>
-              <input className="field" value={project} onChange={(e) => setProject(e.target.value)} placeholder="https://github.com/orgs/team1577/projects/3" autoComplete="off" />
-              <span className="soft small">With a board, its Status column (Todo, In Progress, Done) and date fields set the task. Without one, open is Not started and closed is Done.</span>
+              <span className="ctl__name">Or only a repo, without a board</span>
+              <input className="field" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="frc1577/robot-2027" autoComplete="off" />
             </label>
             <button type="submit" className="q-btn">
               {busy ? 'Saving' : 'Save'}
@@ -167,15 +169,15 @@ function GitHub({ cal }: { cal: Cal }) {
             <summary>Setting up the key and the webhook</summary>
             <ol className="imp__list small">
               <li>
-                In GitHub: Settings, Developer settings, Fine-grained tokens, Generate new token. Pick only the team’s repo. Repository permissions: <strong>Issues: Read-only</strong> (Metadata comes with it). With a Project
-                board, also <strong>Projects: Read-only</strong> under the organisation. If the repo is the organisation’s, an owner may have to approve the token.
+                In GitHub: Settings, Developer settings, Fine-grained tokens, Generate new token. Resource owner: the team’s organisation. Repository access: all repositories (a board holds cards from any of them). Repository
+                permissions: <strong>Issues: Read-only</strong> (Metadata comes with it). Organisation permissions: <strong>Projects: Read-only</strong>. An organisation owner then approves the token.
               </li>
               <li>
                 Don’t paste the token anywhere in Steamhub or in a chat. In Supabase: Edge Functions, Secrets, add <strong>GITHUB_TOKEN</strong> with the token as its value.
               </li>
               <li>
-                For changes within seconds, someone with admin on the repo adds a webhook: the repo’s Settings, Webhooks, Add webhook. Payload URL <code>{HOOK}</code>, content type application/json, a secret of your choice,
-                events: Issues and Sub-issues. Put the same secret in Supabase as <strong>GITHUB_WEBHOOK_SECRET</strong>.
+                For changes within seconds, someone with admin on the repo (or the organisation) adds a webhook: Settings, Webhooks, Add webhook. Payload URL <code>{HOOK}</code>, content type application/json, a secret of your choice,
+                events: Issues, Sub-issues, and on an organisation webhook Projects v2 items. Put the same secret in Supabase as <strong>GITHUB_WEBHOOK_SECRET</strong>.
               </li>
               <li>Press Sync now. Without the webhook, the 15-minute sync still works.</li>
             </ol>

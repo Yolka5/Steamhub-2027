@@ -18,6 +18,7 @@ import {
   dayLabel,
   firstName,
   groupOrder,
+  rangeLabel,
   moveTasks,
   PRIORITIES,
   PRIORITY_WORD,
@@ -292,7 +293,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         <p className="tsheet__gh soft small">
           <Icon name="link" size={16} />
           <span>
-            From GitHub{task.gh_number != null ? ` #${task.gh_number}` : ''}. Name, status and owners follow GitHub; change them there.
+            From GitHub{task.gh_number != null ? ` #${task.gh_number}` : ''}. It shows what Programming does in GitHub and updates by itself. Comments, waits and the list are Steamhub’s.
           </span>
           {task.gh_url && (
             <a href={task.gh_url} target="_blank" rel="noreferrer" className="q-btn q-btn--small">
@@ -358,7 +359,8 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           </div>
         )}
 
-        <span className="tsheet__label">Priority</span>
+        {!gh && <span className="tsheet__label">Priority</span>}
+        {!gh && (
         <div className="picks picks--seg" role="radiogroup" aria-label="Priority">
           {PRIORITIES.map((p) => (
             <button key={p} type="button" role="radio" className="pick" aria-checked={task.priority === p} onClick={() => save({ priority: p })}>
@@ -366,9 +368,14 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
             </button>
           ))}
         </div>
+        )}
 
         <span className="tsheet__label">Dates</span>
-        <DateRange start={task.starts_on} end={task.due_on} onChange={setDates} endWord="Due" />
+        {gh ? (
+          <div className="soft">{task.starts_on || task.due_on ? rangeLabel(task.starts_on, task.due_on) : 'No dates in GitHub'}</div>
+        ) : (
+          <DateRange start={task.starts_on} end={task.due_on} onChange={setDates} endWord="Due" />
+        )}
 
         <span className="tsheet__label">Owners</span>
         <div className="tsheet__owners">
@@ -493,8 +500,9 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         </section>
       )}
 
-      <TaskLink task={task} cal={cal} save={save} />
+      {!gh && <TaskLink task={task} cal={cal} save={save} />}
 
+      {!gh && (
       <section className="tsheet__block">
         <h3 className="tsheet__head">Notes</h3>
         <textarea
@@ -506,6 +514,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           onBlur={() => notes !== task.notes && save({ notes })}
         />
       </section>
+      )}
 
       <section className="tsheet__block" id="task-comments">
         <h3 className="tsheet__head">Comments</h3>
@@ -519,7 +528,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           {task.priority === 'high' && task.status !== 'done' ? ' ' : ''}
         </span>
         {task.priority === 'high' && task.status !== 'done' && <HighTag />}
-        {confirm ? (
+        {gh ? null : confirm ? (
           <span className="tsheet__confirm">
             <button type="button" className="q-btn" onClick={() => setConfirm(false)}>
               Keep it

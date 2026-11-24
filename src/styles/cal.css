@@ -3487,9 +3487,26 @@ button.cal-line__title {
   box-shadow: none;
 }
 
+/* A bar's fill is who it's for (its group's or section's colour), never its status. Done only
+   strikes through; whole-team bars stay grey. */
+.cal-bar-item.sec,
+.cal-bar-item.sec[data-tone],
+.cal-bar-item.sec[data-state],
 .cal-bar-item--period.sec:not([data-tone]):not([data-state]) {
   color: var(--ink);
-  background: color-mix(in srgb, var(--sec) 16%, var(--surface-0));
+  background: color-mix(in srgb, var(--sec) 22%, var(--surface-0));
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .cal-bar-item.sec:not([data-tone='done']):not([data-state='done']) {
+  background: color-mix(in srgb, var(--sec) 32%, var(--surface-0));
+}
+
+.cal-bar-item.sec[data-tone='done'],
+.cal-bar-item.sec[data-state='done'] {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  background: color-mix(in srgb, var(--sec) 10%, var(--surface-0));
 }
 
 .gantt__row--group.sec .gantt__label {

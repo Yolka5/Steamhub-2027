@@ -34,3 +34,7 @@ begin
   link := '/calendar?comments=' || k || ':' || t;
 end $$;
 revoke all on function public.comment_target(text, uuid) from public, anon, authenticated;
+
+-- profiles is read column by column (email stays hidden); the new github column needs its grant,
+-- or every profiles select that names it fails and the app shows nobody.
+grant select (github) on public.profiles to authenticated;

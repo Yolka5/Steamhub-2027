@@ -13,7 +13,8 @@ import { inSections, type BoardFilter } from './Board'
 // Tasks, phases and events on the calendar. Computers: a month grid with bars across their days;
 // anything longer than a week is a thin bar in the "periods" strip at the top of the week, so long
 // blocks don't bury the days. Phones: an agenda, today first, only the days with something on them.
-// Every item carries its section's colour as a stripe; status keeps the fill.
+// Every item is filled with the colour of who it's for (its group, else its section); whole-team
+// items stay grey. Status doesn't colour bars: done strikes through.
 
 interface Item {
   key: string

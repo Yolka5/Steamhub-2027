@@ -19,8 +19,10 @@ import {
   occurrences,
   pushPhases,
   pushWaiting,
+  groupColor,
+  sectionName,
+  secStyle,
   taskOrder,
-  TEAM_WORD,
   toDate,
   todayIso,
   updatePhase,
@@ -35,7 +37,7 @@ import { useRobots } from '../../lib/useMfg'
 import { putRows, type Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
 import { usePhone, useTall } from '../../lib/usePhone'
-import type { BoardFilter } from './Board'
+import { inSections, type BoardFilter } from './Board'
 
 // Phases and tasks on a timeline. Each group's row holds its phase bars with the progress inside;
 // its tasks fold out under it. On computers and the workshop screen: drag a bar to move it, drag
@@ -107,7 +109,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
   }
 
   const mine = useMemo(() => new Set(cal.owners.filter((o) => o.user_id === who?.userId).map((o) => o.task_id)), [cal.owners, who])
-  const groups = useMemo(() => [...cal.groups].filter((g) => !filter.team || g.team === filter.team).sort(groupOrder), [cal.groups, filter.team])
+  const groups = useMemo(() => [...cal.groups].filter((g) => inSections(filter, g.team)).sort(groupOrder), [cal.groups, filter])
 
   const tasksOf = (gid: string) =>
     cal.tasks
@@ -425,7 +427,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                 const isOpen = openGroups.has(g.id) || filter.mine
                 const undated = phases.filter((p) => !p.starts_on && !p.ends_on)
                 return (
-                  <div key={r.id} className="gantt__row gantt__row--group" data-team={g.team}>
+                  <div key={r.id} className="gantt__row gantt__row--group sec" style={secStyle(groupColor(g))} data-team={g.team}>
                     <div className="gantt__label">
                       <button
                         type="button"
@@ -442,9 +444,11 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                         <Icon name={isOpen ? 'up' : 'down'} size={16} />
                       </button>
                       <button type="button" className="gantt__name" onClick={() => navigate(`/calendar/g/${g.id}`)}>
-                        <span className="strong">{g.name}</span>
+                        <span className="strong">
+                          <bdi dir="auto">{g.name}</bdi>
+                        </span>
                         <span className="soft small">
-                          {filter.team ? '' : `${TEAM_WORD[g.team]} · `}
+                          {filter.sections.length === 1 ? '' : `${sectionName(g.team)} · `}
                           {g.lead_id ? firstName(nameOf(g.lead_id)) : 'no lead'}
                           {count ? ` · ${count}` : ''}
                         </span>

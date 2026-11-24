@@ -3,7 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { Sheet, useBusy, useToast } from './ui'
+import { CommentThread } from './Comments'
 import { useWho } from '../lib/auth'
+import { usePeople } from '../lib/useMfg'
 import {
   deleteEvent,
   EVENT_KINDS,
@@ -21,7 +23,10 @@ import {
   saveEvent,
   toDate,
   todayIso,
-  TEAM_WORD,
+  sectionName,
+  suggestSection,
+  timeLabel,
+  rangeLabel,
   WEEKDAYS,
   WEEKDAY_LETTER,
   type CalEvent,
@@ -31,6 +36,8 @@ import { applyRow, putRows, type Cal } from '../lib/useCal'
 
 // Meetings, competitions, deadlines. ?event=new&on=2026-11-14 adds one; ?event=<id>&on=<day>
 // opens one (the day says which time a repeating event was tapped, for "Skip this day").
+// A Google event shows what Google owns (name, dates, repeat) as text, and keeps Steamhub's own
+// fields editable: who it's for, kind, status, the task it follows, reminders, comments.
 
 export function EventSheetHost({ cal }: { cal: Cal }) {
   const [params, setParams] = useSearchParams()
@@ -48,6 +55,8 @@ export function EventSheetHost({ cal }: { cal: Cal }) {
     <Sheet open={!!id} onClose={close} title={id === 'new' ? 'New event' : missing ? 'Event not found' : 'Event'}>
       {missing ? (
         <p className="soft">This event was deleted.</p>
+      ) : ev?.source === 'google' ? (
+        <GoogleEvent key={id} ev={ev} cal={cal} />
       ) : id === 'new' || ev ? (
         <EventForm key={id} ev={ev} on={on} cal={cal} onDone={close} />
       ) : (
@@ -122,6 +131,114 @@ function EventStatus({ ev, cal }: { ev: CalEvent; cal: Cal }) {
   )
 }
 
+/** Section, then its groups, or the whole team; with a suggestion from the title when it has none. */
+function ForPicker({ value, onChange, cal, title }: { value: string; onChange: (groupId: string) => void; cal: Cal; title: string }) {
+  const hint = !value ? suggestSection(title) : null
+  const hintGroup = hint ? cal.groups.find((g) => g.team === hint && g.kind === 'team') : undefined
+  return (
+    <div className="ctl">
+      <span className="ctl__name">For</span>
+      <Select
+        label="For"
+        value={value}
+        onChange={onChange}
+        options={[
+          { value: '', label: 'The whole team' },
+          ...[...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.kind === 'team' ? `${g.name}, the whole section` : g.name, group: sectionName(g.team) })),
+        ]}
+      />
+      {hintGroup && (
+        <span className="cal-suggest-for small">
+          <span className="soft">Looks like {hintGroup.name}.</span>
+          <button type="button" className="q-btn q-btn--small" onClick={() => onChange(hintGroup.id)}>
+            Use it
+          </button>
+        </span>
+      )}
+    </div>
+  )
+}
+
+function Reminders({ value, onChange, group, kind }: { value: number[]; onChange: (v: number[]) => void; group: string; kind: EventKind }) {
+  const toggle = (v: number) => (value.includes(v) ? value.filter((x) => x !== v) : [...value, v])
+  return (
+    <div className="ctl">
+      <span className="ctl__name">Remind</span>
+      <div className="cal-chips" role="group" aria-label="Reminders">
+        {REMINDER_CHOICES.map((r) => (
+          <button key={r.min} type="button" className="chip" aria-pressed={value.includes(r.min)} onClick={() => onChange(toggle(r.min).sort((a, b) => a - b))}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <span className="soft small">
+        {group ? 'Its group’s lead and everyone with an open task in it.' : 'Everyone on the team.'}
+        {kind === 'meeting' ? ' When a meeting ends, leads who haven’t sent today’s update get a reminder.' : ''}
+      </span>
+    </div>
+  )
+}
+
+/** A Google event: Google's part as text, Steamhub's part saved as you change it. */
+function GoogleEvent({ ev, cal }: { ev: CalEvent; cal: Cal }) {
+  const toast = useToast()
+  const { people } = usePeople()
+  const save = async (patch: Partial<CalEvent>) => {
+    const before = ev
+    putRows('events', [{ ...ev, ...patch }])
+    const res = await setEventStatus(ev.id, patch)
+    if (res.error) {
+      putRows('events', [before])
+      return toast(res.error)
+    }
+    putRows('events', [res.data!])
+  }
+  const start = new Date(ev.starts_at)
+  const end = ev.ends_at ? new Date(ev.ends_at) : null
+  const day = isoDay(start)
+  const endDay = end ? isoDay(end) : day
+  const when = ev.all_day ? rangeLabel(day, endDay) : `${longDay(day)}, ${timeLabel(start)}${end ? ` to ${timeLabel(end)}` : ''}`
+  const group = cal.groups.find((g) => g.id === ev.group_id)
+  return (
+    <div className="form cal-event">
+      <div className="cal-event__google">
+        <h3 className="cal-event__gtitle" dir="auto">
+          {ev.title}
+        </h3>
+        <p className="soft small num">
+          {when}
+          {ev.repeat_days?.length ? ` · every ${ev.repeat_days.map((d) => WEEKDAYS[d]).join(', ')}` : ''}
+        </p>
+        {ev.notes && (
+          <p className="small cal-event__gnotes" dir="auto">
+            {ev.notes}
+          </p>
+        )}
+        <p className="soft small">
+          <Icon name="calendar" size={14} /> From the team’s Google Calendar: change the name and time there. Everything below is Steamhub’s and stays.
+        </p>
+      </div>
+      <ForPicker value={ev.group_id ?? ''} onChange={(v) => save({ group_id: v || null })} cal={cal} title={ev.title} />
+      <div className="ctl">
+        <span className="ctl__name">Kind</span>
+        <div className="picks picks--seg cal-event__kinds" role="radiogroup" aria-label="Kind">
+          {EVENT_KINDS.map((k) => (
+            <button key={k} type="button" role="radio" className="pick" aria-checked={ev.kind === k} onClick={() => ev.kind !== k && save({ kind: k, kind_by_hand: true })}>
+              {EVENT_WORD[k]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <EventStatus ev={ev} cal={cal} />
+      <Reminders value={ev.reminders} onChange={(r) => save({ reminders: r })} group={ev.group_id ?? ''} kind={ev.kind} />
+      <section className="tsheet__block">
+        <h3 className="tsheet__head">Comments</h3>
+        <CommentThread cal={cal} people={people} target={{ kind: 'event', id: ev.id, title: ev.title, where: group?.name ?? 'The whole team', groupId: ev.group_id }} compact />
+      </section>
+    </div>
+  )
+}
+
 const hhmm = (iso: string) => {
   const d = new Date(iso)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -138,6 +255,7 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
   const toast = useToast()
   const [busy, run] = useBusy()
   const [confirm, setConfirm] = useState(false)
+  const { people } = usePeople()
   const [title, setTitle] = useState(ev?.title ?? '')
   const [kind, setKind] = useState<EventKind>(ev?.kind ?? 'meeting')
   const [group, setGroup] = useState(ev?.group_id ?? '')
@@ -216,11 +334,10 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
         save()
       }}
     >
-      {ev?.source === 'google' && <p className="soft small">From the team’s Google Calendar. Change it there: the next hourly sync puts back edits made here. Its status below stays.</p>}
       {ev && <EventStatus ev={ev} cal={cal} />}
       <label className="ctl">
         <span className="ctl__name">Name</span>
-        <input className="field" data-autofocus={!ev || undefined} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'meeting' ? 'Team meeting' : kind === 'competition' ? 'District event #1' : 'Order deadline'} />
+        <input className="field" dir="auto" data-autofocus={!ev || undefined} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'meeting' ? 'Team meeting' : kind === 'competition' ? 'District event #1' : 'Order deadline'} />
       </label>
 
       <div className="picks picks--seg cal-event__kinds" role="radiogroup" aria-label="Kind">
@@ -278,29 +395,9 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
         )}
       </div>
 
-      <div className="ctl">
-        <span className="ctl__name">For</span>
-        <Select
-          value={group}
-          onChange={setGroup}
-          options={[{ value: '', label: 'The whole team' }, ...[...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.name, group: TEAM_WORD[g.team] }))]}
-        />
-      </div>
+      <ForPicker value={group} onChange={setGroup} cal={cal} title={title} />
 
-      <div className="ctl">
-        <span className="ctl__name">Remind</span>
-        <div className="cal-chips" role="group" aria-label="Reminders">
-          {REMINDER_CHOICES.map((r) => (
-            <button key={r.min} type="button" className="chip" aria-pressed={reminders.includes(r.min)} onClick={() => setReminders((x) => toggle(x, r.min))}>
-              {r.label}
-            </button>
-          ))}
-        </div>
-        <span className="soft small">
-          {group ? 'Its group’s lead and everyone with an open task in it.' : 'Everyone on the team.'}
-          {kind === 'meeting' ? ' When a meeting ends, leads who haven’t sent today’s update get a reminder.' : ''}
-        </span>
-      </div>
+      <Reminders value={reminders} onChange={setReminders} group={group} kind={kind} />
 
       <label className="ctl">
         <span className="ctl__name">Notes</span>
@@ -310,6 +407,13 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
       <button type="submit" className="q-btn q-btn--main q-btn--wide">
         {busy ? 'Saving' : ev ? 'Save event' : 'Add event'}
       </button>
+
+      {ev && (
+        <section className="tsheet__block">
+          <h3 className="tsheet__head">Comments</h3>
+          <CommentThread cal={cal} people={people} target={{ kind: 'event', id: ev.id, title: ev.title, where: cal.groups.find((g) => g.id === ev.group_id)?.name ?? 'The whole team', groupId: ev.group_id }} compact />
+        </section>
+      )}
 
       {ev && (
         <div className="cal-event__more">

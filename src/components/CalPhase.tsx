@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from './Icon'
@@ -6,16 +6,13 @@ import { Sheet, useBusy, useToast } from './ui'
 import { useOpenTask } from './cal'
 import { DateRange } from './DateRange'
 import { useWho } from '../lib/auth'
-import { shrink } from '../lib/actions'
+import { CommentChip } from './Comments'
 import {
-  addNote,
+  createList,
   dayLabel,
-  deleteNote,
+  deleteList,
   deletePhase,
-  editNote,
-  firstName,
   isoDay,
-  mentionsIn,
   movePhases,
   pushPhases,
   setPhaseStatus,
@@ -25,16 +22,15 @@ import {
   STATUS_WORD,
   taskOrder,
   timePill,
+  updateList,
   updatePhase,
-  uploadNotePhoto,
+  type CalList,
   type Phase,
-  type PhaseNote,
   type Task,
   type TaskStatus,
 } from '../lib/cal'
 import { showSuggest, type Progress } from '../lib/calLinked'
 import type { Profile } from '../lib/mfg'
-import { useSigned } from '../lib/proto'
 import { applyRow, putRows, type Cal } from '../lib/useCal'
 import { QuickAdd } from '../pages/cal/Board'
 import { count } from '../lib/words'
@@ -58,7 +54,6 @@ function useParamOpener(key: string) {
   )
 }
 export const useOpenPhase = () => useParamOpener('phase')
-export const useOpenNotes = () => useParamOpener('notes')
 
 // ---------- Status pill and its menu ----------
 
@@ -321,9 +316,10 @@ export function CalTaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: 
   return (
     <li className="cal-line cal-line--task" data-status={task.status}>
       <div className="cal-line__name">
-        <button type="button" className="cal-line__title" onClick={() => open(task.id)}>
+        <button type="button" className="cal-line__title" dir="auto" onClick={() => open(task.id)}>
           {task.title}
         </button>
+        {task.gh_number != null && <span className="soft small num cal-gh">#{task.gh_number}</span>}
         {task.priority === 'high' && task.status !== 'done' && <span className="tag tag--bad cal-hi">High</span>}
         {subs.length > 0 && (
           <span className="soft small num">
@@ -339,32 +335,175 @@ export function CalTaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: 
           </span>
         )}
       </div>
-      <span className="cal-line__chip" />
-      <StatusPill status={task.status} startsOn={task.starts_on} dueOn={task.due_on} label={task.title} onPick={(s) => setStatus(task, s)} />
+      <CommentChip cal={cal} kind="task" id={task.id} label={task.title} />
+      <StatusPill status={task.status} startsOn={task.starts_on} dueOn={task.due_on} label={task.title} onPick={task.source === 'github' ? undefined : (s) => setStatus(task, s)} />
       <DatePill start={task.starts_on} end={task.due_on} status={task.status} doneDay={doneDayOf(task.done_at)} label={task.title} onClick={() => open(task.id)} />
     </li>
   )
 }
 
 /**
- * A group's tasks split by section ("To-Do December", from the Monday group they came from):
- * tasks with no section first, then each section under its name, the add line at the end.
+ * A group's tasks split by list ("To-Do December"): tasks in no list first, then each list in
+ * its order, with its name, comments and a menu to rename, move or delete it. The add line at the end.
  */
-export function SectionedTasks(props: Parameters<typeof TaskList>[0]) {
-  const { tasks, addTo, ...rest } = props
-  const names = [...new Set(tasks.map((t) => t.section?.trim()).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b))
-  if (!names.length) return <TaskList {...props} />
-  const plain = tasks.filter((t) => !t.section?.trim())
+export function SectionedTasks(props: Parameters<typeof TaskList>[0] & { groupId?: string }) {
+  const { tasks, addTo, groupId, ...rest } = props
+  const gid = groupId ?? addTo?.group.id
+  const lists = props.cal.lists.filter((l) => l.group_id === gid).sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
+  const [adding, setAdding] = useState(false)
+  const inList = new Set(lists.map((l) => l.id))
+  const plain = tasks.filter((t) => !t.list_id || !inList.has(t.list_id))
+  const { cal, people, openAdd } = rest
   return (
     <div className="cal-sections">
-      {plain.length > 0 && <TaskList tasks={plain} {...rest} />}
-      {names.map((name) => (
-        <section key={name} className="cal-section">
-          <h3 className="cal-loose__head">{name}</h3>
-          <TaskList tasks={tasks.filter((t) => t.section?.trim() === name)} {...rest} />
+      {(plain.length > 0 || !lists.length) && <TaskList tasks={plain} {...rest} />}
+      {lists.map((l, i) => (
+        <section key={l.id} className="cal-section">
+          <ListHead list={l} cal={cal} first={i === 0} last={i === lists.length - 1} lists={lists} />
+          <TaskList tasks={tasks.filter((t) => t.list_id === l.id)} {...rest} addTo={addTo ? { ...addTo, listId: l.id } : undefined} />
         </section>
       ))}
-      {addTo && <TaskList tasks={[]} addTo={addTo} {...rest} />}
+      {adding && gid && <NewList groupId={gid} cal={cal} onDone={() => setAdding(false)} />}
+      {/* One line at the end: a task in no list, or a new list. */}
+      {addTo && (
+        <div className="cal-sections__end">
+          <QuickAdd group={addTo.group} cal={cal} people={people} phaseId={addTo.phaseId} compact={!openAdd} autoFocus={openAdd ? false : undefined} />
+          {!adding && <AddListButton onClick={() => setAdding(true)} />}
+        </div>
+      )}
+          </div>
+  )
+}
+
+function AddListButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="text-btn small cal-add-list" onClick={onClick}>
+      <Icon name="plus" size={14} /> List
+    </button>
+  )
+}
+
+function NewList({ groupId, cal, onDone }: { groupId: string; cal: Cal; onDone: () => void }) {
+  const toast = useToast()
+  const [name, setName] = useState('')
+  const [busy, run] = useBusy()
+  return (
+    <form
+      className="cal-quick cal-newlist"
+      onSubmit={(e) => {
+        e.preventDefault()
+        run(async () => {
+          const res = await createList(groupId, name, cal.lists)
+          if (res.error) return toast(res.error)
+          putRows('cal_lists', [res.data!])
+          onDone()
+        })
+      }}
+    >
+      <div className="cal-quick__row">
+        <input
+          className="field"
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && onDone()}
+          placeholder="To-Do January"
+          aria-label="New list name"
+          dir="auto"
+        />
+        <button type="button" className="q-btn" onClick={onDone}>
+          Cancel
+        </button>
+        <button type="submit" className="q-btn">
+          {busy ? 'Adding' : 'Add list'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+/** A list's title line: name (tap to rename), comments, and earlier / later / delete. */
+function ListHead({ list, cal, first, last, lists }: { list: CalList; cal: Cal; first: boolean; last: boolean; lists: CalList[] }) {
+  const toast = useToast()
+  const [edit, setEdit] = useState(false)
+  const [name, setName] = useState(list.name)
+  const [confirm, setConfirm] = useState(false)
+  const n = cal.tasks.filter((t) => t.list_id === list.id && !t.parent_id).length
+  const save = async (patch: Partial<CalList>) => {
+    putRows('cal_lists', [{ ...list, ...patch }])
+    const res = await updateList(list.id, patch)
+    if (res.error) {
+      putRows('cal_lists', [list])
+      toast(res.error)
+    }
+  }
+  const move = async (dir: -1 | 1) => {
+    const i = lists.findIndex((l) => l.id === list.id)
+    const other = lists[i + dir]
+    if (!other) return
+    // Sorts can repeat after the import; give both distinct places.
+    const a = other.sort === list.sort ? list.sort + dir : other.sort
+    putRows('cal_lists', [
+      { ...list, sort: a },
+      { ...other, sort: list.sort },
+    ])
+    const r1 = await updateList(list.id, { sort: a })
+    const r2 = await updateList(other.id, { sort: list.sort })
+    if (r1.error || r2.error) toast(r1.error ?? r2.error!)
+  }
+  const remove = async () => {
+    const res = await deleteList(list.id)
+    if (res.error) return toast(res.error)
+    applyRow('cal_lists', 'delete', list)
+    for (const t of cal.tasks.filter((x) => x.list_id === list.id)) putRows('tasks', [{ ...t, list_id: null }])
+    toast(`${list.name} deleted${n ? `. Its ${n} ${n === 1 ? 'task stays' : 'tasks stay'} in the group.` : ''}`)
+  }
+  if (edit)
+    return (
+      <form
+        className="cal-list-head cal-list-head--edit"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const v = name.trim()
+          setEdit(false)
+          if (v && v !== list.name) save({ name: v })
+          else setName(list.name)
+        }}
+      >
+        <input className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} aria-label="List name" dir="auto" onKeyDown={(e) => e.key === 'Escape' && (setEdit(false), setName(list.name))} />
+        <button type="submit" className="q-btn q-btn--small">
+          Save
+        </button>
+        {!first && (
+          <button type="button" className="icon-btn" aria-label="Move list earlier" onClick={() => move(-1)}>
+            <Icon name="up" size={16} />
+          </button>
+        )}
+        {!last && (
+          <button type="button" className="icon-btn" aria-label="Move list later" onClick={() => move(1)}>
+            <Icon name="down" size={16} />
+          </button>
+        )}
+        {confirm ? (
+          <button type="button" className="q-btn q-btn--small q-btn--danger" onClick={remove}>
+            Delete list
+          </button>
+        ) : (
+          <button type="button" className="icon-btn" aria-label="Delete list" onClick={() => setConfirm(true)}>
+            <Icon name="trash" size={16} />
+          </button>
+        )}
+      </form>
+    )
+  return (
+    <div className="cal-list-head">
+      <h3 className="cal-loose__head">
+        <bdi dir="auto">{list.name}</bdi>
+      </h3>
+      <button type="button" className="icon-btn cal-line__edit" aria-label={`Edit ${list.name}`} onClick={() => setEdit(true)}>
+        <Icon name="edit" size={14} />
+      </button>
+      <CommentChip cal={cal} kind="list" id={list.id} label={list.name} />
     </div>
   )
 }
@@ -383,7 +522,7 @@ export function TaskList({
   cal: Cal
   nameOf: (id: string | null) => string | null
   people: Profile[]
-  addTo?: { group: Cal['groups'][number]; phaseId: string | null }
+  addTo?: { group: Cal['groups'][number]; phaseId: string | null; listId?: string | null }
   showDone?: boolean
   /** The add box already open (inside an opened phase); otherwise a small + Task button. */
   openAdd?: boolean
@@ -417,7 +556,7 @@ export function TaskList({
           )}
         </>
       )}
-      {addTo && <QuickAdd group={addTo.group} cal={cal} people={people} phaseId={addTo.phaseId} compact={!openAdd} autoFocus={openAdd ? false : undefined} />}
+      {addTo && <QuickAdd group={addTo.group} cal={cal} people={people} phaseId={addTo.phaseId} listId={addTo.listId} compact={!openAdd} autoFocus={openAdd ? false : undefined} />}
     </div>
   )
 }
@@ -453,7 +592,6 @@ export function PhaseRow({
   filterTasks?: (t: Task) => boolean
 }) {
   const openPhase = useOpenPhase()
-  const openNotes = useOpenNotes()
   const setStatus = usePhaseStatus()
   const save = usePhaseSave()
   const group = cal.groups.find((g) => g.id === p.group_id)
@@ -462,13 +600,12 @@ export function PhaseRow({
   const doneCount = all.filter((t) => t.status === 'done').length
   const line = prog?.line ?? (all.length ? `${doneCount} of ${count(all.length, 'task')} done` : 'No tasks yet')
   const share = prog ? prog.share : all.length ? doneCount / all.length : null
-  const notes = cal.notes.filter((n) => n.phase_id === p.id && !n.parent_id).length
   const suggest = !big && showSuggest(p, prog)
 
   const name = (
     <span className="cal-line__title">
       {p.status === 'done' && <Icon name="check" size={15} />}
-      {p.name}
+      <bdi dir="auto">{p.name}</bdi>
     </span>
   )
 
@@ -505,10 +642,7 @@ export function PhaseRow({
         {big ? (
           <span className="cal-line__chip" />
         ) : (
-          <button type="button" className="cal-note-chip" data-has={notes ? true : undefined} aria-label={`${notes} ${notes === 1 ? 'note' : 'notes'} on ${p.name}`} onClick={() => openNotes(p.id)}>
-            <Icon name="note" size={16} />
-            {notes > 0 && <span className="num">{notes}</span>}
-          </button>
+          <CommentChip cal={cal} kind="phase" id={p.id} label={p.name} />
         )}
         <StatusPill status={p.status} startsOn={p.starts_on} label={p.name} onPick={big ? undefined : (s) => setStatus(p, s)} />
         <DatePill start={p.starts_on} end={p.ends_on} status={p.status} doneDay={doneDayOf(p.done_at)} label={p.name} onClick={big ? undefined : () => openPhase(p.id)} />
@@ -729,399 +863,3 @@ function PhaseEditor({ p, cal, onDone }: { p: Phase; cal: Cal; onDone: () => voi
   )
 }
 
-// ---------- Phase notes: a side panel on computers, a sheet on phones ----------
-
-export function NotesHost({ cal, people }: { cal: Cal; people: Profile[] }) {
-  const [params] = useSearchParams()
-  const openNotes = useOpenNotes()
-  const id = params.get('notes')
-  const p = id ? cal.phases.find((x) => x.id === id) : undefined
-  const ref = useRef<HTMLDialogElement>(null)
-  const show = !!id && !cal.loading
-  useEffect(() => {
-    const d = ref.current
-    if (!d) return
-    if (show && !d.open) {
-      d.showModal()
-      d.querySelector<HTMLElement>('[data-autofocus]')?.focus()
-    }
-    if (!show && d.open) d.close()
-  }, [show])
-  return (
-    <dialog
-      ref={ref}
-      className="cal-notes"
-      aria-label={p ? `${p.name} notes` : 'Notes'}
-      onClose={() => openNotes(null)}
-      onClick={(e) => {
-        if (e.target === ref.current) openNotes(null)
-      }}
-    >
-      {show && (p ? <NotesBody key={p.id} p={p} cal={cal} people={people} onClose={() => openNotes(null)} /> : <NotesMissing onClose={() => openNotes(null)} />)}
-    </dialog>
-  )
-}
-
-function NotesMissing({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="cal-notes__head">
-      <h2 className="cal-notes__title">Not found</h2>
-      <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
-        <Icon name="close" />
-      </button>
-      <p className="soft">This phase was deleted, or it belongs to another season.</p>
-    </div>
-  )
-}
-
-const ago = (iso: string) => {
-  const ms = Date.now() - Date.parse(iso)
-  const min = Math.round(ms / 60_000)
-  if (min < 1) return 'Just now'
-  if (min < 60) return `${min} min ago`
-  const h = Math.round(min / 60)
-  if (h < 12) return `${h} h ago`
-  return dayLabel(isoDay(new Date(iso)))
-}
-
-/** "@Noa" in orange; the rest as typed. */
-function NoteText({ text }: { text: string }) {
-  const parts = text.split(/(@[\p{L}][\p{L}\d_-]*)/u)
-  return (
-    <p className="cal-note__text" dir="auto">
-      {parts.map((s, i) =>
-        s.startsWith('@') ? (
-          <span key={i} className="cal-note__at">
-            {s}
-          </span>
-        ) : (
-          s
-        ),
-      )}
-    </p>
-  )
-}
-
-function Photos({ paths }: { paths: string[] }) {
-  const url = useSigned(paths)
-  if (!paths.length) return null
-  return (
-    <div className="cal-note__photos">
-      {paths.map((p) => {
-        const u = url(p)
-        return u ? (
-          <a key={p} href={u} target="_blank" rel="noreferrer" className="cal-note__photo">
-            <img src={u} alt="Photo on the note" loading="lazy" />
-          </a>
-        ) : (
-          <span key={p} className="cal-note__photo cal-note__photo--wait" />
-        )
-      })}
-    </div>
-  )
-}
-
-/** A text box that suggests people after @, and can take photos. */
-function Writer({
-  phaseId,
-  people,
-  placeholder,
-  send,
-  autoFocus,
-  initial = '',
-  photosAllowed = true,
-  hint,
-  onCancel,
-  cta = 'Send',
-}: {
-  phaseId: string
-  people: Profile[]
-  placeholder: string
-  send: (text: string, photos: string[], mentions: string[]) => Promise<boolean>
-  autoFocus?: boolean
-  initial?: string
-  photosAllowed?: boolean
-  hint?: ReactNode
-  onCancel?: () => void
-  cta?: string
-}) {
-  const toast = useToast()
-  const [text, setText] = useState(initial)
-  const [photos, setPhotos] = useState<string[]>([])
-  const [uploading, setUploading] = useState(0)
-  const [busy, run] = useBusy()
-  const [caret, setCaret] = useState(0)
-  const ta = useRef<HTMLTextAreaElement>(null)
-  const active = useMemo(() => people.filter((p) => !p.banned && !p.shared), [people])
-  const typing = /@([\p{L}][\p{L}\d_-]*)?$/u.exec(text.slice(0, caret))
-  const hits = typing ? active.filter((p) => p.name.toLowerCase().includes((typing[1] ?? '').toLowerCase())).slice(0, 5) : []
-  const mentioned = mentionsIn(text, active)
-  const url = useSigned(photos)
-
-  const pick = (p: Profile) => {
-    const before = text.slice(0, caret).replace(/@([\p{L}][\p{L}\d_-]*)?$/u, `@${firstName(p.name)} `)
-    const next = before + text.slice(caret)
-    setText(next)
-    setCaret(before.length)
-    window.setTimeout(() => {
-      ta.current?.focus()
-      ta.current?.setSelectionRange(before.length, before.length)
-    }, 0)
-  }
-
-  const addPhotos = async (files: FileList | null) => {
-    if (!files?.length) return
-    for (const f of [...files]) {
-      setUploading((n) => n + 1)
-      try {
-        const res = await uploadNotePhoto(phaseId, await shrink(f, 1600))
-        if (res.error) toast(res.error)
-        else setPhotos((ps) => [...ps, res.path!])
-      } catch {
-        toast("That photo couldn't be read")
-      } finally {
-        setUploading((n) => n - 1)
-      }
-    }
-  }
-
-  const go = () =>
-    run(async () => {
-      const t = text.trim()
-      if (!t && !photos.length) return ta.current?.focus()
-      if (uploading) return toast('Wait for the photo to finish uploading')
-      if (await send(t, photos, mentioned)) {
-        setText('')
-        setPhotos([])
-      }
-    })
-
-  return (
-    <div className="cal-write">
-      <textarea
-        ref={ta}
-        className="cal-write__text"
-        rows={2}
-        value={text}
-        placeholder={placeholder}
-        data-autofocus={autoFocus || undefined}
-        autoFocus={autoFocus}
-        dir="auto"
-        aria-label={placeholder}
-        onChange={(e) => {
-          setText(e.target.value)
-          setCaret(e.target.selectionStart)
-        }}
-        onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault()
-            go()
-          }
-          if (e.key === 'Escape' && onCancel) {
-            e.preventDefault()
-            e.stopPropagation()
-            onCancel()
-          }
-        }}
-      />
-      {hits.length > 0 && (
-        <div className="cal-write__people" role="listbox" aria-label="Mention someone">
-          {hits.map((p) => (
-            <button key={p.id} type="button" role="option" aria-selected={false} onMouseDown={(e) => e.preventDefault()} onClick={() => pick(p)}>
-              <span className="avatar avatar--soft cal-av">{initials(p.name)}</span>
-              {p.name}
-            </button>
-          ))}
-        </div>
-      )}
-      {(photos.length > 0 || uploading > 0) && (
-        <div className="cal-note__photos">
-          {photos.map((p) => (
-            <span key={p} className="cal-note__photo">
-              {url(p) && <img src={url(p)!} alt="" />}
-              <button type="button" className="cal-note__unphoto" aria-label="Remove photo" onClick={() => setPhotos((ps) => ps.filter((x) => x !== p))}>
-                <Icon name="close" size={14} />
-              </button>
-            </span>
-          ))}
-          {Array.from({ length: uploading }, (_, i) => (
-            <span key={`u${i}`} className="cal-note__photo cal-note__photo--wait" />
-          ))}
-        </div>
-      )}
-      <div className="cal-write__bar">
-        {photosAllowed && (
-          <label className="icon-btn cal-write__cam" aria-label="Add a photo">
-            <Icon name="camera" size={18} />
-            <input type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files).then(() => (e.target.value = ''))} />
-          </label>
-        )}
-        <span className="soft small cal-write__hint">
-          {mentioned.length ? `${mentioned.map((id) => firstName(active.find((p) => p.id === id)?.name)).join(', ')} will get a notification.` : hint}
-        </span>
-        {onCancel && (
-          <button type="button" className="q-btn q-btn--small" onClick={onCancel}>
-            Cancel
-          </button>
-        )}
-        <button type="button" className="q-btn q-btn--small q-btn--main" onClick={go}>
-          {busy ? 'Sending' : cta}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function NotesBody({ p, cal, people, onClose }: { p: Phase; cal: Cal; people: Profile[]; onClose: () => void }) {
-  const who = useWho()
-  const toast = useToast()
-  const [replyTo, setReplyTo] = useState<string | null>(null)
-  const [editing, setEditing] = useState<string | null>(null)
-  const nameOf = (id: string | null) => people.find((x) => x.id === id)?.name ?? null
-  const group = cal.groups.find((g) => g.id === p.group_id)
-  const notes = cal.notes.filter((n) => n.phase_id === p.id)
-  const top = notes.filter((n) => !n.parent_id).sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
-  const repliesOf = (id: string) => notes.filter((n) => n.parent_id === id).sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
-
-  const send = async (text: string, photos: string[], mentions: string[], parent: string | null = null) => {
-    if (!who) return false
-    const res = await addNote({ phase_id: p.id, parent_id: parent, text, photos, mentions }, who)
-    if (res.error) {
-      toast(res.error)
-      return false
-    }
-    putRows('phase_notes', [res.data!])
-    return true
-  }
-
-  const remove = async (n: PhaseNote) => {
-    applyRow('phase_notes', 'delete', n)
-    const res = await deleteNote(n)
-    if (res.error) {
-      putRows('phase_notes', [n])
-      toast(res.error)
-    } else toast('Note deleted')
-  }
-
-  const one = (n: PhaseNote, reply: boolean) => {
-    const mine = n.author_id === who?.userId
-    return (
-      <li key={n.id} className="cal-note" data-reply={reply || undefined}>
-        <span className="avatar avatar--soft cal-av" aria-hidden="true">
-          {initials(nameOf(n.author_id))}
-        </span>
-        <div className="cal-note__body">
-          <div className="cal-note__who small">
-            <span className="strong">{firstName(nameOf(n.author_id)) || 'Someone'}</span>
-            <span className="soft">
-              {' '}
-              · {ago(n.created_at)}
-              {n.updated_at > n.created_at && Date.parse(n.updated_at) - Date.parse(n.created_at) > 60_000 ? ' · edited' : ''}
-            </span>
-          </div>
-          {editing === n.id ? (
-            <Writer
-              phaseId={p.id}
-              people={people}
-              placeholder="Edit the note"
-              initial={n.text}
-              photosAllowed={false}
-              autoFocus
-              cta="Save"
-              onCancel={() => setEditing(null)}
-              send={async (text, _ph, mentions) => {
-                if (!text && !n.photos.length) return false
-                const res = await editNote(n.id, { text, mentions })
-                if (res.error) {
-                  toast(res.error)
-                  return false
-                }
-                putRows('phase_notes', [res.data!])
-                setEditing(null)
-                return true
-              }}
-            />
-          ) : (
-            <>
-              {n.text && <NoteText text={n.text} />}
-              <Photos paths={n.photos} />
-            </>
-          )}
-          {editing !== n.id && (
-            <div className="cal-note__acts">
-              {!reply && (
-                <button type="button" className="text-btn small" onClick={() => setReplyTo(replyTo === n.id ? null : n.id)}>
-                  Reply
-                </button>
-              )}
-              {mine && (
-                <>
-                  <button type="button" className="text-btn small" onClick={() => setEditing(n.id)}>
-                    Edit
-                  </button>
-                  <button type="button" className="text-btn small" onClick={() => remove(n)}>
-                    Delete
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-          {!reply && (repliesOf(n.id).length > 0 || replyTo === n.id) && (
-            <ol className="cal-note__replies">
-              {repliesOf(n.id).map((r) => one(r, true))}
-              {replyTo === n.id && (
-                <li>
-                  <Writer
-                    phaseId={p.id}
-                    people={people}
-                    placeholder={`Reply to ${firstName(nameOf(n.author_id)) || 'this'}`}
-                    autoFocus
-                    cta="Reply"
-                    onCancel={() => setReplyTo(null)}
-                    send={async (text, photos, mentions) => {
-                      const ok = await send(text, photos, mentions, n.id)
-                      if (ok) setReplyTo(null)
-                      return ok
-                    }}
-                  />
-                </li>
-              )}
-            </ol>
-          )}
-        </div>
-      </li>
-    )
-  }
-
-  return (
-    <>
-      <div className="cal-notes__head">
-        <h2 className="cal-notes__title">
-          {p.name}
-          {group && <span className="soft"> · {group.name}</span>}
-        </h2>
-        <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </div>
-      <div className="cal-notes__pills">
-        <StatusPill status={p.status} startsOn={p.starts_on} />
-        <DatePill start={p.starts_on} end={p.ends_on} status={p.status} doneDay={doneDayOf(p.done_at)} />
-      </div>
-      <Writer
-        phaseId={p.id}
-        people={people}
-        placeholder="Small update: what works, what broke"
-        autoFocus
-        hint="Leads, Tom, mentors and admins get it. Type @ to mention someone."
-        send={(t, ph, m) => send(t, ph, m)}
-      />
-      {top.length ? (
-        <ol className="cal-notes__list">{top.map((n) => one(n, false))}</ol>
-      ) : (
-        <p className="soft cal-notes__empty">No notes yet. Small updates go here; the detailed one is the daily update.</p>
-      )}
-    </>
-  )
-}

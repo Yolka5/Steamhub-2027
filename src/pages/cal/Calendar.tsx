@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { CalTabs, useCalSeason } from '../../components/cal'
 import { Icon } from '../../components/Icon'
-import { NotesHost, PhaseEditorHost } from '../../components/CalPhase'
+import { PhaseEditorHost } from '../../components/CalPhase'
+import { CommentsHost } from '../../components/Comments'
 import { EventSheetHost } from '../../components/EventSheet'
 import { TaskSheetHost } from '../../components/TaskSheet'
 import { LoadError } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { TEAMS, TEAM_WORD, todayIso, type Team } from '../../lib/cal'
+import { sectionColor, sectionName, secStyle, todayIso } from '../../lib/cal'
 import { useLinked, useSuggestNotify } from '../../lib/calLinked'
 import { supabase } from '../../lib/supabase'
 import { useCal } from '../../lib/useCal'
@@ -32,7 +33,12 @@ export default function CalendarPage() {
   const phone = usePhone()
   const [params, setParams] = useSearchParams()
   const view = params.get('view') ?? 'board'
-  const team = (params.get('team') as Team | null) ?? null
+  // Sections to show, "mechanics,strategy"; none is all of them. Old links had one team.
+  const sections = (params.get('team') ?? '').split(',').filter((k) => k && cal.sections.some((x) => x.key === k))
+  const toggleSection = (k: string) => {
+    const next = sections.includes(k) ? sections.filter((x) => x !== k) : [...sections, k]
+    set('team', next.length ? next.join(',') : null)
+  }
   const mine = params.get('mine') === '1'
   const done = params.get('done') === '1'
   // Big view for meetings: read-only phases in large type. Stays on for this screen until Exit.
@@ -67,15 +73,20 @@ export default function CalendarPage() {
 
   const filters = (
     <div className="cal-filters">
-      <div className="picks picks--seg" role="radiogroup" aria-label="Team">
-        <button type="button" role="radio" className="pick" aria-checked={!team} onClick={() => set('team', null)}>
+      {/* Sections: pick one or more, so Mechanics + Strategy works. */}
+      <div className="cal-secpick" role="group" aria-label="Sections">
+        <button type="button" className="chip cal-secpick__chip" aria-pressed={!sections.length} onClick={() => set('team', null)}>
           All
         </button>
-        {TEAMS.map((t) => (
-          <button key={t} type="button" role="radio" className="pick" aria-checked={team === t} onClick={() => set('team', t)}>
-            {TEAM_WORD[t]}
+        {cal.sections.map((x) => (
+          <button key={x.key} type="button" className="chip cal-secpick__chip sec" style={secStyle(sectionColor(x.key))} aria-pressed={sections.includes(x.key)} onClick={() => toggleSection(x.key)}>
+            <span className="cal-dot" aria-hidden="true" />
+            {x.name}
           </button>
         ))}
+        <Link to="/calendar/sections" className="text-btn small cal-secpick__edit">
+          Edit sections
+        </Link>
       </div>
       <div className="picks picks--seg" role="radiogroup" aria-label="Whose">
         <button type="button" role="radio" className="pick" aria-checked={!mine} onClick={() => set('mine', null)}>
@@ -112,7 +123,7 @@ export default function CalendarPage() {
         ) : cal.loading ? (
           <p className="soft">Loading</p>
         ) : (
-          <Board cal={cal} linked={linked} filter={{ team, mine: false, done: false }} people={people} big />
+          <Board cal={cal} linked={linked} filter={{ sections, mine: false, done: false }} people={people} big />
         )}
       </div>
     )
@@ -163,7 +174,7 @@ export default function CalendarPage() {
       {phone ? (
         <details className="finder__more mfg-filters-fold">
           <summary>
-            Filters <span className="soft">{[team ? TEAM_WORD[team] : 'All teams', mine ? 'mine' : 'everyone', done && view === 'board' ? 'with done' : ''].filter(Boolean).join(' · ')}</span>
+            Filters <span className="soft">{[sections.length ? sections.map(sectionName).join(' + ') : 'All sections', mine ? 'mine' : 'everyone', done && view === 'board' ? 'with done' : ''].filter(Boolean).join(' · ')}</span>
           </summary>
           {filters}
         </details>
@@ -176,17 +187,17 @@ export default function CalendarPage() {
       ) : cal.loading ? (
         <p className="soft">Loading</p>
       ) : view === 'calendar' ? (
-        <MonthView cal={cal} filter={{ team, mine, done }} people={people} />
+        <MonthView cal={cal} filter={{ sections, mine, done }} people={people} />
       ) : view === 'gantt' ? (
-        phone ? <Plan cal={cal} linked={linked} filter={{ team, mine, done }} people={people} /> : <Gantt cal={cal} linked={linked} filter={{ team, mine, done }} people={people} />
+        phone ? <Plan cal={cal} linked={linked} filter={{ sections, mine, done }} people={people} /> : <Gantt cal={cal} linked={linked} filter={{ sections, mine, done }} people={people} />
       ) : (
-        <Board cal={cal} linked={linked} filter={{ team, mine, done }} people={people} />
+        <Board cal={cal} linked={linked} filter={{ sections, mine, done }} people={people} />
       )}
 
       <TaskSheetHost cal={cal} />
       <EventSheetHost cal={cal} />
       <PhaseEditorHost cal={cal} />
-      <NotesHost cal={cal} people={people} />
+      <CommentsHost cal={cal} people={people} />
     </div>
   )
 }

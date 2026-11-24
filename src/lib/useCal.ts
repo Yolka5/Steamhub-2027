@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
-import { ensureSeason, type CalEvent, type CalGroup, type Owner, type Phase, type PhaseNote, type Task, type Update, type Wait } from './cal'
+import { ensureSeason, setSections, type CalComment, type CalEvent, type CalGroup, type CalList, type Follow, type Owner, type Phase, type Section, type Task, type Update, type Wait } from './cal'
 import { selectAll, supabase } from './supabase'
 import { useReloadOnReturn } from './useReturn'
 
@@ -8,15 +8,19 @@ import { useReloadOnReturn } from './useReturn'
 // everyone else; coming back to the app or the connection returning reloads it.
 
 export interface CalData {
+  sections: Section[]
   groups: CalGroup[]
+  lists: CalList[]
   phases: Phase[]
   tasks: Task[]
   owners: Owner[]
   waits: Wait[]
   updates: Update[]
   events: CalEvent[]
-  /** Notes on phases, replies included. */
-  notes: PhaseNote[]
+  /** Comments on tasks, groups, lists, phases and events, replies included. */
+  comments: CalComment[]
+  /** What I follow or muted. */
+  follows: Follow[]
 }
 
 interface State extends CalData {
@@ -25,11 +29,12 @@ interface State extends CalData {
   error: string | null
 }
 
-const empty: State = { season: null, groups: [], phases: [], tasks: [], owners: [], waits: [], updates: [], events: [], notes: [], loading: true, error: null }
+const empty: State = { season: null, sections: [], groups: [], lists: [], phases: [], tasks: [], owners: [], waits: [], updates: [], events: [], comments: [], follows: [], loading: true, error: null }
 
 let state: State = empty
 const listeners = new Set<() => void>()
 const set = (patch: Partial<State>) => {
+  if (patch.sections) setSections(patch.sections)
   state = { ...state, ...patch }
   listeners.forEach((l) => l())
 }
@@ -43,14 +48,14 @@ let loadingSeason: number | null = null
 async function load(season: number) {
   loadingSeason = season
   await ensureSeason(season)
-  const g = await supabase.from('cal_groups').select('*').eq('season', season)
+  const [g, sec] = await Promise.all([supabase.from('cal_groups').select('*').eq('season', season), supabase.from('cal_sections').select('*').order('sort')])
   if (g.error) {
     if (loadingSeason === season) set({ loading: false, error: g.error.message })
     return
   }
   const ids = (g.data as CalGroup[]).map((x) => x.id)
   const none = Promise.resolve({ data: [], error: null })
-  const [p, t, o, w, u, e] = await Promise.all([
+  const [p, t, o, w, u, e, l, c, f] = await Promise.all([
     ids.length ? supabase.from('cal_phases').select('*').in('group_id', ids) : none,
     ids.length ? selectAll<Task>(() => supabase.from('tasks').select('*').in('group_id', ids).order('id')) : none,
     // Owners and waits are small for the whole history, and filtering by hundreds of task ids
@@ -59,23 +64,27 @@ async function load(season: number) {
     selectAll<Wait>(() => supabase.from('task_waits').select('*').order('task_id')),
     ids.length ? selectAll<Update>(() => supabase.from('cal_updates').select('*').in('group_id', ids).order('id')) : none,
     selectAll<CalEvent>(() => supabase.from('events').select('*').order('starts_at')),
+    ids.length ? supabase.from('cal_lists').select('*').in('group_id', ids) : none,
+    // Comments are short text, a few hundred a season: all of them, so counts show at once.
+    selectAll<CalComment>(() => supabase.from('comments').select('*').order('id')),
+    supabase.from('comment_follows').select('*'),
   ])
-  // Notes hang off phases, so they come once the phases are known.
-  const phaseIds = ((p.data as Phase[] | null) ?? []).map((x) => x.id)
-  const n = phaseIds.length ? await selectAll<PhaseNote>(() => supabase.from('phase_notes').select('*').in('phase_id', phaseIds).order('id')) : { data: [], error: null }
   if (loadingSeason !== season) return
   const err = p.error ?? t.error ?? o.error ?? w.error ?? u.error ?? e.error
   if (err && !state.groups.length) return set({ loading: false, error: err.message })
   set({
     season,
+    sections: (sec.data as Section[] | null) ?? state.sections,
     groups: g.data as CalGroup[],
+    lists: (l.data as CalList[] | null) ?? [],
     phases: (p.data as Phase[]) ?? [],
     tasks: (t.data as Task[]) ?? [],
     owners: (o.data as Owner[]) ?? [],
     waits: (w.data as Wait[]) ?? [],
     updates: (u.data as Update[]) ?? [],
     events: (e.data as CalEvent[]) ?? [],
-    notes: (n.data as PhaseNote[]) ?? [],
+    comments: (c.data as CalComment[] | null) ?? [],
+    follows: (f.data as Follow[] | null) ?? [],
     loading: false,
     error: null,
   })
@@ -83,25 +92,28 @@ async function load(season: number) {
 
 type Key = keyof CalData
 const KEYS: Record<string, { key: Key; same: (a: never, b: never) => boolean }> = {
+  cal_sections: { key: 'sections', same: (a: Section, b: Section) => a.key === b.key },
   cal_groups: { key: 'groups', same: (a: CalGroup, b: CalGroup) => a.id === b.id },
+  cal_lists: { key: 'lists', same: (a: CalList, b: CalList) => a.id === b.id },
   cal_phases: { key: 'phases', same: (a: Phase, b: Phase) => a.id === b.id },
   tasks: { key: 'tasks', same: (a: Task, b: Task) => a.id === b.id },
   task_owners: { key: 'owners', same: (a: Owner, b: Owner) => a.task_id === b.task_id && a.user_id === b.user_id },
   task_waits: { key: 'waits', same: (a: Wait, b: Wait) => a.task_id === b.task_id && a.waits_for_id === b.waits_for_id },
   cal_updates: { key: 'updates', same: (a: Update, b: Update) => a.id === b.id },
   events: { key: 'events', same: (a: CalEvent, b: CalEvent) => a.id === b.id },
-  phase_notes: { key: 'notes', same: (a: PhaseNote, b: PhaseNote) => a.id === b.id },
+  comments: { key: 'comments', same: (a: CalComment, b: CalComment) => a.id === b.id },
+  comment_follows: { key: 'follows', same: (a: Follow, b: Follow) => a.user_id === b.user_id && a.target_kind === b.target_kind && a.target_id === b.target_id },
 }
 
 /** Applies one row change, from realtime or from a save, right away. */
 export function applyRow(table: keyof typeof KEYS, kind: 'upsert' | 'delete', row: object) {
   const k = KEYS[table]
   const list = state[k.key] as object[]
+  // Realtime only sends my own follows (row level security), but a save passes them too.
   const same = k.same as (a: object, b: object) => boolean
   // Rows of another season's groups don't belong here.
   if (kind === 'upsert' && 'group_id' in row && table !== 'events' && !state.groups.some((g) => g.id === (row as { group_id: string }).group_id)) return
   if (kind === 'upsert' && table === 'cal_groups' && (row as CalGroup).season !== state.season) return
-  if (kind === 'upsert' && table === 'phase_notes' && !state.phases.some((p) => p.id === (row as PhaseNote).phase_id)) return
   const i = list.findIndex((x) => same(x, row))
   if (kind === 'delete') {
     if (i === -1) return

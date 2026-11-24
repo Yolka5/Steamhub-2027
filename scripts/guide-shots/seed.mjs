@@ -303,10 +303,19 @@ export function seed() {
   // Calendar: the groups cal_ensure_season makes, three phases per subsystem, tasks and updates.
   const day = (d) => new Date(Date.parse('2026-11-12T00:00:00Z') + d * 86400000).toISOString().slice(0, 10)
   const grp = (team, kind, name, sort, extra = {}) => ({ id: uuid(), season: 2027, team, kind, subsystem_number: null, name, lead_id: null, sort, created_at: ago(60 * 24 * 3), ...extra })
+  db.cal_sections = [
+    { key: 'mechanics', name: 'Mechanics', color: 'blue', sort: 0, created_at: ago(9000) },
+    { key: 'electronics', name: 'Electronics', color: 'teal', sort: 1, created_at: ago(9000) },
+    { key: 'programming', name: 'Programming', color: 'purple', sort: 2, created_at: ago(9000) },
+    { key: 'strategy', name: 'Strategy', color: 'pink', sort: 3, created_at: ago(9000) },
+  ]
   db.cal_groups = [
     grp('mechanics', 'team', 'Mechanics', 0),
-    grp('electronics', 'team', 'Electronics', 0),
-    grp('programming', 'team', 'Programming', 0),
+    grp('electronics', 'team', 'Electronics', 0, { lead_id: people[4].id }),
+    grp('programming', 'team', 'Programming', 0, { lead_id: people[2].id }),
+    grp('strategy', 'team', 'Strategy', 0, { lead_id: people[1].id }),
+    grp('strategy', 'custom', 'Scouting', 51),
+    grp('programming', 'custom', 'Vision', 51, { github_label: 'vision', color: 'indigo' }),
     grp('mechanics', 'cnc', 'CNC', 1, { lead_id: people[3].id }),
     grp('mechanics', 'workshop', 'Workshop', 2, { lead_id: people[4].id }),
     ...db.subsystems.map((sb) => grp('mechanics', 'subsystem', sb.name, 10 + sb.number, { subsystem_number: sb.number, lead_id: sb.lead_id })),
@@ -352,6 +361,23 @@ export function seed() {
   task(G('Workshop'), 'Label the stock racks', 'todo', 2, 5, [people[4]])
   task(G('Electronics'), 'Wire the test board', 'doing', -2, 2, [people[4]])
   task(G('Programming'), 'Swerve odometry', 'todo', 1, 7, [people[2]])
+  // A list in Mechanics, as the Monday import made "To-Do December".
+  const dec = { id: uuid(), group_id: G('Mechanics').id, name: 'To-Do December', sort: 1, created_at: ago(3000) }
+  db.cal_lists = [dec]
+  const tl1 = task(G('Mechanics'), 'Fix the band saw guard', 'todo', 1, 6, [people[3]])
+  tl1.list_id = dec.id
+  tl1.phase_id = null
+  const tl2 = task(G('Mechanics'), 'חיווט 24 לבדיקה', 'todo', 4, 9, [people[1]])
+  tl2.list_id = dec.id
+  tl2.phase_id = null
+  task(G('Scouting'), 'Scouting app questions', 'todo', 5, 12, [people[1]]).phase_id = null
+  // From GitHub: an issue with a sub-issue.
+  const gh1 = task(G('Programming'), 'Auto path for the 3-piece', 'doing', 0, 8, [people[2]])
+  Object.assign(gh1, { source: 'github', gh_number: 142, gh_url: 'https://github.com/example/robot/issues/142', gh_people: ['noa-dev'], phase_id: null })
+  const gh2 = task(G('Programming'), 'Tune the path follower', 'todo', 2, 6, [])
+  Object.assign(gh2, { source: 'github', gh_number: 145, gh_url: 'https://github.com/example/robot/issues/145', parent_id: gh1.id, phase_id: null, gh_people: [] })
+  const gh3 = task(G('Vision'), 'AprilTag pose filter', 'todo', 3, 10, [people[2]])
+  Object.assign(gh3, { source: 'github', gh_number: 150, gh_url: 'https://github.com/example/robot/issues/150', phase_id: null, gh_people: [] })
   db.task_waits = [{ task_id: t3.id, waits_for_id: t2.id }, { task_id: t2.id, waits_for_id: t1.id }]
   db.cal_updates = [
     { id: uuid(), group_id: intake.id, phase_id: phase(intake, 'prototypes'), day: day(0), author_id: ME.id, text: 'Double roller at 18 mm took 10 of 10. Picking the concept tomorrow, then CAD.', created_at: ago(90), updated_at: ago(90) },
@@ -364,8 +390,15 @@ export function seed() {
     { id: uuid(), phase_id: notePhase, parent_id: n1.id, author_id: ME.id, text: 'Nice, check it still clears the bumper', photos: [], mentions: [], created_at: ago(100), updated_at: ago(100) },
     { id: uuid(), phase_id: notePhase, parent_id: null, author_id: people[2].id, text: `Belt snapped at 60%. Ordering a wider one, @${ME.name.split(' ')[0]} can you check stock?`, photos: [], mentions: [ME.id], created_at: ago(60 * 26), updated_at: ago(60 * 26) },
   ]
+  // Comments: phase notes moved in, plus one on a task in To-Do December.
+  db.comments = [
+    ...db.phase_notes.map((n) => ({ id: n.id, target_kind: 'phase', target_id: n.phase_id, parent_id: n.parent_id, author_id: n.author_id, text: n.text, photos: n.photos, mentions: n.mentions, tell_all: false, created_at: n.created_at, updated_at: n.updated_at })),
+    { id: uuid(), target_kind: 'task', target_id: tl1.id, parent_id: null, author_id: people[3].id, text: 'The guard bracket is cracked, needs a new one cut.', photos: [], mentions: [], tell_all: false, created_at: ago(200), updated_at: ago(200) },
+  ]
+  db.comment_follows = []
   db.events = [
     { id: uuid(), title: 'Team meeting', kind: 'meeting', group_id: null, starts_at: '2026-11-15T15:00:00Z', ends_at: '2026-11-15T16:00:00Z', all_day: false, repeat_days: [0], repeat_until: null, skip_days: [], reminders: [30], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
+    { id: uuid(), title: 'הכשרות תוכנה', kind: 'other', group_id: null, source: 'google', starts_at: '2026-11-01T00:00:00Z', ends_at: '2026-12-20T21:59:00Z', all_day: true, repeat_days: null, repeat_until: null, skip_days: [], reminders: [], notes: '', created_by: null, created_at: ago(6000), updated_at: ago(6000) },
     { id: uuid(), title: 'Kickoff', kind: 'competition', group_id: null, starts_at: '2027-01-09T17:00:00Z', ends_at: null, all_day: true, repeat_days: null, repeat_until: null, skip_days: [], reminders: [], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
   ]
   db.push_subscriptions = []

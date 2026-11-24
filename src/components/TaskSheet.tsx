@@ -4,12 +4,14 @@ import { Icon } from './Icon'
 import { Select } from './Select'
 import { HighTag, StatusIcon, useOpenTask } from './cal'
 import { DateRange } from './DateRange'
+import { CommentThread } from './Comments'
 import { Sheet, useBusy, useToast } from './ui'
 import { useWho } from '../lib/auth'
 import {
   addDays,
   addOwner,
   addWait,
+  createList,
   createTask,
   daysBetween,
   deleteTask,
@@ -26,7 +28,7 @@ import {
   STATUSES,
   STATUS_WORD,
   statusTone,
-  TEAM_WORD,
+  sectionName,
   updateTask,
   type DateMove,
   type Task,
@@ -37,8 +39,9 @@ import { supabase } from '../lib/supabase'
 import { applyRow, putRows, type Cal } from '../lib/useCal'
 import { usePeople } from '../lib/useMfg'
 
-// The task, on one screen with no tabs: name, group, status, priority, dates, owners, waits for,
-// link, subtasks, notes. Every field saves on its own. A sheet from the bottom on phones.
+// The task, on one screen with no tabs: name, group and list, status, priority, dates, owners,
+// waits for, link, subtasks, notes, comments. Every field saves on its own. A sheet from the bottom
+// on phones. A task from GitHub shows its name, status and owners as GitHub has them.
 
 export function TaskSheetHost({ cal }: { cal: Cal }) {
   const [params] = useSearchParams()
@@ -60,39 +63,39 @@ export function TaskSheetHost({ cal }: { cal: Cal }) {
   )
 }
 
-/** A label inside the group: type a new one or pick one the group already has. Empty clears it. */
-function SectionField({ task, cal, onSave }: { task: Task; cal: Cal; onSave: (section: string | null) => void }) {
-  const [text, setText] = useState(task.section ?? '')
-  useEffect(() => setText(task.section ?? ''), [task.section])
-  const listId = `sections-${task.id}`
-  const names = [...new Set(cal.tasks.filter((t) => t.group_id === task.group_id && t.section).map((t) => t.section!.trim()))].sort()
-  const commit = () => {
-    const v = text.trim() || null
-    if (v !== (task.section ?? null)) onSave(v)
-  }
-  return (
-    <>
-      <input
-        className="field"
-        aria-label="Section"
-        list={listId}
-        value={text}
-        placeholder="None"
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            e.currentTarget.blur()
-          }
+/** The list inside the group it sits in: pick one, none, or make a new one here. */
+function ListField({ task, cal, onSave }: { task: Task; cal: Cal; onSave: (listId: string | null) => void }) {
+  const toast = useToast()
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const lists = cal.lists.filter((l) => l.group_id === task.group_id).sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
+  if (adding)
+    return (
+      <form
+        className="tsheet__add"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          const res = await createList(task.group_id, name, cal.lists)
+          if (res.error) return toast(res.error)
+          putRows('cal_lists', [res.data!])
+          onSave(res.data!.id)
+          setAdding(false)
+          setName('')
         }}
-      />
-      <datalist id={listId}>
-        {names.map((n) => (
-          <option key={n} value={n} />
-        ))}
-      </datalist>
-    </>
+      >
+        <input className="field" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="To-Do January" aria-label="New list name" dir="auto" onKeyDown={(e) => e.key === 'Escape' && setAdding(false)} />
+        <button type="submit" className="q-btn">
+          Add
+        </button>
+      </form>
+    )
+  return (
+    <Select
+      label="List"
+      value={task.list_id ?? ''}
+      onChange={(v) => (v === '__new' ? setAdding(true) : onSave(v || null))}
+      options={[{ value: '', label: 'No list' }, ...lists.map((l) => ({ value: l.id, label: l.name })), { value: '__new', label: 'New list' }]}
+    />
   )
 }
 
@@ -178,7 +181,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
     if (!g) return
     // The task joins the new group's current phase, and its subtasks come along.
     const phase = cal.phases.filter((p) => p.group_id === groupId).sort((a, b) => a.sort - b.sort).find((p) => !p.done_at)
-    if (await save({ group_id: groupId, phase_id: phase?.id ?? null }))
+    if (await save({ group_id: groupId, phase_id: phase?.id ?? null, list_id: null }))
       for (const s of subs) {
         const r = await updateTask(s.id, { group_id: groupId, phase_id: phase?.id ?? null })
         if (r.data) putRows('tasks', [r.data])
@@ -274,7 +277,9 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
       .map((t) => ({ value: t.id, label: t.title, group: groupName.get(t.group_id) }))
   }, [cal.tasks, cal.waits, cal.groups, task.id, task.group_id, waitsFor])
 
-  const groupOptions = [...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.name, group: TEAM_WORD[g.team] }))
+  // Section first, then its groups: picking the section itself means "for Mechanics".
+  const groupOptions = [...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.kind === 'team' ? `${g.name}, the whole section` : g.name, group: sectionName(g.team) }))
+  const gh = task.source === 'github'
 
   return (
     <div className="tsheet">
@@ -283,9 +288,24 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           <Icon name="back" size={16} /> Part of {parent.title}
         </button>
       )}
+      {gh && (
+        <p className="tsheet__gh soft small">
+          <Icon name="link" size={16} />
+          <span>
+            From GitHub{task.gh_number != null ? ` #${task.gh_number}` : ''}. Name, status and owners follow GitHub; change them there.
+          </span>
+          {task.gh_url && (
+            <a href={task.gh_url} target="_blank" rel="noreferrer" className="q-btn q-btn--small">
+              Open in GitHub
+            </a>
+          )}
+        </p>
+      )}
       <textarea
         className="field tsheet__title"
         rows={1}
+        dir="auto"
+        readOnly={gh}
         aria-label="Task name"
         value={title}
         onChange={(e) => setTitle(e.target.value.replace(/\n/g, ''))}
@@ -316,18 +336,27 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           )}
         </div>
 
-        <span className="tsheet__label">Section</span>
-        <SectionField task={task} cal={cal} onSave={(section) => save({ section })} />
+        <span className="tsheet__label">List</span>
+        <ListField task={task} cal={cal} onSave={(list_id) => save({ list_id })} />
 
         <span className="tsheet__label">Status</span>
-        <div className="cal-st-picks" role="radiogroup" aria-label="Status">
-          {STATUSES.map((s) => (
-            <button key={s} type="button" role="radio" className="cal-st" data-tone={statusTone(s, task.starts_on, task.due_on)} aria-checked={task.status === s} onClick={() => setStatus(s)}>
-              {s === 'done' && <Icon name="check" size={14} />}
-              {STATUS_WORD[s]}
-            </button>
-          ))}
-        </div>
+        {gh ? (
+          <div>
+            <span className="cal-st" data-tone={statusTone(task.status, task.starts_on, task.due_on)}>
+              {task.status === 'done' && <Icon name="check" size={14} />}
+              {STATUS_WORD[task.status]}
+            </span>
+          </div>
+        ) : (
+          <div className="cal-st-picks" role="radiogroup" aria-label="Status">
+            {STATUSES.map((s) => (
+              <button key={s} type="button" role="radio" className="cal-st" data-tone={statusTone(s, task.starts_on, task.due_on)} aria-checked={task.status === s} onClick={() => setStatus(s)}>
+                {s === 'done' && <Icon name="check" size={14} />}
+                {STATUS_WORD[s]}
+              </button>
+            ))}
+          </div>
+        )}
 
         <span className="tsheet__label">Priority</span>
         <div className="picks picks--seg" role="radiogroup" aria-label="Priority">
@@ -343,14 +372,29 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
 
         <span className="tsheet__label">Owners</span>
         <div className="tsheet__owners">
-          {owners.map((id) => (
-            <span key={id} className="chip-x">
-              {nameOf(id) ?? 'Someone'}
-              <button type="button" aria-label={`Remove ${nameOf(id) ?? 'owner'}`} onClick={() => dropOwner(id)}>
-                <Icon name="close" size={14} />
-              </button>
+          {owners.map((id) =>
+            gh ? (
+              <span key={id} className="chip-x">
+                {nameOf(id) ?? 'Someone'}
+              </span>
+            ) : (
+              <span key={id} className="chip-x">
+                {nameOf(id) ?? 'Someone'}
+                <button type="button" aria-label={`Remove ${nameOf(id) ?? 'owner'}`} onClick={() => dropOwner(id)}>
+                  <Icon name="close" size={14} />
+                </button>
+              </span>
+            ),
+          )}
+          {/* GitHub people nobody linked yet: their GitHub name, until a profile carries it. */}
+          {(task.gh_people ?? []).map((login) => (
+            <span key={login} className="chip-x" title="Not linked to anyone in Steamhub yet. Set it on their profile.">
+              @{login}
             </span>
           ))}
+          {gh ? (
+            !owners.length && !(task.gh_people ?? []).length && <span className="soft small">Nobody assigned in GitHub</span>
+          ) : (
           <Select
             label="Add owner"
             className="field--inline tsheet__add-owner"
@@ -359,6 +403,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
             onChange={addOwnerTo}
             options={people.filter((p) => !p.banned && !p.shared && !owners.includes(p.id)).map((p) => ({ value: p.id, label: p.name }))}
           />
+          )}
         </div>
       </div>
 
@@ -407,10 +452,21 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
             <ul className="tsheet__subs">
               {subs.map((s) => (
                 <li key={s.id}>
-                  <label className="check">
-                    <input type="checkbox" checked={s.status === 'done'} onChange={() => toggleSub(s)} />
-                    <span data-done={s.status === 'done' || undefined}>{s.title}</span>
-                  </label>
+                  {s.source === 'github' ? (
+                    <span className="check">
+                      <StatusIcon status={s.status} />
+                      <span data-done={s.status === 'done' || undefined} dir="auto">
+                        {s.title}
+                      </span>
+                    </span>
+                  ) : (
+                    <label className="check">
+                      <input type="checkbox" checked={s.status === 'done'} onChange={() => toggleSub(s)} />
+                      <span data-done={s.status === 'done' || undefined} dir="auto">
+                        {s.title}
+                      </span>
+                    </label>
+                  )}
                   <button type="button" className="icon-btn" aria-label={`Open ${s.title}`} onClick={() => open(s.id)}>
                     <Icon name="more" size={18} />
                   </button>
@@ -418,18 +474,22 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
               ))}
             </ul>
           )}
-          <form
-            className="tsheet__add"
-            onSubmit={(e) => {
-              e.preventDefault()
-              addSub()
-            }}
-          >
-            <input className="field" value={sub} onChange={(e) => setSub(e.target.value)} placeholder="Add a step" aria-label="New subtask" enterKeyHint="done" />
-            <button type="submit" className="q-btn">
-              {busy ? 'Adding' : 'Add'}
-            </button>
-          </form>
+          {gh ? (
+            !subs.length && <p className="soft small">Sub-issues in GitHub show up here.</p>
+          ) : (
+            <form
+              className="tsheet__add"
+              onSubmit={(e) => {
+                e.preventDefault()
+                addSub()
+              }}
+            >
+              <input className="field" value={sub} onChange={(e) => setSub(e.target.value)} placeholder="Add a step" aria-label="New subtask" enterKeyHint="done" />
+              <button type="submit" className="q-btn">
+                {busy ? 'Adding' : 'Add'}
+              </button>
+            </form>
+          )}
         </section>
       )}
 
@@ -445,6 +505,11 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
           onChange={(e) => setNotes(e.target.value)}
           onBlur={() => notes !== task.notes && save({ notes })}
         />
+      </section>
+
+      <section className="tsheet__block" id="task-comments">
+        <h3 className="tsheet__head">Comments</h3>
+        <CommentThread cal={cal} people={people} target={{ kind: 'task', id: task.id, title: task.title, where: group?.name, groupId: task.group_id }} compact />
       </section>
 
       <div className="tsheet__foot">

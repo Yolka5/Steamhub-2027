@@ -3,16 +3,142 @@ import { supabase } from './supabase'
 
 // Calendar model: groups, phases, tasks, daily updates and events. See CALENDAR.md.
 
-export type Team = 'mechanics' | 'electronics' | 'programming'
-/** 'project': a subsystem of an off-season project, one group each, after the season's subsystems. */
-export type GroupKind = 'team' | 'cnc' | 'workshop' | 'subsystem' | 'project'
+/** A section's key: 'mechanics', 'electronics', 'programming', 'strategy', or one added later. */
+export type Team = string
+/**
+ * 'team': a section's own group (tasks "for Mechanics"). 'project': a subsystem of an off-season
+ * project, one group each, after the season's subsystems. 'custom': added by hand inside a section.
+ */
+export type GroupKind = 'team' | 'cnc' | 'workshop' | 'subsystem' | 'project' | 'custom'
 export type PhaseKind = 'prototypes' | 'cad' | 'manufacturing' | 'custom'
 export type TaskStatus = 'todo' | 'doing' | 'done'
 export type Priority = 'low' | 'normal' | 'high'
 export type EventKind = 'meeting' | 'competition' | 'deadline' | 'other'
 
-export const TEAMS: Team[] = ['mechanics', 'electronics', 'programming']
-export const TEAM_WORD: Record<Team, string> = { mechanics: 'Mechanics', electronics: 'Electronics', programming: 'Programming' }
+// ---------- Sections and colours ----------
+// Sections are rows in cal_sections. Their order and names are kept here too, so sorting and
+// labels work anywhere without passing the list around; useCal keeps it current.
+
+export interface Section {
+  key: string
+  name: string
+  /** A palette key ('blue') or a custom '#rrggbb'. */
+  color: string
+  sort: number
+  created_at: string
+}
+
+/** Built in: automatic groups (CNC, Workshop, subsystems, projects) land in Mechanics. */
+export const FIXED_SECTIONS = ['mechanics', 'electronics', 'programming']
+
+let SECTIONS: Section[] = [
+  { key: 'mechanics', name: 'Mechanics', color: 'blue', sort: 0, created_at: '' },
+  { key: 'electronics', name: 'Electronics', color: 'teal', sort: 1, created_at: '' },
+  { key: 'programming', name: 'Programming', color: 'purple', sort: 2, created_at: '' },
+  { key: 'strategy', name: 'Strategy', color: 'pink', sort: 3, created_at: '' },
+]
+export const setSections = (list: Section[]) => {
+  if (list.length) SECTIONS = [...list].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
+}
+export const sectionList = () => SECTIONS
+export const sectionName = (key: string | null | undefined) => SECTIONS.find((x) => x.key === key)?.name ?? (key ? key[0].toUpperCase() + key.slice(1) : '')
+const sectionRank = (key: string) => {
+  const i = SECTIONS.findIndex((x) => x.key === key)
+  return i === -1 ? 999 : i
+}
+
+/** Twelve colours, each checked for readable text on light and dark, none close to a status colour. */
+export const PALETTE: { key: string; name: string; light: string; dark: string }[] = [
+  { key: 'blue', name: 'Blue', light: '#2f6fdb', dark: '#6fa0f0' },
+  { key: 'teal', name: 'Teal', light: '#138a7e', dark: '#4cc3b5' },
+  { key: 'purple', name: 'Purple', light: '#7a4fd6', dark: '#a98af0' },
+  { key: 'pink', name: 'Pink', light: '#d23f8a', dark: '#f07ab4' },
+  { key: 'indigo', name: 'Indigo', light: '#4450b8', dark: '#8a93ea' },
+  { key: 'cyan', name: 'Cyan', light: '#0f86b0', dark: '#55c0e6' },
+  { key: 'brown', name: 'Brown', light: '#8a5a2b', dark: '#c99460' },
+  { key: 'slate', name: 'Slate', light: '#55606e', dark: '#9aa6b4' },
+  { key: 'magenta', name: 'Magenta', light: '#a8329e', dark: '#df73d6' },
+  { key: 'plum', name: 'Plum', light: '#8e3b5c', dark: '#d3829f' },
+  { key: 'olive', name: 'Olive', light: '#6f7a1e', dark: '#b4bd55' },
+  { key: 'sky', name: 'Sky', light: '#3a8fc9', dark: '#7fbde8' },
+]
+
+const hexRgb = (h: string) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(h.trim())
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const
+}
+const rgbHex = (r: number, g: number, b: number) => `#${[r, g, b].map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join('')}`
+
+/** Light and dark values of a colour: a palette key, or a custom hex (its dark one is lifted). */
+export function colorPair(color: string | null | undefined): { light: string; dark: string } {
+  const p = PALETTE.find((x) => x.key === color)
+  if (p) return { light: p.light, dark: p.dark }
+  const rgb = color ? hexRgb(color) : null
+  if (!rgb) return { light: PALETTE[7].light, dark: PALETTE[7].dark }
+  const [r, g, b] = rgb
+  return { light: rgbHex(r, g, b), dark: rgbHex(r + (255 - r) * 0.35, g + (255 - g) * 0.35, b + (255 - b) * 0.35) }
+}
+
+const lum = (h: string) => {
+  const rgb = hexRgb(h)
+  if (!rgb) return 0
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+export const contrast = (a: string, b: string) => {
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m)
+  return (x + 0.05) / (y + 0.05)
+}
+
+/** What's wrong with a custom colour, or null: too pale or too dark to see, or it looks like a status. */
+export function colorWarning(hex: string): string | null {
+  const { light, dark } = colorPair(hex)
+  if (contrast(light, '#fbfbf9') < 2.2) return 'Too pale to see in light mode.'
+  if (contrast(dark, '#0c0c0c') < 2.2) return 'Too dark to see in dark mode.'
+  const rgb = hexRgb(hex)!
+  const near = ([['#d23b28', 'late'], ['#f2b705', 'in progress'], ['#2b8a33', 'done']] as const).find(([c]) => {
+    const o = hexRgb(c)!
+    return Math.hypot(rgb[0] - o[0], rgb[1] - o[1], rgb[2] - o[2]) < 60
+  })
+  return near ? `Looks like the ${near[1]} colour. People may read it as a status.` : null
+}
+
+/** The colour a section shows. */
+export const sectionColor = (key: string | null | undefined) => SECTIONS.find((x) => x.key === key)?.color ?? 'slate'
+/** A group's own colour, else its section's. */
+export const groupColor = (g: Pick<CalGroup, 'team' | 'color'> | null | undefined) => (g ? (g.color ?? sectionColor(g.team)) : 'slate')
+
+/**
+ * Style for anything that carries a colour: give the element the class "sec" and this style, and
+ * CSS reads var(--sec), which follows light and dark mode by itself.
+ */
+export function secStyle(color: string | null | undefined): Record<string, string> {
+  const { light, dark } = colorPair(color)
+  return { '--sec-l': light, '--sec-d': dark }
+}
+
+/** The next palette colour nobody uses, for a new section. */
+export function freeColor() {
+  const used = new Set(SECTIONS.map((x) => x.color))
+  return PALETTE.find((p) => !used.has(p.key))?.key ?? PALETTE[SECTIONS.length % PALETTE.length].key
+}
+
+/** Guess a section from an event's title (Google blocks come with none). One tap confirms. */
+export function suggestSection(title: string): string | null {
+  const t = title.toLowerCase()
+  const has = (k: string) => SECTIONS.some((x) => x.key === k)
+  if (/תוכנה|תכנות|programming|software|code|vision/.test(t) && has('programming')) return 'programming'
+  if (/אלקטרוניקה|חשמל|electronics|wiring|חיווט/.test(t) && has('electronics')) return 'electronics'
+  if (/קיקאוף|kickoff|kick-off|scouting|סקאוטינג|אסטרטגיה|strategy/.test(t) && has('strategy')) return 'strategy'
+  if (/מכני|מכניקה|mechanic|cad|סיאנסי|cnc|workshop|סדנה/.test(t) && has('mechanics')) return 'mechanics'
+  for (const x of SECTIONS) if (t.includes(x.name.toLowerCase())) return x.key
+  return null
+}
 
 export const STATUSES: TaskStatus[] = ['todo', 'doing', 'done']
 export const STATUS_WORD: Record<TaskStatus, string> = { todo: 'Not started', doing: 'In progress', done: 'Done' }
@@ -36,7 +162,45 @@ export interface CalGroup {
   name: string
   lead_id: string | null
   sort: number
+  /** Own colour; null uses the section's. */
+  color?: string | null
+  /** GitHub issues with this label land here. */
+  github_label?: string | null
   created_at: string
+}
+
+/** A list inside a group ("To-Do December"). */
+export interface CalList {
+  id: string
+  group_id: string
+  name: string
+  sort: number
+  created_at: string
+}
+
+export type CommentKind = 'task' | 'group' | 'list' | 'phase' | 'event'
+
+/** A comment on a task, group, list, phase or event. A reply has a parent; replies go one level deep. */
+export interface CalComment {
+  id: string
+  target_kind: CommentKind
+  target_id: string
+  parent_id: string | null
+  author_id: string | null
+  text: string
+  /** Paths in the private prototypes bucket. */
+  photos: string[]
+  mentions: string[]
+  tell_all: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Follow {
+  user_id: string
+  target_kind: CommentKind
+  target_id: string
+  mode: 'follow' | 'mute'
 }
 
 export interface Phase {
@@ -69,8 +233,17 @@ export interface Task {
   starts_on: string | null
   due_on: string | null
   notes: string
-  /** A label inside the group, from the Monday group it was imported from ("To-Do December"). */
+  /** Old text label from Monday; lists replaced it. */
   section?: string | null
+  /** The list inside the group it sits in. */
+  list_id?: string | null
+  /** 'github' when it comes from a GitHub issue: title, status and owners follow GitHub. */
+  source?: string | null
+  gh_id?: number | null
+  gh_number?: number | null
+  gh_url?: string | null
+  /** GitHub logins of assignees not linked to a profile yet. */
+  gh_people?: string[]
   prototype_id: string | null
   part_id: string | null
   sort: number
@@ -101,20 +274,6 @@ export interface Update {
   updated_at: string
 }
 
-/** A small update on a phase. A reply has a parent; replies go one level deep. */
-export interface PhaseNote {
-  id: string
-  phase_id: string
-  parent_id: string | null
-  author_id: string | null
-  text: string
-  /** Paths in the private prototypes bucket. */
-  photos: string[]
-  mentions: string[]
-  created_at: string
-  updated_at: string
-}
-
 export interface CalEvent {
   id: string
   title: string
@@ -136,6 +295,8 @@ export interface CalEvent {
   status?: TaskStatus | null
   /** A task the event follows: the task's status wins over `status`. */
   task_id?: string | null
+  /** The kind was set by hand, so the Google sync keeps it. */
+  kind_by_hand?: boolean
   created_by: string | null
   created_at: string
   updated_at: string
@@ -521,7 +682,7 @@ export async function ensureSeason(season: number) {
 }
 
 export async function createTask(
-  input: Pick<Task, 'group_id' | 'title'> & Partial<Pick<Task, 'phase_id' | 'parent_id' | 'starts_on' | 'due_on' | 'priority' | 'sort' | 'prototype_id' | 'part_id'>>,
+  input: Pick<Task, 'group_id' | 'title'> & Partial<Pick<Task, 'phase_id' | 'parent_id' | 'list_id' | 'starts_on' | 'due_on' | 'priority' | 'sort' | 'prototype_id' | 'part_id'>>,
   owners: string[],
   who: Who,
 ): Promise<Res<Task>> {
@@ -654,9 +815,9 @@ export async function deleteUpdate(id: string) {
   return { error: error?.message }
 }
 
-// ---------- Phase notes ----------
+// ---------- Comments ----------
 
-/** People @mentioned in a note: "@Noa" or "@NoaLevi", matched like the task line's @name. */
+/** People @mentioned in a comment: "@Noa" or "@NoaLevi", matched like the task line's @name. */
 export function mentionsIn(text: string, people: { id: string; name: string }[]) {
   const out: string[] = []
   for (const m of text.matchAll(/@([\p{L}][\p{L}\d_-]*)/gu)) {
@@ -668,32 +829,130 @@ export function mentionsIn(text: string, people: { id: string; name: string }[])
   return out
 }
 
-export async function addNote(input: { phase_id: string; parent_id?: string | null; text: string; photos?: string[]; mentions?: string[] }, who: Who): Promise<Res<PhaseNote>> {
+export async function addComment(
+  input: { target_kind: CommentKind; target_id: string; parent_id?: string | null; text: string; photos?: string[]; mentions?: string[]; tell_all?: boolean },
+  who: Who,
+): Promise<Res<CalComment>> {
   const { data, error } = await supabase
-    .from('phase_notes')
-    .insert({ parent_id: null, photos: [], mentions: [], ...input, author_id: who.userId })
+    .from('comments')
+    .insert({ parent_id: null, photos: [], mentions: [], tell_all: false, ...input, author_id: who.userId })
     .select()
     .single()
-  return error ? { error: error.message } : { data: data as PhaseNote }
+  return error ? { error: error.message.includes('comments') && error.code === '42P01' ? 'The comments migration has not run on the database yet.' : error.message } : { data: data as CalComment }
 }
 
-export async function editNote(id: string, patch: Pick<PhaseNote, 'text' | 'mentions'>): Promise<Res<PhaseNote>> {
-  const { data, error } = await supabase.from('phase_notes').update(patch).eq('id', id).select().maybeSingle()
+export async function editComment(id: string, patch: Pick<CalComment, 'text' | 'mentions'>): Promise<Res<CalComment>> {
+  const { data, error } = await supabase.from('comments').update(patch).eq('id', id).select().maybeSingle()
   if (error) return { error: error.message }
-  if (!data) return { error: 'Only the person who wrote a note can change it.' }
-  return { data: data as PhaseNote }
+  if (!data) return { error: 'Only the person who wrote a comment can change it.' }
+  return { data: data as CalComment }
 }
 
-export async function deleteNote(n: PhaseNote) {
-  const { error } = await supabase.from('phase_notes').delete().eq('id', n.id)
+export async function deleteComment(n: CalComment) {
+  const { error } = await supabase.from('comments').delete().eq('id', n.id)
   if (!error && n.photos.length) await supabase.storage.from('prototypes').remove(n.photos)
   return { error: error?.message }
 }
 
-export async function uploadNotePhoto(phaseId: string, blob: Blob) {
-  const path = `phase-notes/${phaseId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`
+export async function uploadCommentPhoto(targetId: string, blob: Blob) {
+  const path = `comments/${targetId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`
   const { error } = await supabase.storage.from('prototypes').upload(path, blob, { contentType: 'image/jpeg' })
   return error ? { error: error.message } : { path }
+}
+
+/** Follow, mute, or back to the usual (null). */
+export async function setFollow(kind: CommentKind, id: string, mode: Follow['mode'] | null, userId: string): Promise<Res<Follow | null>> {
+  if (!mode) {
+    const { error } = await supabase.from('comment_follows').delete().eq('user_id', userId).eq('target_kind', kind).eq('target_id', id)
+    return error ? { error: error.message } : { data: null }
+  }
+  const { data, error } = await supabase
+    .from('comment_follows')
+    .upsert({ user_id: userId, target_kind: kind, target_id: id, mode }, { onConflict: 'user_id,target_kind,target_id' })
+    .select()
+    .single()
+  return error ? { error: error.message } : { data: data as Follow }
+}
+
+// ---------- Sections, groups and lists ----------
+
+const slug = (name: string) =>
+  name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 30)
+
+export async function createSection(name: string): Promise<Res<Section>> {
+  const n = name.trim()
+  if (!n) return { error: 'Give the section a name.' }
+  if (SECTIONS.some((x) => x.name.toLowerCase() === n.toLowerCase())) return { error: `There is already a section called ${n}.` }
+  let key = slug(n) || 'section'
+  for (let i = 2; SECTIONS.some((x) => x.key === key); i++) key = `${slug(n) || 'section'}-${i}`
+  const sort = Math.max(0, ...SECTIONS.map((x) => x.sort)) + 1
+  const { data, error } = await supabase.from('cal_sections').insert({ key, name: n, color: freeColor(), sort }).select().single()
+  return error ? { error: error.message } : { data: data as Section }
+}
+
+export async function updateSection(key: string, patch: Partial<Pick<Section, 'name' | 'color' | 'sort'>>): Promise<Res<Section>> {
+  const { data, error } = await supabase.from('cal_sections').update(patch).eq('key', key).select().maybeSingle()
+  if (error) return { error: error.message.includes('cal_sections_name_check') ? 'Names are 1 to 40 letters.' : error.message }
+  return { data: data as Section }
+}
+
+/** Only an empty section goes: its own groups are deleted with it, if they hold nothing. */
+export async function deleteSection(key: string) {
+  if (FIXED_SECTIONS.includes(key)) return { error: 'Mechanics, Electronics and Programming stay: automatic groups land in them.' }
+  const { data: groups } = await supabase.from('cal_groups').select('id, kind').eq('team', key)
+  const ids = (groups ?? []).map((g) => g.id as string)
+  if ((groups ?? []).some((g) => g.kind !== 'team')) return { error: 'Move or delete its groups first.' }
+  if (ids.length) {
+    const { count: n } = await supabase.from('tasks').select('id', { count: 'exact', head: true }).in('group_id', ids)
+    if (n) return { error: `It still has ${n} ${n === 1 ? 'task' : 'tasks'}. Move them first.` }
+    const { count: e } = await supabase.from('events').select('id', { count: 'exact', head: true }).in('group_id', ids)
+    if (e) return { error: `${e} ${e === 1 ? 'event is' : 'events are'} for it. Change them first.` }
+    const del = await supabase.from('cal_groups').delete().in('id', ids)
+    if (del.error) return { error: del.error.message }
+  }
+  const { error } = await supabase.from('cal_sections').delete().eq('key', key)
+  return { error: error?.message, groupIds: ids }
+}
+
+export async function createGroup(season: number, team: string, name: string, groups: CalGroup[]): Promise<Res<CalGroup>> {
+  const n = name.trim()
+  if (!n) return { error: 'Give the group a name.' }
+  const sort = Math.max(50, ...groups.filter((g) => g.team === team && g.kind === 'custom').map((g) => g.sort)) + 1
+  const { data, error } = await supabase.from('cal_groups').insert({ season, team, kind: 'custom', name: n, sort }).select().single()
+  return error ? { error: error.message } : { data: data as CalGroup }
+}
+
+/** Only groups made by hand go; their tasks and phases go with them. */
+export async function deleteGroup(id: string) {
+  const { error } = await supabase.from('cal_groups').delete().eq('id', id).eq('kind', 'custom')
+  return { error: error?.message }
+}
+
+export async function createList(groupId: string, name: string, lists: CalList[]): Promise<Res<CalList>> {
+  const n = name.trim()
+  if (!n) return { error: 'Give the list a name.' }
+  const mine = lists.filter((l) => l.group_id === groupId)
+  if (mine.some((l) => l.name.toLowerCase() === n.toLowerCase())) return { error: `There is already a list called ${n} here.` }
+  const sort = Math.max(0, ...mine.map((l) => l.sort)) + 1
+  const { data, error } = await supabase.from('cal_lists').insert({ group_id: groupId, name: n, sort }).select().single()
+  return error ? { error: error.message } : { data: data as CalList }
+}
+
+export async function updateList(id: string, patch: Partial<Pick<CalList, 'name' | 'sort'>>): Promise<Res<CalList>> {
+  const { data, error } = await supabase.from('cal_lists').update(patch).eq('id', id).select().maybeSingle()
+  if (error) return { error: error.code === '23505' ? 'There is already a list with that name here.' : error.message }
+  return { data: data as CalList }
+}
+
+/** Its tasks stay in the group, out of any list. */
+export async function deleteList(id: string) {
+  const { error } = await supabase.from('cal_lists').delete().eq('id', id)
+  return { error: error?.message }
 }
 
 /** An event's status: its task's when it follows one, else its own, else none. */
@@ -705,8 +964,11 @@ export function eventStatus(e: Pick<CalEvent, 'status' | 'task_id'>, tasks: Pick
   return e.status ?? null
 }
 
-/** Status or the task it follows, on its own: works on Google events too, which sync can't undo. */
-export async function setEventStatus(id: string, patch: Pick<CalEvent, 'status' | 'task_id'>): Promise<Res<CalEvent>> {
+/**
+ * Steamhub's own fields on an event, saved on their own: status, the task it follows, who it's for,
+ * reminders, and the kind. They work on Google events too, which the sync doesn't undo.
+ */
+export async function setEventStatus(id: string, patch: Partial<Pick<CalEvent, 'status' | 'task_id' | 'group_id' | 'reminders' | 'kind' | 'kind_by_hand'>>): Promise<Res<CalEvent>> {
   const { data, error } = await supabase.from('events').update(patch).eq('id', id).select().maybeSingle()
   if (error) return { error: error.message.includes('status') || error.message.includes('task_id') ? 'The event status migration has not run on the database yet.' : error.message }
   if (!data) return { error: 'This event was deleted.' }
@@ -743,7 +1005,7 @@ export function taskOrder(a: Task, b: Task) {
 }
 
 export function groupOrder(a: CalGroup, b: CalGroup) {
-  return TEAMS.indexOf(a.team) - TEAMS.indexOf(b.team) || a.sort - b.sort || a.name.localeCompare(b.name)
+  return sectionRank(a.team) - sectionRank(b.team) || a.sort - b.sort || a.name.localeCompare(b.name)
 }
 
 export const firstName = (name: string | null | undefined) => (name ?? '').split(' ')[0]

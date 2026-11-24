@@ -4,7 +4,7 @@ import { Select } from '../../components/Select'
 import { useCalSeason } from '../../components/cal'
 import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
-import { isoDay, groupOrder, longDay, saveUpdate, TEAM_WORD, todayIso } from '../../lib/cal'
+import { isoDay, groupOrder, longDay, saveUpdate, sectionName, todayIso } from '../../lib/cal'
 import { putRows, useCal } from '../../lib/useCal'
 
 // The lead's end of the day: one text box, one Send. It's filed under the group (not a phase: small
@@ -77,7 +77,7 @@ export default function UpdatePage() {
             value={group?.id ?? ''}
             placeholder="Pick your group"
             onChange={(v) => setParams({ g: v }, { replace: true })}
-            options={[...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.name, group: TEAM_WORD[g.team] }))}
+            options={[...cal.groups].sort(groupOrder).map((g) => ({ value: g.id, label: g.name, group: sectionName(g.team) }))}
           />
         )}
         <span className="soft small">{longDay(today)}</span>

@@ -56,6 +56,7 @@ import GroupPage from './pages/cal/GroupPage'
 import UpdatePage from './pages/cal/UpdatePage'
 import CalSummary from './pages/cal/Summary'
 import CalImport from './pages/cal/Import'
+import CalSections from './pages/cal/Sections'
 import SteamLab from './pages/SteamLab'
 import { useSteamlabAccess } from './lib/steamlab'
 import { refreshPush } from './lib/push'
@@ -398,6 +399,7 @@ export default function App() {
             <Route path="/calendar/update" element={<UpdatePage />} />
             <Route path="/calendar/summary" element={<CalSummary />} />
             <Route path="/calendar/import" element={<CalImport />} />
+            <Route path="/calendar/sections" element={<CalSections />} />
             <Route path="/steamlab" element={<SteamLab />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

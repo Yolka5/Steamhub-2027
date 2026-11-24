@@ -1,22 +1,22 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { CalTabs, useCalSeason } from '../../components/cal'
-import { NotesHost, useOpenNotes } from '../../components/CalPhase'
+import { CommentsHost, targetOf, useOpenComments } from '../../components/Comments'
 import { LoadError, useToast } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { addDays, firstName, groupOrder, isoDay, longDay, TEAMS, TEAM_WORD, todayIso } from '../../lib/cal'
+import { addDays, firstName, groupOrder, isoDay, longDay, sectionList, sectionName, todayIso, type CalComment } from '../../lib/cal'
 import { useCal } from '../../lib/useCal'
 import { usePhone } from '../../lib/usePhone'
 import { usePeople } from '../../lib/useMfg'
 
-// One day's updates from every group, by team, on one screen. Leads who haven't sent theirs show
+// One day's updates from every group, by section, with the day's comments, on one screen. Leads who haven't sent theirs show
 // as "Not sent yet". Copy turns the whole day into text for the team chat.
 
 export default function Summary() {
   const season = useCalSeason()
   const cal = useCal(season)
   const { people, nameOf } = usePeople()
-  const openNotes = useOpenNotes()
+  const openComments = useOpenComments()
   const { userId } = useAuth()
   const toast = useToast()
   const phone = usePhone()
@@ -28,12 +28,16 @@ export default function Summary() {
   if (cal.error && !cal.groups.length) return <LoadError onRetry={cal.reload} />
 
   const groups = [...cal.groups].sort(groupOrder)
-  const phaseOf = new Map(cal.phases.map((p) => [p.id, p]))
-  // The day's phase notes, under their group (replies stay in the notes panel).
+  // The day's comments, under the group of what they're on (replies stay in the comments panel).
+  const dayComments = cal.comments
+    .filter((n) => !n.parent_id && isoDay(new Date(n.created_at)) === day)
+    .map((n) => ({ n, t: targetOf(cal, n.target_kind, n.target_id) }))
+    .filter((x): x is { n: CalComment; t: NonNullable<ReturnType<typeof targetOf>> } => !!x.t)
   const notesOf = (groupId: string) =>
-    cal.notes
-      .filter((n) => !n.parent_id && phaseOf.get(n.phase_id)?.group_id === groupId && isoDay(new Date(n.created_at)) === day)
-      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+    dayComments
+      .filter((x) => x.t.groupId === groupId)
+      .sort((a, b) => (a.n.created_at < b.n.created_at ? -1 : 1))
+  const teams = sectionList().map((x) => x.key)
   const rows = groups
     .map((g) => ({ g, u: cal.updates.find((u) => u.group_id === g.id && u.day === day), notes: notesOf(g.id) }))
     // Groups with no lead only show when someone wrote for them anyway.
@@ -42,13 +46,13 @@ export default function Summary() {
 
   const copy = () => {
     const lines = [`Steamhub updates, ${longDay(day)}`]
-    for (const t of TEAMS) {
+    for (const t of teams) {
       const mine = rows.filter((r) => r.g.team === t && (r.u || r.notes.length))
       if (!mine.length) continue
-      lines.push('', `*${TEAM_WORD[t]}*`)
+      lines.push('', `*${sectionName(t)}*`)
       for (const r of mine) {
         if (r.u) lines.push(`${r.g.name} (${firstName(nameOf(r.u.author_id))}): ${r.u.text}`)
-        for (const n of r.notes) lines.push(`  ${phaseOf.get(n.phase_id)?.name} · ${firstName(nameOf(n.author_id))}: ${n.text || 'a photo'}`)
+        for (const { n, t: on } of r.notes) lines.push(`  ${on.title} · ${firstName(nameOf(n.author_id))}: ${n.text || 'a photo'}`)
       }
     }
     navigator.clipboard?.writeText(lines.join('\n')).then(
@@ -98,12 +102,12 @@ export default function Summary() {
           <p className="soft">Each group's lead writes one update at the end of the day. Set leads on the group pages.</p>
         </div>
       ) : (
-        TEAMS.map((t) => {
+        teams.map((t) => {
           const mine = rows.filter((r) => r.g.team === t)
           if (!mine.length) return null
           return (
             <section key={t} className="cal-summary__team">
-              <h2 className="cal-team">{TEAM_WORD[t]}</h2>
+              <h2 className="cal-team">{sectionName(t)}</h2>
               <div className="cal-summary__grid">
                 {mine.map(({ g, u, notes }) => {
                   const phase = u?.phase_id ? cal.phases.find((p) => p.id === u.phase_id) : null
@@ -135,11 +139,11 @@ export default function Summary() {
                       )}
                       {notes.length > 0 && (
                         <ul className="cal-card__notes">
-                          {notes.map((n) => (
+                          {notes.map(({ n, t: on }) => (
                             <li key={n.id}>
-                              <button type="button" className="cal-card__note" onClick={() => openNotes(n.phase_id)}>
+                              <button type="button" className="cal-card__note" onClick={() => openComments(n.target_kind, n.target_id)}>
                                 <span className="soft small">
-                                  {phaseOf.get(n.phase_id)?.name} · {firstName(nameOf(n.author_id))}
+                                  <bdi dir="auto">{on.title}</bdi> · {firstName(nameOf(n.author_id))}
                                   {n.photos.length ? ` · ${n.photos.length === 1 ? 'photo' : `${n.photos.length} photos`}` : ''}
                                 </span>
                                 <span className="small" dir="auto">
@@ -158,7 +162,7 @@ export default function Summary() {
           )
         })
       )}
-      <NotesHost cal={cal} people={people} />
+      <CommentsHost cal={cal} people={people} />
     </div>
   )
 }

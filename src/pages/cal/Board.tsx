@@ -5,15 +5,36 @@ import { useOpenTask } from '../../components/cal'
 import { LineHead, PhaseRow, SectionedTasks, useOpenPhases } from '../../components/CalPhase'
 import { useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addDays, createTask, currentPhase, dayLabel, firstName, groupOrder, parseQuick, phaseBars, PRIORITY_WORD, taskOrder, TEAM_WORD, todayIso, type CalGroup, type Task, type Team } from '../../lib/cal'
+import { CommentChip } from '../../components/Comments'
+import {
+  addDays,
+  createGroup,
+  createTask,
+  currentPhase,
+  dayLabel,
+  firstName,
+  groupColor,
+  groupOrder,
+  parseQuick,
+  phaseBars,
+  PRIORITY_WORD,
+  sectionColor,
+  sectionList,
+  sectionName,
+  secStyle,
+  taskOrder,
+  todayIso,
+  type CalGroup,
+  type Task,
+} from '../../lib/cal'
 import { CNC_MACHINES, openParts, WORKSHOP_MACHINES } from '../../lib/calParts'
 import { useTasks } from '../../lib/useTasks'
 import type { Progress } from '../../lib/calLinked'
 import { putRows, type Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
 
-// Every group, inside its team's card: Mechanics holds CNC, Workshop, the subsystems and the
-// off-season projects. Subsystems and projects show their phases with progress; CNC and Workshop the
+// Every group, inside its section's card, in the section's colour: Mechanics holds CNC, Workshop,
+// the subsystems and the off-season projects; any section can hold groups added by hand. Subsystems and projects show their phases with progress; CNC and Workshop the
 // parts waiting on their machines, then their tasks. A row of chips on top jumps to any group, and
 // groups fold (remembered on this device).
 
@@ -27,10 +48,14 @@ const readFolded = (): string[] => {
 }
 
 export interface BoardFilter {
-  team: Team | null
+  /** Section keys to show; empty shows them all. */
+  sections: string[]
   mine: boolean
   done: boolean
 }
+
+/** Whether a group's section passes the filter. */
+export const inSections = (filter: Pick<BoardFilter, 'sections'>, team: string | null | undefined) => !filter.sections.length || (!!team && filter.sections.includes(team))
 
 export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: Map<string, Progress>; filter: BoardFilter; people: Profile[]; big?: boolean }) {
   const who = useWho()
@@ -68,7 +93,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
 
   const groups = useMemo(() => {
     return [...cal.groups]
-      .filter((g) => !filter.team || g.team === filter.team)
+      .filter((g) => inSections(filter, g.team))
       // The big view is the plan: groups with phases only.
       .filter((g) => !big || cal.phases.some((p) => p.group_id === g.id))
       .sort(groupOrder)
@@ -88,7 +113,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
     return (
       <div className="mfg-empty">
         <p className="empty">{filter.mine ? 'Nothing of yours open.' : 'No groups for this filter.'}</p>
-        <p className="soft">{filter.mine ? 'Tasks you own show up here. Show everyone’s to pick one up.' : 'Groups are made from the teams and V1’s subsystems.'}</p>
+        <p className="soft">{filter.mine ? 'Tasks you own show up here. Show everyone’s to pick one up.' : 'Groups are made from the sections and V1’s subsystems.'}</p>
       </div>
     )
 
@@ -153,7 +178,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
   }
 
   const tasks = ({ g, shown }: Item, add = true) => (
-    <SectionedTasks tasks={shown} cal={cal} nameOf={nameOf} people={people} addTo={add ? { group: g, phaseId: null } : undefined} showDone={filter.done} />
+    <SectionedTasks tasks={shown} cal={cal} nameOf={nameOf} people={people} groupId={g.id} addTo={add ? { group: g, phaseId: null } : undefined} showDone={filter.done} />
   )
 
   /** CNC and Workshop: how many parts wait on their machines, linked to the manufacturing board. */
@@ -181,12 +206,14 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
           <Icon name={isFolded ? 'down' : 'up'} size={18} />
         </button>
         <Link to={`/calendar/g/${g.id}`} className="cal-group__name">
+          {!host && <span className="cal-dot" aria-hidden="true" />}
           {g.kind === 'subsystem' && <span className="num soft">{g.subsystem_number} </span>}
-          {g.name}
+          <bdi dir="auto">{g.name}</bdi>
           {!host && <Icon name="next" size={14} />}
         </Link>
-        {/* A team holds its groups; the leads are on them. */}
-        {!host && (
+        {!big && <CommentChip cal={cal} kind="group" id={g.id} label={g.name} />}
+        {/* A section shows its lead too: they get its daily update reminder. */}
+        {(!host || lead) && (
           <span className="cal-group__lead small" title={lead ?? 'No lead yet'}>
             <span className="avatar avatar--soft" aria-hidden="true">
               {lead ? lead[0].toUpperCase() : '?'}
@@ -205,7 +232,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
     const machines = g.kind === 'cnc' ? CNC_MACHINES : g.kind === 'workshop' ? WORKSHOP_MACHINES : null
     const phased = g.kind === 'subsystem' || g.kind === 'project'
     return (
-      <section key={g.id} id={anchor(g.id)} className="cal-group" data-kind={g.kind} data-late={lateOf(g.id) ? true : undefined}>
+      <section key={g.id} id={anchor(g.id)} className="cal-group sec" style={secStyle(groupColor(g))} data-kind={g.kind} data-late={lateOf(g.id) ? true : undefined}>
         {head(g, false, big ? undefined : <span className="cal-group__end">{countLine([g.id])}</span>)}
         {!isFolded && (
           <div className="cal-group__body">
@@ -217,7 +244,9 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
     )
   }
 
-  const teams = [...new Set(groups.map((x) => x.g.team))]
+  const present = new Set(groups.map((x) => x.g.team))
+  const teams = sectionList().map((x) => x.key).filter((k) => present.has(k))
+  for (const k of present) if (!teams.includes(k)) teams.push(k)
   const jumpable = groups.filter((x) => x.g.kind !== 'team')
   const allFolded = groups.every((x) => folded.has(x.g.id))
   const jump = (id: string) => {
@@ -234,8 +263,9 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
       {!big && (
       <nav className="cal-jump" aria-label="Go to a group">
         {jumpable.map(({ g }) => (
-          <button key={g.id} type="button" className="chip" onClick={() => jump(g.id)}>
-            {g.kind === 'subsystem' ? `${g.subsystem_number} ${g.name}` : g.name}
+          <button key={g.id} type="button" className="chip sec cal-jump__chip" style={secStyle(groupColor(g))} onClick={() => jump(g.id)}>
+            <span className="cal-dot" aria-hidden="true" />
+            <bdi dir="auto">{g.kind === 'subsystem' ? `${g.subsystem_number} ${g.name}` : g.name}</bdi>
           </button>
         ))}
         <button type="button" className="text-btn cal-jump__fold" onClick={() => foldAll(!allFolded, groups.map((x) => x.g.id))}>
@@ -248,24 +278,26 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
         const mine = groups.filter((x) => x.g.team === team)
         const host = mine.find((x) => x.g.kind === 'team')
         const kids = mine.filter((x) => x !== host)
-        const season = kids.filter((x) => x.g.kind !== 'project')
+        const season = kids.filter((x) => x.g.kind !== 'project' && x.g.kind !== 'custom')
+        const custom = kids.filter((x) => x.g.kind === 'custom')
         const projects = kids.filter((x) => x.g.kind === 'project')
         if (!host)
           return (
-            <div key={team}>
-              {!filter.team && <h2 className="cal-team">{TEAM_WORD[team as Team]}</h2>}
+            <div key={team} className="sec" style={secStyle(sectionColor(team))}>
+              {!filter.sections.length && <h2 className="cal-team">{sectionName(team)}</h2>}
               {kids.map(card)}
             </div>
           )
         const isFolded = folded.has(host.g.id)
         return (
-          <section key={team} id={anchor(host.g.id)} className="cal-group cal-group--host" data-kind="team">
+          <section key={team} id={anchor(host.g.id)} className="cal-group cal-group--host sec" style={secStyle(sectionColor(team))} data-kind="team">
             {head(
               host.g,
               true,
               big ? undefined : (
                 <span className="cal-group__end">
                   {countLine(mine.map((x) => x.g.id))}
+                  <AddGroup team={team} cal={cal} onAdded={(id) => window.setTimeout(() => jump(id), 60)} />
                   <QuickAdd group={host.g} cal={cal} people={people} />
                 </span>
               ),
@@ -274,6 +306,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
               <>
                 {!big && host.shown.length > 0 && tasks(host, false)}
                 {season.length > 0 && <div className="cal-group__kids">{season.map(card)}</div>}
+                {custom.length > 0 && <div className="cal-group__kids">{custom.map(card)}</div>}
                 {projects.length > 0 && (
                   <div className="cal-group__kids">
                     <h3 className="cal-group__sub">Off-season projects</h3>
@@ -298,6 +331,7 @@ export function QuickAdd({
   cal,
   people,
   phaseId,
+  listId,
   compact = true,
   autoFocus,
   onAdded,
@@ -306,6 +340,8 @@ export function QuickAdd({
   cal: Cal
   people: Profile[]
   phaseId?: string | null
+  /** The list it goes into. */
+  listId?: string | null
   compact?: boolean
   autoFocus?: boolean
   onAdded?: (title: string) => void
@@ -325,7 +361,7 @@ export function QuickAdd({
       if (!who) return
       if (!q.title.trim()) return toast('Type what needs doing first')
       const phase = phaseId !== undefined ? phaseId : (currentPhase(cal.phases, group.id)?.id ?? null)
-      const res = await createTask({ group_id: group.id, phase_id: phase, title: q.title.trim(), starts_on: q.starts_on, due_on: q.due_on, priority: q.priority }, q.owners, who)
+      const res = await createTask({ group_id: group.id, phase_id: phase, list_id: listId ?? null, title: q.title.trim(), starts_on: q.starts_on, due_on: q.due_on, priority: q.priority }, q.owners, who)
       if (res.error) return toast(res.error)
       putRows('tasks', [res.data!])
       for (const user_id of q.owners) putRows('task_owners', [{ task_id: res.data!.id, user_id }])
@@ -394,6 +430,54 @@ export function QuickAdd({
         )}
       </p>
       )}
+    </form>
+  )
+}
+
+/** "+ Group" on a section: a group of your own (Scouting, Kickoff), made in one line. */
+function AddGroup({ team, cal, onAdded }: { team: string; cal: Cal; onAdded: (id: string) => void }) {
+  const toast = useToast()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [busy, run] = useBusy()
+  if (!open)
+    return (
+      <button type="button" className="q-btn q-btn--small cal-add-btn" onClick={() => setOpen(true)}>
+        <Icon name="plus" size={16} /> Group
+      </button>
+    )
+  return (
+    <form
+      className="cal-quick cal-addgroup"
+      onSubmit={(e) => {
+        e.preventDefault()
+        run(async () => {
+          if (cal.season == null) return
+          const res = await createGroup(cal.season, team, name, cal.groups)
+          if (res.error) return toast(res.error)
+          putRows('cal_groups', [res.data!])
+          setName('')
+          setOpen(false)
+          toast(`${res.data!.name} added to ${sectionName(team)}`)
+          onAdded(res.data!.id)
+        })
+      }}
+    >
+      <div className="cal-quick__row">
+        <input
+          className="field"
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+          placeholder={team === 'strategy' ? 'Scouting' : 'Group name'}
+          aria-label={`New group in ${sectionName(team)}`}
+          dir="auto"
+        />
+        <button type="submit" className="q-btn">
+          {busy ? 'Adding' : 'Add'}
+        </button>
+      </div>
     </form>
   )
 }

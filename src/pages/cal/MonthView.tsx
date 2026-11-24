@@ -4,14 +4,16 @@ import { Icon } from '../../components/Icon'
 import { useOpenTask } from '../../components/cal'
 import { Sheet } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addDays, dayLabel, eventStatus, isoDay, longDay, occurrences, STATUS_WORD, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task } from '../../lib/cal'
+import { addDays, daysBetween, dayLabel, eventStatus, groupColor, isoDay, longDay, occurrences, secStyle, STATUS_WORD, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task } from '../../lib/cal'
 import type { Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
 import { usePhone } from '../../lib/usePhone'
-import type { BoardFilter } from './Board'
+import { inSections, type BoardFilter } from './Board'
 
-// Tasks, phases and events on the calendar. Computers: a month grid with bars across their days.
-// Phones: an agenda, today first, only the days with something on them.
+// Tasks, phases and events on the calendar. Computers: a month grid with bars across their days;
+// anything longer than a week is a thin bar in the "periods" strip at the top of the week, so long
+// blocks don't bury the days. Phones: an agenda, today first, only the days with something on them.
+// Every item carries its section's colour as a stripe; status keeps the fill.
 
 interface Item {
   key: string
@@ -26,9 +28,14 @@ interface Item {
   tone?: StatusTone
   open: () => void
   href?: string
+  /** Its group's colour (or the section's); null for the whole team. */
+  color: string | null
 }
 
 const LANES = 5
+const PERIOD_LANES = 3
+/** Longer than a week: a period. */
+const isPeriod = (i: Pick<Item, 'start' | 'end'>) => daysBetween(i.start, i.end) >= 7
 
 /** `phases`: the agenda lists phases starting and ending; the month grid leaves them to the Gantt. */
 function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phases = false) {
@@ -38,7 +45,9 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
   return useMemo(() => {
     const today = todayIso()
     const groups = new Map<string, CalGroup>(cal.groups.map((g) => [g.id, g]))
-    const inTeam = (gid: string | null) => !gid || !filter.team || groups.get(gid)?.team === filter.team
+    // Whole-team things show under every filter.
+    const inTeam = (gid: string | null) => !gid || inSections(filter, groups.get(gid)?.team)
+    const colorOf = (gid: string | null) => (gid && groups.get(gid) ? groupColor(groups.get(gid)) : null)
     const mine = new Set(cal.owners.filter((o) => o.user_id === who?.userId).map((o) => o.task_id))
     const items: Item[] = []
     for (const t of cal.tasks) {
@@ -56,6 +65,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
         note: groups.get(t.group_id)?.name,
         state: t.status === 'done' ? 'done' : t.due_on && t.due_on < today ? 'late' : t.priority === 'high' ? 'high' : undefined,
         open: () => open(t.id),
+        color: colorOf(t.group_id),
       })
     }
     if (phases && !filter.mine)
@@ -65,7 +75,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
         const end = p.ends_on ?? p.starts_on
         if (!start || !end || end < from || start > to) continue
         const g = groups.get(p.group_id)
-        items.push({ key: `p${p.id}`, kind: 'phase', title: `${g?.name}: ${p.name}`, start, end, state: p.status === 'done' ? 'done' : undefined, tone: statusTone(p.status, p.starts_on), open: () => {}, href: `/calendar/g/${p.group_id}` })
+        items.push({ key: `p${p.id}`, kind: 'phase', title: `${g?.name}: ${p.name}`, start, end, state: p.status === 'done' ? 'done' : undefined, tone: statusTone(p.status, p.starts_on), open: () => {}, href: `/calendar/g/${p.group_id}`, color: colorOf(p.group_id) })
       }
     for (const e of cal.events) {
       if (!inTeam(e.group_id)) continue
@@ -83,6 +93,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
           end: e.repeat_days?.length ? o.day : isoDay(o.end),
           tone,
           note: e.all_day ? undefined : timeLabel(o.start),
+          color: colorOf(e.group_id),
           open: () => {
             const next = new URLSearchParams(params)
             next.set('event', e.id)
@@ -161,28 +172,41 @@ function Month({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
         const ws = addDays(gridStart, w * 7)
         const we = addDays(ws, 6)
         const inWeek = items.filter((i) => i.end >= ws && i.start <= we)
-        // Lanes: each item takes the first row free for all its days this week.
-        const lanes: string[][] = []
-        const placed: { item: Item; lane: number; c0: number; c1: number }[] = []
-        const hidden = new Map<number, number>()
-        for (const item of inWeek) {
-          const c0 = Math.max(0, Math.round((toDate(item.start).getTime() - toDate(ws).getTime()) / 86_400_000))
-          const c1 = Math.min(6, Math.round((toDate(item.end).getTime() - toDate(ws).getTime()) / 86_400_000))
-          let lane = lanes.findIndex((l) => l.slice(c0, c1 + 1).every((x) => !x))
-          if (lane === -1) {
-            lanes.push(Array(7).fill(''))
-            lane = lanes.length - 1
+        const col = (day: string) => Math.round((toDate(day).getTime() - toDate(ws).getTime()) / 86_400_000)
+        // Lanes: each item takes the first row free for all its days this week. Periods get their own.
+        const pack = (list: Item[], max: number) => {
+          const lanes: string[][] = []
+          const placed: { item: Item; lane: number; c0: number; c1: number }[] = []
+          const hidden = new Map<number, number>()
+          for (const item of list) {
+            const c0 = Math.max(0, col(item.start))
+            const c1 = Math.min(6, col(item.end))
+            let lane = lanes.findIndex((l) => l.slice(c0, c1 + 1).every((x) => !x))
+            if (lane === -1) {
+              lanes.push(Array(7).fill(''))
+              lane = lanes.length - 1
+            }
+            if (lane >= max) {
+              for (let c = c0; c <= c1; c++) hidden.set(c, (hidden.get(c) ?? 0) + 1)
+              continue
+            }
+            for (let c = c0; c <= c1; c++) lanes[lane][c] = item.key
+            placed.push({ item, lane, c0, c1 })
           }
-          if (lane >= LANES) {
-            for (let c = c0; c <= c1; c++) hidden.set(c, (hidden.get(c) ?? 0) + 1)
-            continue
-          }
-          for (let c = c0; c <= c1; c++) lanes[lane][c] = item.key
-          placed.push({ item, lane, c0, c1 })
+          return { placed, hidden, used: Math.min(max, lanes.length) }
         }
-        const rows = Math.min(LANES, lanes.length) + (hidden.size ? 1 : 0)
+        const per = pack(inWeek.filter(isPeriod), PERIOD_LANES)
+        const day = pack(inWeek.filter((i) => !isPeriod(i)), LANES)
+        const hidden = new Map(day.hidden)
+        for (const [c, n] of per.hidden) hidden.set(c, (hidden.get(c) ?? 0) + n)
+        const placed = [
+          ...per.placed.map((x) => ({ ...x, row: x.lane + 2, period: true })),
+          ...day.placed.map((x) => ({ ...x, row: per.used + x.lane + 2, period: false })),
+        ]
+        const rows = day.used + (hidden.size ? 1 : 0)
+        const moreRow = per.used + day.used + 2
         return (
-          <div key={ws} className="cal-week" style={{ '--rows': rows } as CSSProperties}>
+          <div key={ws} className="cal-week" style={{ '--rows': rows, '--prows': per.used } as CSSProperties}>
             {Array.from({ length: 7 }, (_, c) => {
               const d = addDays(ws, c)
               const out = toDate(d).getMonth() !== first.getMonth()
@@ -201,13 +225,15 @@ function Month({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
                 </button>
               )
             })}
-            {placed.map(({ item, lane, c0, c1 }) => {
-              const style = { gridColumn: `${c0 + 1} / ${c1 + 2}`, gridRow: lane + 2 }
-              const cls = `cal-bar-item cal-bar-item--${item.kind}`
+            {placed.map(({ item, row, c0, c1, period }) => {
+              const style = { gridColumn: `${c0 + 1} / ${c1 + 2}`, gridRow: row, ...(item.color ? secStyle(item.color) : {}) }
+              const cls = `cal-bar-item cal-bar-item--${item.kind}${period ? ' cal-bar-item--period' : ''}${item.color ? ' sec' : ''}`
+              // Bars that started before this week say so with an arrow.
               const label = (
                 <>
+                  {period && item.start < ws && <span aria-hidden="true">← </span>}
                   {item.note && item.kind === 'event' && <span className="num">{item.note} </span>}
-                  {item.title}
+                  <bdi dir="auto">{item.title}</bdi>
                 </>
               )
               return item.href ? (
@@ -221,7 +247,7 @@ function Month({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
               )
             })}
             {[...hidden].map(([c, n]) => (
-              <button key={`m${c}`} type="button" className="cal-more" style={{ gridColumn: c + 1, gridRow: LANES + 2 }} onClick={() => setMore(addDays(ws, c))}>
+              <button key={`m${c}`} type="button" className="cal-more" style={{ gridColumn: c + 1, gridRow: moreRow }} onClick={() => setMore(addDays(ws, c))}>
                 {n} more
               </button>
             ))}
@@ -241,10 +267,10 @@ function DayList({ items, onPick }: { items: Item[]; onPick?: () => void }) {
       {items.map((i) => {
         const body = (
           <>
-            <span className={`cal-dot cal-dot--${i.kind}`} data-state={i.state} data-tone={i.tone} aria-hidden="true" />
+            <span className={`cal-dot cal-dot--${i.kind}${i.color ? ' sec' : ''}`} style={i.color ? secStyle(i.color) : undefined} data-state={i.state} data-tone={i.tone} aria-hidden="true" />
             <span className="row__main">
               <span className="cal-agenda__title" data-state={i.state}>
-                {i.title}
+                <bdi dir="auto">{i.title}</bdi>
               </span>
               {(i.note || i.start !== i.end) && (
                 <span className="soft small num">
@@ -300,7 +326,7 @@ function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
   // Late tasks first: what should already be done.
   const late = cal.tasks
     .filter((t: Task) => !t.parent_id && t.status !== 'done' && t.due_on && t.due_on < today)
-    .filter((t) => !filter.team || cal.groups.find((g) => g.id === t.group_id)?.team === filter.team)
+    .filter((t) => inSections(filter, cal.groups.find((g) => g.id === t.group_id)?.team))
     .filter((t) => !filter.mine || cal.owners.some((o) => o.task_id === t.id && o.user_id === who?.userId))
     .sort((a, b) => (a.due_on! < b.due_on! ? -1 : 1))
 
@@ -317,6 +343,8 @@ function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
     }
   }
   const sorted = [...days].sort(([a], [b]) => (a < b ? -1 : 1))
+  // Long blocks running today, once at the top instead of on their first day only.
+  const running = items.filter((i) => isPeriod(i) && i.start <= today && i.end >= today)
 
   return (
     <div className="cal-agenda">
@@ -325,6 +353,12 @@ function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
           <Icon name="plus" size={16} /> Event
         </button>
       </div>
+      {running.length > 0 && (
+        <section className="cal-agenda__day cal-agenda__periods">
+          <h2 className="cal-agenda__date">Running now</h2>
+          <DayList items={running} />
+        </section>
+      )}
       {late.length > 0 && (
         <section className="cal-agenda__day">
           <h2 className="cal-agenda__date cal-agenda__date--late">Late</h2>
@@ -334,7 +368,9 @@ function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
                 <button type="button" className="row cal-agenda__btn" onClick={() => open(t.id)}>
                   <span className="cal-dot cal-dot--task" data-state="late" aria-hidden="true" />
                   <span className="row__main">
-                    <span className="cal-agenda__title">{t.title}</span>
+                    <span className="cal-agenda__title">
+                      <bdi dir="auto">{t.title}</bdi>
+                    </span>
                     <span className="soft small">
                       {cal.groups.find((g) => g.id === t.group_id)?.name} · was due {dayLabel(t.due_on!)}
                     </span>

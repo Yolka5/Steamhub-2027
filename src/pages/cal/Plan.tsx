@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { ProgressBar, StatusIcon, useOpenTask } from '../../components/cal'
 import { DatePill, StatusPill } from '../../components/CalPhase'
 import { useWho } from '../../lib/auth'
-import { addDays, dayLabel, isoDay, firstName, groupOrder, occurrences, rangeLabel, TEAM_WORD, todayIso, type Task, type Team } from '../../lib/cal'
+import { addDays, dayLabel, isoDay, firstName, groupOrder, occurrences, rangeLabel, groupColor, sectionName, secStyle, todayIso, type Task, type Team } from '../../lib/cal'
 import type { Progress } from '../../lib/calLinked'
 import type { Profile } from '../../lib/mfg'
 import type { Cal } from '../../lib/useCal'
-import type { BoardFilter } from './Board'
+import { inSections, type BoardFilter } from './Board'
 
 // The Gantt for phones: the same plan as a list, readable without sideways scrolling. What's
 // coming up first, then each group's phases (done, now, next, with dates and progress) and its
@@ -30,7 +30,7 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
     return out.sort((a, b) => (a.day < b.day ? -1 : 1)).slice(0, 3)
   }, [cal.events, today])
 
-  const groups = [...cal.groups].filter((g) => !filter.team || g.team === filter.team).sort(groupOrder)
+  const groups = [...cal.groups].filter((g) => inSections(filter, g.team)).sort(groupOrder)
   let lastTeam: Team | null = null
 
   return (
@@ -53,15 +53,16 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
           .sort((a, b) => ((a.starts_on ?? a.due_on)! < (b.starts_on ?? b.due_on)! ? -1 : 1))
         // Groups with nothing planned only add scrolling here; the Board still lists them.
         if ((filter.mine || !phases.length) && !tasks.length) return null
-        const head = g.team !== lastTeam && !filter.team
+        const head = g.team !== lastTeam && filter.sections.length !== 1
         lastTeam = g.team
         return (
           <div key={g.id}>
-            {head && <h2 className="cal-team">{TEAM_WORD[g.team]}</h2>}
-            <section className="cal-plan__group">
+            {head && <h2 className="cal-team">{sectionName(g.team)}</h2>}
+            <section className="cal-plan__group sec" style={secStyle(groupColor(g))}>
               <div className="cal-plan__head">
                 <Link to={`/calendar/g/${g.id}`} className="strong cal-plan__name">
-                  {g.name}
+                  <span className="cal-dot" aria-hidden="true" />
+                  <bdi dir="auto">{g.name}</bdi>
                 </Link>
                 <span className="soft small">{g.lead_id ? firstName(nameOf(g.lead_id)) : 'No lead'}</span>
               </div>
@@ -75,7 +76,7 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
                         <span className="cal-step__dot" aria-hidden="true" />
                         <div className="cal-step__body">
                           <div className="cal-step__top">
-                            <span className="cal-step__name">{p.name}</span>
+                            <span className="cal-step__name" dir="auto">{p.name}</span>
                             <StatusPill status={p.status} startsOn={p.starts_on} />
                           </div>
                           <DatePill start={p.starts_on} end={p.ends_on} status={p.status} doneDay={p.done_at ? isoDay(new Date(p.done_at)) : null} />

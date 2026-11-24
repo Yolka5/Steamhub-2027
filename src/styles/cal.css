@@ -581,7 +581,8 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-template-rows: 2rem repeat(var(--rows), 1.6rem);
+  --prows: 0;
+  grid-template-rows: 2rem repeat(var(--prows), 1.15rem) repeat(var(--rows), 1.6rem);
   row-gap: 0.15rem;
   min-height: 7.5rem;
   padding-bottom: 0.4rem;
@@ -3406,4 +3407,429 @@ button.cal-line__title {
 
 .dr-cal__done {
   margin-left: auto;
+}
+
+
+/* ===== Calendar v2: section colours, periods, lists, comments, the Sections page ===== */
+
+/* Anything carrying a section or group colour has class "sec" and --sec-l / --sec-d inline. The
+   interface stays grey: colour sits on stripes, dots and swatches only. */
+.sec {
+  --sec: var(--sec-l, var(--surface-3));
+}
+
+:root[data-theme='dark'] .sec {
+  --sec: var(--sec-d, var(--surface-3));
+}
+
+.sec .cal-dot,
+.cal-dot.sec {
+  background: var(--sec);
+  box-shadow: none;
+}
+
+/* Group cards: a stripe down the left in the group's colour; a section's card a wider one. */
+.cal-group.sec {
+  padding-left: 0.9rem;
+  box-shadow: inset 4px 0 0 var(--sec);
+}
+
+.cal-group--host.sec {
+  box-shadow: inset 6px 0 0 var(--sec);
+}
+
+.cal-group__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cal-jump__chip,
+.cal-secpick__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cal-secpick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cal-secpick__edit {
+  margin-left: 0.25rem;
+}
+
+/* Month bars: section colour as a stripe on the left, status keeps the fill. */
+.cal-bar-item.sec {
+  padding-left: 0.65rem;
+}
+
+.cal-bar-item.sec::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: '';
+  background: var(--sec);
+}
+
+/* Periods: longer than a week, a thin bar under the day numbers. */
+.cal-bar-item--period {
+  font-size: 0.72rem;
+  line-height: 1.15rem;
+}
+
+.cal-bar-item--period:not([data-tone]):not([data-state]) {
+  color: var(--ink-soft);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+
+.cal-bar-item--period.sec:not([data-tone]):not([data-state]) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--sec) 16%, var(--surface-0));
+}
+
+.gantt__row--group.sec .gantt__label {
+  box-shadow: inset 4px 0 0 var(--sec);
+}
+
+.cal-plan__group.sec {
+  box-shadow: inset 4px 0 0 var(--sec);
+}
+
+.cal-plan__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* GitHub issue number next to a task title. */
+.cal-gh {
+  flex-shrink: 0;
+}
+
+.tsheet__gh {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+
+.tsheet__gh > span {
+  flex: 1 1 14rem;
+}
+
+/* Lists inside a group. */
+.cal-list-head {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0.4rem 0 0.15rem;
+}
+
+.cal-list-head .cal-loose__head {
+  margin: 0 0 0 0.75rem;
+}
+
+.cal-list-head .cal-line__edit {
+  width: 2rem;
+  height: 2rem;
+  color: var(--ink-soft);
+}
+
+.cal-list-head--edit {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-left: 0.5rem;
+}
+
+.cal-list-head--edit .field {
+  max-width: 16rem;
+}
+
+.cal-sections__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cal-sections__end > .cal-quick {
+  flex: 1 1 100%;
+}
+
+.cal-add-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  margin: 0;
+}
+
+.cal-newlist,
+.cal-addgroup {
+  margin-top: 0.4rem;
+}
+
+.cal-group__end .cal-addgroup {
+  margin-top: 0;
+}
+
+/* Comments: who hears about it, follow and mute. */
+.cal-thread__follow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.6rem 1rem 0.25rem;
+}
+
+/* Inside the task and event windows: no panel margins. */
+.cal-thread--compact .cal-write,
+.cal-thread--compact .cal-thread__follow {
+  margin-inline: 0;
+}
+
+.cal-thread--compact .cal-notes__list {
+  padding-inline: 0;
+}
+
+.cal-thread__follow .pick {
+  min-height: 2.25rem;
+  font-size: 0.875rem;
+}
+
+.cal-write__all {
+  white-space: nowrap;
+}
+
+.cal-thread--compact .cal-notes__list {
+  margin-top: 0.5rem;
+}
+
+/* Events: Google's part as text, a suggested section. */
+.cal-event__google {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-control);
+}
+
+.cal-event__google p {
+  margin: 0;
+}
+
+.cal-event__gtitle {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.cal-event__gnotes {
+  white-space: pre-line;
+}
+
+.cal-suggest-for {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* ----- Sections page ----- */
+.cal-sections-page__lede {
+  max-width: 44rem;
+}
+
+.cal-sec-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-sec {
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
+  background: var(--surface-1);
+  border-radius: var(--radius-panel);
+  box-shadow: inset 6px 0 0 var(--sec);
+}
+
+.cal-sec__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cal-sec__name {
+  flex: 1;
+  max-width: 22rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.cal-sec__order {
+  display: flex;
+  margin-left: auto;
+}
+
+.cal-sec__grid {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  gap: 0.75rem 1rem;
+  align-items: start;
+  margin-top: 0.75rem;
+}
+
+.cal-sec__grid > div:first-of-type {
+  max-width: 24rem;
+}
+
+.cal-sec__groups {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+}
+
+.cal-sec__groups p {
+  margin: 0;
+}
+
+.cal-owngroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.cal-owngroup .field {
+  max-width: 16rem;
+}
+
+.cal-owngroup__label {
+  max-width: 11rem !important;
+}
+
+.cal-sec__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.cal-sec__foot > .soft {
+  margin-right: auto;
+}
+
+.cal-sec-add {
+  max-width: 28rem;
+}
+
+.cal-swatch {
+  flex-shrink: 0;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  cursor: pointer;
+  background: var(--sec);
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+
+.cal-swatch--small {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.cal-colors {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cal-colors p {
+  margin: 0;
+}
+
+.cal-colors__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.35rem;
+}
+
+.cal-colors__one {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 4.5rem;
+  padding: 0.5rem 0.25rem;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+}
+
+.cal-colors__one:hover {
+  background: var(--surface-1);
+}
+
+.cal-colors__one[aria-checked='true'] {
+  background: var(--surface-2);
+}
+
+.cal-colors__by {
+  text-align: center;
+}
+
+.cal-colors__custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+
+.cal-colors__custom input[type='color'] {
+  width: 3rem;
+  height: 2.5rem;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.cal-colors__preview .cal-bar-item {
+  display: inline-block;
+  min-width: 9rem;
+}
+
+.cal-colors__warn {
+  padding: 0.45rem 0.7rem;
+  color: var(--tone-yellow-ink);
+  background: var(--tone-yellow-track);
+  border-radius: var(--radius-control);
+}
+
+@media (max-width: 640px) {
+  .cal-sec__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+
+  .cal-sec__name {
+    max-width: none;
+  }
 }

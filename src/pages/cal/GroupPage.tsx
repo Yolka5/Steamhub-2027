@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Select } from '../../components/Select'
 import { CalTabs, useCalSeason } from '../../components/cal'
-import { LineHead, NotesHost, PhaseEditorHost, PhaseRow, TaskList, useOpenPhases } from '../../components/CalPhase'
+import { CommentsHost } from '../../components/Comments'
+import { LineHead, PhaseEditorHost, PhaseRow, TaskList, useOpenPhases } from '../../components/CalPhase'
 import { TaskSheetHost } from '../../components/TaskSheet'
 import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { createPhase, dayLabel, firstName, phaseBars, taskOrder, TEAM_WORD, todayIso, updateGroup, type Phase } from '../../lib/cal'
+import { createPhase, dayLabel, firstName, phaseBars, taskOrder, sectionName, todayIso, updateGroup, type Phase } from '../../lib/cal'
 import { useLinked, useSuggestNotify, type Progress } from '../../lib/calLinked'
 import type { Profile } from '../../lib/mfg'
 import { putRows, useCal, type Cal } from '../../lib/useCal'
@@ -84,9 +85,9 @@ export default function GroupPage() {
     <div className="page cal-page">
       <div className="page__head">
         <div>
-          {TEAM_WORD[group.team] !== group.name && (
+          {sectionName(group.team) !== group.name && (
             <Link to={`/calendar?team=${group.team}`} className="soft small cal-crumb">
-              {TEAM_WORD[group.team]}
+              {sectionName(group.team)}
             </Link>
           )}
           <h1 className="page__title">{group.name}</h1>
@@ -189,7 +190,7 @@ export default function GroupPage() {
 
       <TaskSheetHost cal={cal} />
       <PhaseEditorHost cal={cal} />
-      <NotesHost cal={cal} people={people} />
+      <CommentsHost cal={cal} people={people} />
     </div>
   )
 }

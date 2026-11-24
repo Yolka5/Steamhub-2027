@@ -6,16 +6,16 @@ import { Select } from '../../components/Select'
 import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
 import { ago } from '../../lib/mfg'
-import { dayLabel, groupOrder, TEAM_WORD, type CalGroup } from '../../lib/cal'
+import { dayLabel, groupOrder, sectionName, type CalGroup } from '../../lib/cal'
 import { guessColumns, matchGroup, ownersOf, parseMonday, priorityOf, span, statusOf, day, type Field, type MondayBoard } from '../../lib/monday'
 import { supabase } from '../../lib/supabase'
-import { useCal } from '../../lib/useCal'
+import { useCal, type Cal } from '../../lib/useCal'
 import { usePeople } from '../../lib/useMfg'
 import { readXlsx } from '../../lib/xlsx'
 import { count } from '../../lib/words'
 
-// Bringing other calendars and task lists in: Google Calendar on its own every hour, and Monday
-// boards from their Excel export.
+// Bringing other calendars and task lists in: Google Calendar on its own every hour, Programming's
+// GitHub issues as they change, and Monday boards from their Excel export.
 
 export default function ImportPage() {
   const season = useCalSeason()
@@ -31,10 +31,180 @@ export default function ImportPage() {
       ) : (
         <>
           <GoogleCalendar />
+          <GitHub cal={cal} />
           <Monday groups={cal.groups} onDone={cal.reload} />
         </>
       )}
     </div>
+  )
+}
+
+// ----- GitHub -----
+
+type GitHubCfg = { repo?: string; project?: string | null; synced_at?: string | null; tried_at?: string | null; count?: number; error?: string | null; last_change?: string | null }
+
+const HOOK = 'https://pzsxenrkaiolqulgxlcr.supabase.co/functions/v1/github-sync'
+
+function GitHub({ cal }: { cal: Cal }) {
+  const { isAdmin } = useAuth()
+  const toast = useToast()
+  const [busy, run] = useBusy()
+  const [cfg, setCfg] = useState<GitHubCfg | null>(null)
+  const [repo, setRepo] = useState('')
+  const [project, setProject] = useState('')
+  const load = () =>
+    supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'github')
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = (data?.value as GitHubCfg) ?? {}
+        setCfg(v)
+        setRepo(v.repo ?? '')
+        setProject(v.project ?? '')
+      })
+  useEffect(() => {
+    load()
+  }, [])
+
+  const sync = () =>
+    run(async () => {
+      const { data, error } = await supabase.functions.invoke('github-sync', { body: {} })
+      await load()
+      if (error) {
+        let why: string | undefined
+        try {
+          why = (await (error as { context?: Response }).context?.json())?.error
+        } catch {
+          /* no body */
+        }
+        return toast(why ?? 'The sync did not run. Try again in a minute.')
+      }
+      const d = data as { changed: number; last?: string | null; recent?: boolean }
+      await cal.reload()
+      toast(d.recent ? 'It just ran. Try again in a few seconds.' : d.changed ? (d.last ? `1 change: ${d.last}` : `${count(d.changed, 'change')} from GitHub`) : 'Nothing changed in GitHub')
+    })
+
+  const save = () =>
+    run(async () => {
+      const r = repo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/, '').replace(/\/+$/, '')
+      if (!/^[\w.-]+\/[\w.-]+$/.test(r)) return toast('Type the repo as owner/name, or paste its GitHub address')
+      const p = project.trim()
+      if (p && !/github\.com\/(orgs|users)\/[\w.-]+\/projects\/\d+/i.test(p)) return toast('Paste the board’s address, like github.com/orgs/team1577/projects/3')
+      // A new repo starts from scratch; the same repo keeps where the last sync got to.
+      const same = cfg?.repo === r
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: 'github', value: { ...(same ? cfg : {}), repo: r, project: p || null, error: null }, updated_at: new Date().toISOString() })
+      if (error) return toast(error.message)
+      await load()
+      toast('Saved')
+    })
+
+  // GitHub people nobody is linked to yet, from the synced tasks.
+  const unlinked = [...new Set(cal.tasks.flatMap((t) => t.gh_people ?? []))].sort()
+  const { people } = usePeople()
+  const link = async (login: string, userId: string) => {
+    if (!userId) return
+    const { error } = await supabase.from('profiles').update({ github: login }).eq('id', userId)
+    if (error) return toast(error.code === '23505' ? 'Someone else already has that GitHub name' : error.message)
+    toast(`${login} is ${people.find((p) => p.id === userId)?.name}. The next sync makes them the owner.`)
+  }
+
+  const linked = !!cfg?.repo
+  return (
+    <section className="section imp">
+      <h2 className="section__title">GitHub</h2>
+      <p className="soft">
+        Programming’s issues show up as Programming tasks, and their sub-issues as subtasks. Name, status and owners follow GitHub. Comments, waits and lists stay in Steamhub. Changes arrive within seconds once the webhook is
+        set, and every 15 minutes in the day anyway.
+      </p>
+      {cfg == null ? (
+        <p className="soft">Loading</p>
+      ) : linked ? (
+        <div className="imp__status">
+          <Icon name="link" size={20} />
+          <span className="imp__status-main">
+            <span className="strong">
+              {cfg.repo}
+              {cfg.error ? ': last sync failed' : cfg.synced_at ? `: ${count(cfg.count ?? 0, 'task')} from GitHub` : ''}
+            </span>
+            <span className={`small ${cfg.error ? 'imp__bad' : 'soft'}`}>
+              {cfg.error ?? (cfg.synced_at ? `Last read ${ago(cfg.synced_at)}${cfg.last_change ? `. Last change: ${cfg.last_change}` : ''}` : 'Not read yet')}
+            </span>
+          </span>
+          <button type="button" className="q-btn" onClick={sync}>
+            {busy ? 'Syncing' : 'Sync now'}
+          </button>
+        </div>
+      ) : (
+        <p className="soft">Not linked yet.</p>
+      )}
+      {isAdmin ? (
+        <>
+          <form
+            className="form imp__form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              save()
+            }}
+          >
+            <label className="ctl">
+              <span className="ctl__name">Repo</span>
+              <input className="field" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="team1577/robot-2027" autoComplete="off" />
+            </label>
+            <label className="ctl">
+              <span className="ctl__name">Project board, if they use one</span>
+              <input className="field" value={project} onChange={(e) => setProject(e.target.value)} placeholder="https://github.com/orgs/team1577/projects/3" autoComplete="off" />
+              <span className="soft small">With a board, its Status column (Todo, In Progress, Done) and date fields set the task. Without one, open is Not started and closed is Done.</span>
+            </label>
+            <button type="submit" className="q-btn">
+              {busy ? 'Saving' : 'Save'}
+            </button>
+          </form>
+          <details className="finder__more imp__steps">
+            <summary>Setting up the key and the webhook</summary>
+            <ol className="imp__list small">
+              <li>
+                In GitHub: Settings, Developer settings, Fine-grained tokens, Generate new token. Pick only the team’s repo. Repository permissions: <strong>Issues: Read-only</strong> (Metadata comes with it). With a Project
+                board, also <strong>Projects: Read-only</strong> under the organisation. If the repo is the organisation’s, an owner may have to approve the token.
+              </li>
+              <li>
+                Don’t paste the token anywhere in Steamhub or in a chat. In Supabase: Edge Functions, Secrets, add <strong>GITHUB_TOKEN</strong> with the token as its value.
+              </li>
+              <li>
+                For changes within seconds, someone with admin on the repo adds a webhook: the repo’s Settings, Webhooks, Add webhook. Payload URL <code>{HOOK}</code>, content type application/json, a secret of your choice,
+                events: Issues and Sub-issues. Put the same secret in Supabase as <strong>GITHUB_WEBHOOK_SECRET</strong>.
+              </li>
+              <li>Press Sync now. Without the webhook, the 15-minute sync still works.</li>
+            </ol>
+          </details>
+          {unlinked.length > 0 && (
+            <div className="imp__people">
+              <h3 className="tsheet__head">Who is who on GitHub</h3>
+              <p className="soft small">These GitHub names are on tasks but not linked to anyone yet.</p>
+              <ul className="rows">
+                {unlinked.map((login) => (
+                  <li key={login} className="row imp__person">
+                    <span className="row__main num">@{login}</span>
+                    <Select
+                      label={`Who is ${login}`}
+                      value=""
+                      placeholder="Pick who"
+                      onChange={(v) => link(login, v)}
+                      options={people.filter((p) => !p.banned && !p.shared && !p.github).map((p) => ({ value: p.id, label: p.name }))}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      ) : (
+        !linked && <p className="soft small">An admin links it once, from this page.</p>
+      )}
+    </section>
   )
 }
 
@@ -133,7 +303,7 @@ function GoogleCalendar() {
       ) : (
         !linked && <p className="soft small">An admin links it once, from this page.</p>
       )}
-      <p className="soft small">Events that come from Google are changed in Google; the next sync puts back edits made here.</p>
+      <p className="soft small">Name, time and repeat come from Google, so change those there. Who an event is for, its kind, status, reminders and comments are Steamhub’s and the sync keeps them.</p>
       {linked && <SendToGoogle />}
     </section>
   )
@@ -353,15 +523,28 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
       if (!cols?.name) return toast('Pick the column with the task names first')
       if (!taken.length) return toast('Every group is left out. Pick where at least one goes.')
       const key = (r: (typeof rows)[number]) => `monday:${board.board}:${r.group}:${r.title}`.toLowerCase()
-      // A Monday group that lands in a team group (To-Do December in Mechanics) stays a section there.
-      const sectionOf = (mondayGroup: string, groupId: string) => {
+      // A Monday group that lands in a section's own group (To-Do December in Mechanics) becomes a list there.
+      const listName = (mondayGroup: string, groupId: string) => {
         const g = groups.find((x) => x.id === groupId)
-        return g && g.kind === 'team' && g.name.toLowerCase() !== mondayGroup.toLowerCase() ? mondayGroup : null
+        return g && g.kind === 'team' && g.name.toLowerCase() !== mondayGroup.toLowerCase() ? mondayGroup.trim() : null
+      }
+      const listIds = new Map<string, string>()
+      for (const r of taken) {
+        const name = listName(r.group, map[r.group])
+        const k = `${map[r.group]}|${name}`
+        if (!name || listIds.has(k)) continue
+        const { data: found } = await supabase.from('cal_lists').select('id').eq('group_id', map[r.group]).eq('name', name).maybeSingle()
+        if (found) listIds.set(k, found.id as string)
+        else {
+          const { data: made, error } = await supabase.from('cal_lists').insert({ group_id: map[r.group], name, sort: Date.now() / 1000 }).select('id').single()
+          if (error) return toast(error.message)
+          listIds.set(k, made.id as string)
+        }
       }
       const payload = taken.map((r, i) => ({
         import_key: key(r),
         group_id: map[r.group],
-        section: sectionOf(r.group, map[r.group]),
+        list_id: listIds.get(`${map[r.group]}|${listName(r.group, map[r.group])}`) ?? null,
         title: r.title,
         status: r.status,
         priority: r.priority,
@@ -372,10 +555,19 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
         sort: Date.now() / 1000 + i,
       }))
       if (payload.some((p) => !p.group_id)) return toast('Pick a Steamhub group for every Monday group')
+      // New items only: a task already imported keeps what was changed in Steamhub since (moved,
+      // renamed, finished), so importing again never undoes that.
       const ids = new Map<string, string>()
+      let added = 0
       for (let i = 0; i < payload.length; i += 200) {
-        const { data, error } = await supabase.from('tasks').upsert(payload.slice(i, i + 200), { onConflict: 'import_key' }).select('id, import_key')
-        if (error) return toast(error.message.includes('import_key') || error.message.includes('section') ? 'The import migration has not run on the database yet.' : error.message)
+        const { data, error } = await supabase.from('tasks').upsert(payload.slice(i, i + 200), { onConflict: 'import_key', ignoreDuplicates: true }).select('id, import_key')
+        if (error) return toast(error.message.includes('import_key') ? 'The import migration has not run on the database yet.' : error.message)
+        for (const d of data ?? []) ids.set(d.import_key as string, d.id as string)
+        added += data?.length ?? 0
+      }
+      const known = payload.map((p) => p.import_key).filter((k) => !ids.has(k))
+      for (let i = 0; i < known.length; i += 100) {
+        const { data } = await supabase.from('tasks').select('id, import_key').in('import_key', known.slice(i, i + 100))
         for (const d of data ?? []) ids.set(d.import_key as string, d.id as string)
       }
       // Subitems: subtasks of their item, in the same group.
@@ -394,24 +586,29 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
           sort: Date.now() / 1000 + i + j / 100,
         })),
       ).filter((s) => s.parent_id)
+      let addedSubs = 0
       for (let i = 0; i < subPayload.length; i += 200) {
-        const { data, error } = await supabase.from('tasks').upsert(subPayload.slice(i, i + 200), { onConflict: 'import_key' }).select('id, import_key')
+        const { data, error } = await supabase.from('tasks').upsert(subPayload.slice(i, i + 200), { onConflict: 'import_key', ignoreDuplicates: true }).select('id, import_key')
         if (error) return toast(error.message)
         for (const d of data ?? []) ids.set(d.import_key as string, d.id as string)
+        addedSubs += data?.length ?? 0
       }
+      const newIds = new Set(ids.values())
       const owners = taken
         .flatMap((r) => [
           ...r.owners.ids.map((user_id) => ({ task_id: ids.get(key(r))!, user_id })),
           ...r.subs.flatMap((s) => s.owners.ids.map((user_id) => ({ task_id: ids.get(`${key(r)}:sub:${s.title}`.toLowerCase())!, user_id }))),
         ])
-        .filter((o) => o.task_id)
+        // Owners only on new tasks: the ones already here keep whoever has them now.
+        .filter((o) => o.task_id && newIds.has(o.task_id) && added + addedSubs > 0)
       if (owners.length) await supabase.from('task_owners').upsert(owners, { onConflict: 'task_id,user_id', ignoreDuplicates: true })
       onDone()
+      const already = payload.length - added
       setResult(
-        `${count(payload.length, 'task')}${subPayload.length ? ` and ${count(subPayload.length, 'subtask')}` : ''} from ${board.board} on the Calendar${missing.length ? `. Not matched to anyone: ${missing.join(', ')}` : ''}.`,
+        `${count(added, 'new task')}${addedSubs ? ` and ${count(addedSubs, 'subtask')}` : ''} from ${board.board}${already ? `. ${count(already, 'task')} already here stayed as they are` : ''}${missing.length ? `. Not matched to anyone: ${missing.join(', ')}` : ''}.`,
       )
       setBoard(null)
-      toast(`${count(payload.length, 'task')} imported`)
+      toast(`${count(added, 'new task')} imported`)
     })
 
   const onDrop = (e: DragEvent) => {
@@ -423,7 +620,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
   return (
     <section className="section imp">
       <h2 className="section__title">Monday</h2>
-      <p className="soft">Bring a Monday board’s tasks in: name, owner, status and dates. Importing the same board again updates those tasks instead of adding them twice.</p>
+      <p className="soft">Bring a Monday board’s tasks in: name, owner, status and dates. Importing the same board again only adds its new items: tasks already here keep every change made in Steamhub.</p>
       <label
         className="mfg-drop"
         data-over={over || undefined}
@@ -479,7 +676,7 @@ function Monday({ groups, onDone }: { groups: CalGroup[]; onDone: () => void }) 
                   value={map[g] ?? ''}
                   onChange={(v) => setMap({ ...map, [g]: v })}
                   options={[
-                    ...sorted.map((x) => ({ value: x.id, label: x.kind === 'team' ? x.name : `${TEAM_WORD[x.team]} · ${x.name}` })),
+                    ...sorted.map((x) => ({ value: x.id, label: x.kind === 'team' ? x.name : `${sectionName(x.team)} · ${x.name}` })),
                     { value: LEAVE_OUT, label: 'Leave out' },
                   ]}
                 />

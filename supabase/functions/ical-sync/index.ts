@@ -101,10 +101,9 @@ const weekday = (ms: number) => new Date(`${israelDay(ms)}T12:00:00Z`).getUTCDay
 
 const DAYS: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 }
 
+/** Two kinds: competitions (the plan's milestones) and everything else, an event. */
 function kindOf(title: string) {
   if (/competition|district|regional|tournament|championship|dcmp|\bcmp\b|week 0|offseason event|תחרות/i.test(title)) return 'competition'
-  if (/deadline|due\b|submission|הגשה|דדליין/i.test(title)) return 'deadline'
-  if (/meeting|practice|session|build|sync|standup|מפגש|פגישה|אימון|ישיבה/i.test(title)) return 'meeting'
   return 'other'
 }
 

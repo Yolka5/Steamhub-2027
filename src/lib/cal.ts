@@ -13,7 +13,8 @@ export type GroupKind = 'team' | 'cnc' | 'workshop' | 'subsystem' | 'project' | 
 export type PhaseKind = 'prototypes' | 'cad' | 'manufacturing' | 'custom'
 export type TaskStatus = 'todo' | 'doing' | 'done'
 export type Priority = 'low' | 'normal' | 'high'
-export type EventKind = 'meeting' | 'competition' | 'deadline' | 'other'
+/** 'other' is shown as Event, the default. Competitions are the plan's milestones. */
+export type EventKind = 'other' | 'competition'
 
 // ---------- Sections and colours ----------
 // Sections are rows in cal_sections. Their order and names are kept here too, so sorting and
@@ -148,8 +149,8 @@ export const NEXT_STATUS: Record<TaskStatus, TaskStatus> = { todo: 'doing', doin
 export const PRIORITIES: Priority[] = ['low', 'normal', 'high']
 export const PRIORITY_WORD: Record<Priority, string> = { low: 'Low', normal: 'Normal', high: 'High' }
 
-export const EVENT_KINDS: EventKind[] = ['meeting', 'competition', 'deadline', 'other']
-export const EVENT_WORD: Record<EventKind, string> = { meeting: 'Meeting', competition: 'Competition', deadline: 'Deadline', other: 'Other' }
+export const EVENT_KINDS: EventKind[] = ['other', 'competition']
+export const EVENT_WORD: Record<EventKind, string> = { other: 'Event', competition: 'Competition' }
 
 export interface CalGroup {
   id: string

@@ -800,16 +800,15 @@ export const CHAPTERS: Chapter[] = [
         body: 'The Calendar view lists what’s on each day: tasks due, phases and events.',
         how: [
           <>
-            <B>Event</B> adds a meeting, a competition or a deadline.
+            <B>Event</B> adds an event or a competition.
           </>,
           <>Each day with something on it.</>,
         ],
         shot: { name: 'cal-month', alt: 'The Calendar view on a phone: Event marked 1 and the first day marked 2.' },
       },
       {
-        title: 'Meetings and reminders',
-        how: [<>What kind of event it is.</>, <>Repeat it every week on the days you pick.</>, <>Remind everyone before it starts.</>],
-        tip: 'When a meeting ends, leads who haven’t sent their update get a reminder.',
+        title: 'Events and reminders',
+        how: [<>An event, or a competition (it shows on the plan).</>, <>Repeat it every week on the days you pick.</>, <>Remind everyone before it starts.</>],
         shot: { name: 'cal-event', alt: 'A new event: kind, repeat days and reminders marked 1 to 3.' },
       },
       {
@@ -940,7 +939,7 @@ export const CHAPTERS: Chapter[] = [
     steps: [
       {
         title: 'Notifications',
-        body: 'The bell tells you when a part you’re making changes in CAD, a prototype you follow gets a new test or is chosen, a task needs you, or a meeting is about to start.',
+        body: 'The bell tells you when a part you’re making changes in CAD, a prototype you follow gets a new test or is chosen, a task needs you, or an event is about to start.',
         how: [
           <>
             Get them on your phone, even when Steamhub is closed: open <A to="/notifications">Notifications</A> and press <B>Turn on</B>. On an iPhone, first add Steamhub to the home screen (Share, then Add to Home Screen), open it from there, and turn them on.

@@ -21,11 +21,11 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
   const nameOf = (id: string | null) => people.find((p) => p.id === id)?.name ?? null
   const mine = useMemo(() => new Set(cal.owners.filter((o) => o.user_id === who?.userId).map((o) => o.task_id)), [cal.owners, who])
 
-  // Competitions and deadlines in the next 8 weeks.
+  // Competitions in the next 8 weeks.
   const coming = useMemo(() => {
     const out: { key: string; day: string; title: string }[] = []
     for (const e of cal.events)
-      if (e.kind === 'competition' || e.kind === 'deadline')
+      if (e.kind === 'competition')
         for (const o of occurrences(e, today, addDays(today, 56))) out.push({ key: `${e.id}${o.day}`, day: o.day, title: e.title })
     return out.sort((a, b) => (a.day < b.day ? -1 : 1)).slice(0, 3)
   }, [cal.events, today])

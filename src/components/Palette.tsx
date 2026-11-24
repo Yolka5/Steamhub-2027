@@ -44,7 +44,7 @@ const PAGES: Item[] = [
   { key: 'p-notes', label: 'Notifications', to: '/notifications', keywords: 'push phone notify bell' },
   { key: 'p-cal', label: 'Calendar: tasks for every team', to: '/calendar', keywords: 'tasks board monday לוח משימות' },
   { key: 'p-gantt', label: 'Gantt: phases and tasks on a timeline', to: '/calendar?view=gantt', keywords: 'timeline schedule plan גאנט' },
-  { key: 'p-month', label: 'Calendar: month and events', to: '/calendar?view=calendar', keywords: 'event meeting competition deadline אירוע פגישה תחרות' },
+  { key: 'p-month', label: 'Calendar: month and events', to: '/calendar?view=calendar', keywords: 'event meeting competition kickoff אירוע פגישה תחרות' },
   { key: 'p-update', label: "Send today's update", to: '/calendar/update', keywords: 'daily summary lead עדכון יומי סיכום' },
   { key: 'p-updates', label: 'Updates: every group, one day', to: '/calendar/summary', keywords: 'daily summary סיכום יומי' },
   { key: 'p-calc', label: 'Motor and gearbox calculator', to: '/calculators' },

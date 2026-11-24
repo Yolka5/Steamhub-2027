@@ -165,7 +165,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
         if (d >= range.lo && d <= range.hi) out.push({ key: r.id, day: d, label: `V${r.version} start` })
       }
     for (const e of cal.events)
-      if (e.kind === 'competition' || e.kind === 'deadline')
+      if (e.kind === 'competition')
         for (const o of occurrences(e, range.lo, range.hi)) out.push({ key: `${e.id}${o.day}`, day: o.day, label: e.title })
     return out
   }, [robots, cal.events, cal.season, range])

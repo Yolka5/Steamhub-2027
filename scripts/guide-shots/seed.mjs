@@ -397,7 +397,7 @@ export function seed() {
   ]
   db.comment_follows = []
   db.events = [
-    { id: uuid(), title: 'Team meeting', kind: 'meeting', group_id: null, starts_at: '2026-11-15T15:00:00Z', ends_at: '2026-11-15T16:00:00Z', all_day: false, repeat_days: [0], repeat_until: null, skip_days: [], reminders: [30], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
+    { id: uuid(), title: 'Team meeting', kind: 'other', group_id: null, starts_at: '2026-11-15T15:00:00Z', ends_at: '2026-11-15T16:00:00Z', all_day: false, repeat_days: [0], repeat_until: null, skip_days: [], reminders: [30], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
     { id: uuid(), title: 'הכשרות תוכנה', kind: 'other', group_id: null, source: 'google', starts_at: '2026-11-01T00:00:00Z', ends_at: '2026-12-20T21:59:00Z', all_day: true, repeat_days: null, repeat_until: null, skip_days: [], reminders: [], notes: '', created_by: null, created_at: ago(6000), updated_at: ago(6000) },
     { id: uuid(), title: 'Kickoff', kind: 'competition', group_id: null, starts_at: '2027-01-09T17:00:00Z', ends_at: null, all_day: true, repeat_days: null, repeat_until: null, skip_days: [], reminders: [], notes: '', created_by: ME.id, created_at: ago(6000), updated_at: ago(6000) },
   ]

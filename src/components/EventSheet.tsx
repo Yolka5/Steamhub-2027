@@ -159,7 +159,7 @@ function ForPicker({ value, onChange, cal, title }: { value: string; onChange: (
   )
 }
 
-function Reminders({ value, onChange, group, kind }: { value: number[]; onChange: (v: number[]) => void; group: string; kind: EventKind }) {
+function Reminders({ value, onChange, group }: { value: number[]; onChange: (v: number[]) => void; group: string }) {
   const toggle = (v: number) => (value.includes(v) ? value.filter((x) => x !== v) : [...value, v])
   return (
     <div className="ctl">
@@ -173,7 +173,6 @@ function Reminders({ value, onChange, group, kind }: { value: number[]; onChange
       </div>
       <span className="soft small">
         {group ? 'Its group’s lead and everyone with an open task in it.' : 'Everyone on the team.'}
-        {kind === 'meeting' ? ' When a meeting ends, leads who haven’t sent today’s update get a reminder.' : ''}
       </span>
     </div>
   )
@@ -230,7 +229,7 @@ function GoogleEvent({ ev, cal }: { ev: CalEvent; cal: Cal }) {
         </div>
       </div>
       <EventStatus ev={ev} cal={cal} />
-      <Reminders value={ev.reminders} onChange={(r) => save({ reminders: r })} group={ev.group_id ?? ''} kind={ev.kind} />
+      <Reminders value={ev.reminders} onChange={(r) => save({ reminders: r })} group={ev.group_id ?? ''} />
       <section className="tsheet__block">
         <h3 className="tsheet__head">Comments</h3>
         <CommentThread cal={cal} people={people} target={{ kind: 'event', id: ev.id, title: ev.title, where: group?.name ?? 'The whole team', groupId: ev.group_id }} compact />
@@ -257,7 +256,7 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
   const [confirm, setConfirm] = useState(false)
   const { people } = usePeople()
   const [title, setTitle] = useState(ev?.title ?? '')
-  const [kind, setKind] = useState<EventKind>(ev?.kind ?? 'meeting')
+  const [kind, setKind] = useState<EventKind>(ev?.kind ?? 'other')
   const [group, setGroup] = useState(ev?.group_id ?? '')
   const [day, setDay] = useState(ev ? isoDay(new Date(ev.starts_at)) : (on ?? todayIso()))
   const [endDay, setEndDay] = useState(ev?.ends_at ? isoDay(new Date(ev.ends_at)) : (on ?? todayIso()))
@@ -337,7 +336,7 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
       {ev && <EventStatus ev={ev} cal={cal} />}
       <label className="ctl">
         <span className="ctl__name">Name</span>
-        <input className="field" dir="auto" data-autofocus={!ev || undefined} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'meeting' ? 'Team meeting' : kind === 'competition' ? 'District event #1' : 'Order deadline'} />
+        <input className="field" dir="auto" data-autofocus={!ev || undefined} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === 'competition' ? 'District event #1' : 'Mock kickoff'} />
       </label>
 
       <div className="picks picks--seg cal-event__kinds" role="radiogroup" aria-label="Kind">
@@ -397,7 +396,7 @@ function EventForm({ ev, on, cal, onDone }: { ev?: CalEvent; on: string | null; 
 
       <ForPicker value={group} onChange={setGroup} cal={cal} title={title} />
 
-      <Reminders value={reminders} onChange={setReminders} group={group} kind={kind} />
+      <Reminders value={reminders} onChange={setReminders} group={group} />
 
       <label className="ctl">
         <span className="ctl__name">Notes</span>

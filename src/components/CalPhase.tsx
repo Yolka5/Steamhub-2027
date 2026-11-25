@@ -28,6 +28,7 @@ import {
   type Phase,
   type Task,
   type TaskStatus,
+  isClosed,
 } from '../lib/cal'
 import { showSuggest, type Progress } from '../lib/calLinked'
 import type { Profile } from '../lib/mfg'
@@ -311,7 +312,7 @@ export function CalTaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: 
   const waitsFor = cal.waits
     .filter((w) => w.task_id === task.id)
     .map((w) => cal.tasks.find((t) => t.id === w.waits_for_id))
-    .filter((t): t is Task => !!t && t.status !== 'done')
+    .filter((t): t is Task => !!t && !isClosed(t.status))
   const group = showGroup ? cal.groups.find((g) => g.id === task.group_id)?.name : null
   return (
     <li className="cal-line cal-line--task" data-status={task.status}>
@@ -320,10 +321,10 @@ export function CalTaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: 
           {task.title}
         </button>
         {task.gh_number != null && <span className="soft small num cal-gh">#{task.gh_number}</span>}
-        {task.priority === 'high' && task.status !== 'done' && <span className="tag tag--bad cal-hi">High</span>}
+        {task.priority === 'high' && !isClosed(task.status) && <span className="tag tag--bad cal-hi">High</span>}
         {subs.length > 0 && (
           <span className="soft small num">
-            {subs.filter((s) => s.status === 'done').length}/{subs.length}
+            {subs.filter((s) => s.status === 'done').length}/{subs.filter((s) => s.status !== 'cancelled').length}
           </span>
         )}
       </div>
@@ -529,8 +530,8 @@ export function TaskList({
 }) {
   const [doneOpen, setDoneOpen] = useState(false)
   const sorted = [...tasks].sort(taskOrder)
-  const open = sorted.filter((t) => t.status !== 'done')
-  const done = sorted.filter((t) => t.status === 'done')
+  const open = sorted.filter((t) => !isClosed(t.status))
+  const done = sorted.filter((t) => isClosed(t.status))
   return (
     <div className="cal-tasks">
       {open.length > 0 && (
@@ -595,11 +596,13 @@ export function PhaseRow({
   const setStatus = usePhaseStatus()
   const save = usePhaseSave()
   const group = cal.groups.find((g) => g.id === p.group_id)
-  const all = cal.tasks.filter((t) => t.phase_id === p.id && !t.parent_id)
-  const tasks = filterTasks ? all.filter(filterTasks) : all
+  const listed = cal.tasks.filter((t) => t.phase_id === p.id && !t.parent_id)
+  const tasks = filterTasks ? listed.filter(filterTasks) : listed
+  const all = listed.filter((t) => t.status !== 'cancelled')
   const doneCount = all.filter((t) => t.status === 'done').length
   const line = prog?.line ?? (all.length ? `${doneCount} of ${count(all.length, 'task')} done` : 'No tasks yet')
   const share = prog ? prog.share : all.length ? doneCount / all.length : null
+  const doingShare = prog ? (prog.doing ?? 0) : all.length ? all.filter((t) => t.status === 'doing').length / all.length : 0
   const suggest = !big && showSuggest(p, prog)
 
   const name = (
@@ -632,8 +635,9 @@ export function PhaseRow({
           )}
         </div>
         <div className="cal-line__mid">
-          {share != null && p.status !== 'done' && (
-            <span className="cal-bar" role="img" aria-label={`${Math.round(share * 100)}%`}>
+          {share != null && !isClosed(p.status) && (
+            <span className="cal-bar" role="img" aria-label={`${Math.round(share * 100)}% done${doingShare ? `, ${Math.round(doingShare * 100)}% in progress` : ''}`}>
+              {doingShare > 0 && <span className="cal-bar__doing" style={{ left: `${share * 100}%`, width: `${doingShare * 100}%` }} />}
               <span className="cal-bar__fill" style={{ width: `${Math.round(share * 100)}%` }} />
             </span>
           )}

@@ -582,6 +582,24 @@ input.mech__name:focus {
   margin-bottom: 0.75rem;
 }
 
+/* The motor curve's output: typed, or one of the usual steps. */
+.curves__out {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.curves__out > .num-field {
+  width: 11rem;
+}
+
+/* Level with the field, under its label. */
+.curves__out > .picks {
+  margin-top: 1.55rem;
+}
+
 /* ----- Chart ----- */
 .chart {
   margin: 0 0 1.5rem;
@@ -1043,4 +1061,19 @@ input.mech__name:focus {
 
 .calc-robot > .budget-fold {
   margin-bottom: 1.5rem;
+}
+
+/* Belt and chain details under the center distance answer. */
+.calc-sub {
+  margin: 1.5rem 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.calc-warn {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-panel);
+  background: var(--meaning-a-soft);
+  color: var(--ink);
 }

@@ -184,7 +184,10 @@ export function useSeasons() {
   // Off-season projects don't start or pick a season.
   const seasonRobots = robots.filter((r) => !r.offseason)
   const seasons = useMemo(() => [...new Set([fallback, ...robots.filter((r) => !r.offseason).map((r) => r.season)])].sort((a, b) => b - a), [robots, fallback])
-  const current = seasonRobots.length ? Math.max(...seasonRobots.map((r) => r.season)) : fallback
+  // The newest year any live robot or project is in, so an older-season test robot can't pull the
+  // Calendar back a year away from the off-season project.
+  const live = robots.filter((r) => !r.archived)
+  const current = live.length ? Math.max(...live.map((r) => r.season)) : seasonRobots.length ? Math.max(...seasonRobots.map((r) => r.season)) : fallback
   /**
    * Subsystems prototypes can hang off in a season: the season's, one per number (active robots win
    * over archived ones), then each off-season project's own, which have numbers of their own.

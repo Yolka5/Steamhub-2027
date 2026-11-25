@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ProgressBar, StatusIcon, useOpenTask } from '../../components/cal'
 import { DatePill, StatusPill } from '../../components/CalPhase'
 import { useWho } from '../../lib/auth'
-import { addDays, dayLabel, isoDay, firstName, groupOrder, occurrences, rangeLabel, groupColor, sectionName, secStyle, todayIso, type Task, type Team } from '../../lib/cal'
+import { addDays, dayLabel, isoDay, firstName, groupOrder, occurrences, rangeLabel, groupColor, sectionName, secStyle, todayIso, type Task, type Team, isClosed } from '../../lib/cal'
 import type { Progress } from '../../lib/calLinked'
 import type { Profile } from '../../lib/mfg'
 import type { Cal } from '../../lib/useCal'
@@ -49,7 +49,7 @@ export function Plan({ cal, linked, filter, people }: { cal: Cal; linked: Map<st
       {groups.map((g) => {
         const phases = cal.phases.filter((p) => p.group_id === g.id).sort((a, b) => a.sort - b.sort)
         const tasks = cal.tasks
-          .filter((t) => t.group_id === g.id && !t.parent_id && (filter.done || t.status !== 'done') && (t.starts_on || t.due_on) && (!filter.mine || mine.has(t.id)))
+          .filter((t) => t.group_id === g.id && !t.parent_id && (filter.done || !isClosed(t.status)) && (t.starts_on || t.due_on) && (!filter.mine || mine.has(t.id)))
           .sort((a, b) => ((a.starts_on ?? a.due_on)! < (b.starts_on ?? b.due_on)! ? -1 : 1))
         // Groups with nothing planned only add scrolling here; the Board still lists them.
         if ((filter.mine || !phases.length) && !tasks.length) return null
@@ -111,8 +111,8 @@ function PlanTasks({ tasks, cal }: { tasks: Task[]; cal: Cal }) {
     <>
       <ul className="cal-plan__tasks">
         {shown.map((t) => {
-          const waits = cal.waits.filter((w) => w.task_id === t.id).map((w) => cal.tasks.find((x) => x.id === w.waits_for_id)).filter((x): x is Task => !!x && x.status !== 'done')
-          const late = t.status !== 'done' && !!t.due_on && t.due_on < today
+          const waits = cal.waits.filter((w) => w.task_id === t.id).map((w) => cal.tasks.find((x) => x.id === w.waits_for_id)).filter((x): x is Task => !!x && !isClosed(x.status))
+          const late = !isClosed(t.status) && !!t.due_on && t.due_on < today
           return (
             <li key={t.id}>
               <button type="button" className="cal-plan__task" onClick={() => open(t.id)}>

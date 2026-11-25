@@ -35,6 +35,7 @@ import { useParts, usePeople, useSubsystem } from '../../lib/useMfg'
 import { Combo, Select } from '../../components/Select'
 import { SubsystemPrototypes } from '../proto/SubsystemPrototypes'
 import { SubsystemCalendar } from '../../components/SubsystemCalendar'
+import { SubsystemChecklist } from '../../components/SubsystemChecklist'
 import { OnshapePanel } from '../../components/Onshape'
 import { massText } from '../../lib/onshape'
 import { needsReview, openFindings, reviewParts, usePartReviews, useRejectReports, type PartReview } from '../../lib/claude'
@@ -58,6 +59,8 @@ export default function SubsystemPage() {
   const { reviews, reload: reloadReviews, dismiss } = usePartReviews(id)
   const { reports, close: closeReport } = useRejectReports(id)
   const [checking, setChecking] = useState<string | null>(null)
+  const [sort, setSort] = usePartSort()
+  const sorter = sort === 'status' ? byStatus : byNumber
 
   if (!sub || !robot)
     return (
@@ -66,7 +69,7 @@ export default function SubsystemPage() {
       </div>
     )
 
-  const live = parts.filter((p) => p.status !== 'cancelled')
+  const live = parts.filter((p) => p.status !== 'cancelled').sort(sorter)
   const design = live.filter((p) => p.machine !== 'Bought' && !p.released_at)
   const released = live.filter((p) => p.machine !== 'Bought' && p.released_at)
   const bought = live.filter((p) => p.machine === 'Bought')
@@ -242,6 +245,7 @@ export default function SubsystemPage() {
       <SubsystemPrototypes season={robot.season} number={sub.number} name={sub.name} projectSub={robot.offseason ? sub.id : undefined} />
       {robot.version != null && <SubsystemCalendar season={robot.season} number={sub.number} />}
       {robot.offseason && <SubsystemCalendar season={robot.season} number={sub.number} projectSub={sub.id} />}
+      <SubsystemChecklist subId={sub.id} />
 
       <OnshapePanel
         sub={sub}
@@ -347,6 +351,17 @@ export default function SubsystemPage() {
         </div>
       ) : (
         <>
+          <div className="sp-sort">
+            <span className="soft small">Order</span>
+            <div className="picks picks--seg" role="radiogroup" aria-label="Order parts by">
+              <button type="button" role="radio" className="pick" aria-checked={sort === 'number'} onClick={() => setSort('number')}>
+                Number
+              </button>
+              <button type="button" role="radio" className="pick" aria-checked={sort === 'status'} onClick={() => setSort('status')}>
+                Done, in progress, to do
+              </button>
+            </div>
+          </div>
           <PartList
             title="In design"
             hint="Not on the workshop list yet. Check machine and material, then release."
@@ -444,6 +459,36 @@ export default function SubsystemPage() {
     </div>
   )
 }
+
+type PartSort = 'number' | 'status'
+const SORT_KEY = 'subsystem-part-sort'
+
+/** Kept per browser, so the order you like stays across subsystems. */
+function usePartSort(): [PartSort, (s: PartSort) => void] {
+  const [sort, set] = useState<PartSort>(() => {
+    try {
+      return localStorage.getItem(SORT_KEY) === 'status' ? 'status' : 'number'
+    } catch {
+      return 'number'
+    }
+  })
+  return [
+    sort,
+    (s) => {
+      set(s)
+      try {
+        localStorage.setItem(SORT_KEY, s)
+      } catch {
+        // Private mode: this visit only.
+      }
+    },
+  ]
+}
+
+const byNumber = (a: Part, b: Part) => a.part_no - b.part_no
+// Done first, then in progress, then to do; missing bought parts after; numbers inside each.
+const STATUS_RANK: Record<PartStatus, number> = { done: 0, doing: 1, todo: 2, missing: 3, cancelled: 4 }
+const byStatus = (a: Part, b: Part) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || byNumber(a, b)
 
 /** A new machine, and the material that goes with it when the old one no longer fits. */
 function machinePatch(part: Part, machine: Machine): Partial<Part> {

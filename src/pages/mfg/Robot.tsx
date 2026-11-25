@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { MfgTabs } from '../../components/mfg'
+import { MfgBar, MfgTabs } from '../../components/mfg'
 import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
 import { Rename } from './SubsystemPage'
 import { useAuth } from '../../lib/auth'
-import { empty, subStatus, useCounts } from '../../lib/counts'
+import { empty, subStatus, useCounts, type Counts } from '../../lib/counts'
 import { createSubsystem, deleteRobot, robotFootprint, versionIn, type Robot, type Subsystem } from '../../lib/mfg'
 import { supabase } from '../../lib/supabase'
 import { usePeople, useRobots } from '../../lib/useMfg'
@@ -17,7 +17,7 @@ export default function RobotPage() {
   const { id = '' } = useParams()
   const { robots, subs, loading, error, reload } = useRobots()
   const { nameOf } = usePeople()
-  const { isAdmin } = useAuth()
+  const { canDeleteRobots } = useAuth()
   const counts = useCounts()
   const toast = useToast()
   const navigate = useNavigate()
@@ -106,22 +106,16 @@ export default function RobotPage() {
                 <span className="mfg-sub__no num">{s.number}</span>
                 <span className="mfg-sub__name">{s.name}</span>
                 <span className="soft small">{nameOf(s.lead_id) ? `Lead: ${nameOf(s.lead_id)}` : 'No lead yet'}</span>
-                <span className="mfg-sub__status small">
-                  {subStatus(c, s.assembled)}
-                  {c.made ? <span className="soft num"> · {c.done}/{c.made} made</span> : null}
-                </span>
-                {c.made > 0 && (
-                  <span className="mfg-bar" aria-hidden="true">
-                    <span style={{ width: `${(c.done / c.made) * 100}%` }} />
-                  </span>
-                )}
+                <span className="mfg-sub__status small">{subStatus(c, s.assembled)}</span>
+                {c.made > 0 && <SubCounts c={c} />}
+                {c.made > 0 && <MfgBar done={c.done} doing={c.doing} of={c.made} />}
               </Link>
             )
           })}
         </div>
       )}
 
-      {isAdmin && (
+      {canDeleteRobots && (
         <p className="mfg-foot">
           <button type="button" className="text-btn" onClick={archive}>
             {robot.archived ? 'Unarchive this robot' : 'Archive this robot'}
@@ -148,6 +142,32 @@ export default function RobotPage() {
         />
       </Sheet>
     </div>
+  )
+}
+
+/** Made, in progress and to do; and how many are still waiting for release when not all are out. */
+function SubCounts({ c }: { c: Counts }) {
+  const todo = c.released - c.done - c.doing
+  const unreleased = c.made - c.released
+  return (
+    <span className="mfg-sub__counts small num">
+      <span>
+        <span className="mfg-dot mfg-dot--done" aria-hidden="true" />
+        {c.done} made
+      </span>
+      {c.doing > 0 && (
+        <span>
+          <span className="mfg-dot mfg-dot--doing" aria-hidden="true" />
+          {c.doing} in progress
+        </span>
+      )}
+      {todo > 0 && <span className="soft">{todo} to make</span>}
+      {unreleased > 0 && (
+        <span className="soft mfg-sub__release">
+          {c.released} of {c.made} released · {unreleased} not yet
+        </span>
+      )}
+    </span>
   )
 }
 

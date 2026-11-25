@@ -119,8 +119,9 @@ function GitHub({ cal }: { cal: Cal }) {
     <section className="section imp">
       <h2 className="section__title">GitHub</h2>
       <p className="soft">
-        Every card on Programming’s GitHub board shows up as a Programming task, and sub-issues as subtasks. Name, status, people and dates follow GitHub and can’t be changed here. Comments, waits and lists stay in
-        Steamhub. It reads GitHub every 15 minutes in the day, and within seconds once a webhook is set.
+        Every issue on Programming’s GitHub board shows up as a Programming task. Sub-issues stay in GitHub, so the Calendar isn’t buried in them. Name, status and people follow GitHub. Dates do too
+        when GitHub has them; when it doesn’t, place the issue on the Gantt here. It reads GitHub every 15 minutes in the day, and within seconds once a webhook is set. A new season means a new board: paste its
+        link below.
       </p>
       {cfg == null ? (
         <p className="soft">Loading</p>
@@ -155,7 +156,7 @@ function GitHub({ cal }: { cal: Cal }) {
             <label className="ctl">
               <span className="ctl__name">Project board</span>
               <input className="field" value={project} onChange={(e) => setProject(e.target.value)} placeholder="https://github.com/orgs/frc1577/projects/3" autoComplete="off" />
-              <span className="soft small">Every card on it, from any repo. Its Status column (Todo, In Progress, Done) and date fields set the task. Cards taken off the board leave the Calendar.</span>
+              <span className="soft small">Every issue on it, from any repo, without its sub-issues. Its Status column (Todo, In Progress, Done) and date fields set the task. Issues taken off the board leave the Calendar.</span>
             </label>
             <label className="ctl">
               <span className="ctl__name">Or only a repo, without a board</span>

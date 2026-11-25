@@ -7,6 +7,8 @@ import { selectAll, supabase } from './supabase'
 export interface Counts {
   made: number
   released: number
+  /** Made parts being made right now. */
+  doing: number
   done: number
   bought: number
   got: number
@@ -15,7 +17,7 @@ export interface Counts {
 type Slim = Pick<Part, 'subsystem_id' | 'status' | 'machine' | 'released_at'>
 
 export function countParts(list: Slim[]): Counts {
-  const c: Counts = { made: 0, released: 0, done: 0, bought: 0, got: 0 }
+  const c: Counts = { made: 0, released: 0, doing: 0, done: 0, bought: 0, got: 0 }
   for (const p of list) {
     if (p.status === 'cancelled') continue
     if (p.machine === 'Bought') {
@@ -26,6 +28,7 @@ export function countParts(list: Slim[]): Counts {
     c.made++
     if (p.released_at) c.released++
     if (p.status === 'done') c.done++
+    else if (p.status === 'doing') c.doing++
   }
   return c
 }
@@ -51,4 +54,4 @@ export function useCounts() {
   return bySub
 }
 
-export const empty: Counts = { made: 0, released: 0, done: 0, bought: 0, got: 0 }
+export const empty: Counts = { made: 0, released: 0, doing: 0, done: 0, bought: 0, got: 0 }

@@ -148,7 +148,8 @@
   overflow-wrap: anywhere;
 }
 
-.cal-row[data-status='done'] .cal-row__title {
+.cal-row[data-status='done'] .cal-row__title,
+.cal-row[data-status='cancelled'] .cal-row__title {
   color: var(--ink-soft);
   text-decoration: line-through;
   text-decoration-color: var(--surface-3);
@@ -210,6 +211,12 @@
   color: var(--meaning-b);
 }
 
+.cal-status[data-status='delayed'],
+.cal-mini-status[data-status='delayed'],
+.pick[data-status='delayed'] .cal-status__icon {
+  color: var(--meaning-c);
+}
+
 .cal-mini-status {
   display: grid;
   flex-shrink: 0;
@@ -236,7 +243,12 @@
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--meaning-b);
-  border-radius: inherit;
+}
+
+.cal-bar__doing {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--meaning-a);
 }
 
 .cal-add-btn {
@@ -1083,6 +1095,17 @@
 
 .gantt__task[data-status='done'] {
   background: var(--meaning-b-soft);
+  box-shadow: none;
+}
+
+.gantt__task[data-status='delayed'] {
+  background: var(--meaning-c-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--meaning-c) 40%, transparent);
+}
+
+.gantt__task[data-status='cancelled'] {
+  color: var(--ink-soft);
+  text-decoration: line-through;
   box-shadow: none;
 }
 
@@ -2314,6 +2337,16 @@ button.cal-st:active {
 .cal-st[data-tone='done'] {
   color: var(--tone-green-ink);
   background: var(--tone-green-track);
+}
+
+/* Delayed: the plan slipped, so it reads like late. Cancelled: grey and struck through. */
+.cal-st[data-tone='delayed'] {
+  color: var(--tone-red-ink);
+  background: var(--tone-red-track);
+}
+
+.cal-st[data-tone='cancelled'] {
+  text-decoration: line-through;
 }
 
 /* The menu that opens from a status pill. */
@@ -3876,4 +3909,193 @@ button.cal-line__title {
     flex-basis: 100%;
     text-align: right;
   }
+}
+
+/* ===== Phone month =====
+   Like a phone calendar app: a small month with short coloured bars on each day, and the picked
+   day's list under it. Bars only show; tapping anywhere on a day picks it. */
+.cal-pm__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.cal-pm__month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.cal-pm__title {
+  font-size: 1.25rem;
+  white-space: nowrap;
+}
+
+.cal-phone__view {
+  flex: none;
+  flex-wrap: nowrap;
+  width: auto;
+}
+
+.cal-pm__end {
+  margin-left: auto;
+}
+
+.cal-phone__view .pick {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+}
+
+.cal-pm__grid {
+  margin: 0 -0.5rem;
+  touch-action: pan-y;
+}
+
+.cal-pm__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding-bottom: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.cal-pm__week {
+  --prows: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: 1.85rem repeat(var(--prows), 0.4rem) repeat(3, 1.05rem) 0.95rem;
+  row-gap: 0.15rem;
+  min-height: 5.1rem;
+  border-top: 1px solid var(--line);
+}
+
+.cal-pm__cell {
+  display: flex;
+  justify-content: center;
+  grid-row: 1 / -1;
+  margin: 0;
+  padding: 0.2rem 0 0;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cal-pm__cell[data-out] {
+  color: var(--ink-soft);
+}
+
+.cal-pm__cell[aria-pressed='true'] {
+  background: var(--surface-1);
+  border-radius: 0.5rem;
+}
+
+.cal-pm__no {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.875rem;
+  border-radius: var(--radius-pill);
+}
+
+.cal-pm__cell[data-today] .cal-pm__no {
+  font-weight: 700;
+  color: var(--on-main);
+  background: var(--main);
+}
+
+.cal-pm__cell[aria-pressed='true']:not([data-today]) .cal-pm__no {
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+/* Bars: short and small, cut at the cell, never caught by a tap. */
+.cal-pm__bar-item.cal-bar-item {
+  margin: 0 1px;
+  padding: 0 0.2rem;
+  font-size: 0.6875rem;
+  line-height: 1.05rem;
+  border-radius: 0.25rem;
+  pointer-events: none;
+  text-overflow: clip;
+}
+
+.cal-pm__bar-item.cal-bar-item.sec {
+  padding-left: 0.35rem;
+}
+
+.cal-pm__bar-item.cal-bar-item.sec::before {
+  width: 2px;
+}
+
+/* Running on from last week, or into the next: square on that side, so it reads as one bar. */
+.cal-pm__bar-item[data-cont] {
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.cal-pm__bar-item[data-cont].sec::before {
+  display: none;
+}
+
+.cal-pm__bar-item[data-goes] {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Longer than a week: a thin line under the day number, its name in the day's list. */
+.cal-pm__bar-item--period.cal-bar-item {
+  align-self: center;
+  height: 0.3rem;
+  padding: 0;
+  line-height: 0;
+  background: var(--surface-3);
+  border-radius: var(--radius-pill);
+}
+
+.cal-pm__bar-item--period.cal-bar-item.sec {
+  background: var(--sec);
+}
+
+.cal-pm__bar-item--period.cal-bar-item.sec::before {
+  display: none;
+}
+
+.cal-pm__more {
+  font-size: 0.6875rem;
+  line-height: 0.95rem;
+  color: var(--ink-soft);
+  text-align: center;
+  pointer-events: none;
+}
+
+.cal-pm__list {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.cal-pm__list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.cal-pm__date {
+  font-size: 1.05rem;
+}
+
+.cal-pm__empty {
+  padding: 0.75rem 0;
 }

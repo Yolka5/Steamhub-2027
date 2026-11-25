@@ -51,7 +51,22 @@ export const THREADS: Thread[] = [
 export const COMMON_ORDER = ['M3', 'M4', 'M5', 'M6', '#10-32', '1/4-20']
 
 /** Full-strength thread depth in aluminum: 1.5 x the screw's diameter. */
-export const threadDepth = (t: Thread) => 1.5 * t.dia
+/**
+ * How much thread a screw needs, by what it goes into. The usual shop rules of thumb, in screw
+ * diameters (d): the softer the material, the more threads share the load before it strips.
+ * Past about 3d nothing is gained, since the first few threads carry almost all of it.
+ */
+export type TapMaterial = 'aluminum' | 'steel' | 'brass' | 'plastic'
+export const TAP_MATERIALS: { key: TapMaterial; label: string; factor: number; note: string }[] = [
+  { key: 'aluminum', label: 'Aluminum', factor: 2, note: '2 × diameter in 6061 or 7075' },
+  { key: 'steel', label: 'Steel', factor: 1, note: '1 × diameter in steel' },
+  { key: 'brass', label: 'Brass, bronze', factor: 1.5, note: '1.5 × diameter in brass, bronze or cast iron' },
+  { key: 'plastic', label: 'Plastic, 3D print', factor: 2.5, note: '2.5 × diameter, or a heat-set insert' },
+]
+export const tapMaterial = (m: string | null | undefined) => TAP_MATERIALS.find((x) => x.key === m) ?? TAP_MATERIALS[0]
+export const threadDepth = (t: Thread, m: TapMaterial = 'aluminum') => tapMaterial(m).factor * t.dia
+/** A blind hole: the drill goes about 4 pitches past the full threads, for the plug tap's taper. */
+export const drillDepth = (t: Thread, m: TapMaterial = 'aluminum') => threadDepth(t, m) + 4 * t.pitch
 
 /** Whole threads that fit in a wall of this thickness. */
 export const threadsInWall = (t: Thread, wall: number) => wall / t.pitch

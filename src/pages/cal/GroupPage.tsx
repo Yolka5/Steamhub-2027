@@ -7,7 +7,7 @@ import { LineHead, PhaseEditorHost, PhaseRow, TaskList, useOpenPhases } from '..
 import { TaskSheetHost } from '../../components/TaskSheet'
 import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { createPhase, dayLabel, firstName, phaseBars, taskOrder, sectionName, todayIso, updateGroup, type Phase } from '../../lib/cal'
+import { createPhase, dayLabel, firstName, phaseBars, taskOrder, sectionName, todayIso, updateGroup, type Phase, isClosed } from '../../lib/cal'
 import { useLinked, useSuggestNotify, type Progress } from '../../lib/calLinked'
 import type { Profile } from '../../lib/mfg'
 import { putRows, useCal, type Cal } from '../../lib/useCal'
@@ -64,7 +64,7 @@ export default function GroupPage() {
   const phases = cal.phases.filter((p) => p.group_id === group.id).sort((a, b) => a.sort - b.sort)
   // Tasks in a phase show under it; this list is the rest.
   const tasks = cal.tasks.filter((t) => t.group_id === group.id && !t.parent_id && (!phases.length || !t.phase_id)).sort(taskOrder)
-  const open = tasks.filter((t) => t.status !== 'done')
+  const open = tasks.filter((t) => !isClosed(t.status))
   const updates = cal.updates
     // Today's is in the box above the list.
     .filter((u) => u.group_id === group.id && u.day !== todayIso())

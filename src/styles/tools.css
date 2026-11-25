@@ -211,3 +211,58 @@
     transition: none;
   }
 }
+
+/* Each cheat sheet folds from its title. */
+.sheet-fold {
+  min-width: 0;
+}
+
+.sheet-fold__sum {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.sheet-fold__sum::-webkit-details-marker {
+  display: none;
+}
+
+.sheet-fold__sum::before {
+  content: '';
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.4rem;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(-45deg);
+  transition: transform 150ms var(--ease-out);
+}
+
+.sheet-fold[open] > .sheet-fold__sum::before {
+  transform: rotate(45deg);
+}
+
+.sheet-fold__sum .section__title {
+  margin: 0;
+}
+
+.sheet-fold[open] > .sheet-fold__sum {
+  margin-bottom: 0.75rem;
+}
+
+.sheet-rules {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 1.2rem;
+}
+
+.tap__mat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 1rem;
+}

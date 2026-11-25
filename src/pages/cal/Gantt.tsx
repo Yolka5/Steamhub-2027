@@ -8,6 +8,7 @@ import { useWho } from '../../lib/auth'
 import {
   addDays,
   addWait,
+  datesLocked,
   daysBetween,
   firstName,
   groupOrder,
@@ -31,6 +32,7 @@ import {
   type Phase,
   type Task,
   statusTone,
+  isClosed,
 } from '../../lib/cal'
 import type { Progress } from '../../lib/calLinked'
 import { useRobots } from '../../lib/useMfg'
@@ -113,7 +115,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
 
   const tasksOf = (gid: string) =>
     cal.tasks
-      .filter((t) => t.group_id === gid && !t.parent_id && (filter.done || t.status !== 'done') && (!filter.mine || mine.has(t.id)))
+      .filter((t) => t.group_id === gid && !t.parent_id && (filter.done || !isClosed(t.status)) && (!filter.mine || mine.has(t.id)))
       .sort((a, b) => ((a.starts_on ?? a.due_on ?? '9999') < (b.starts_on ?? b.due_on ?? '9999') ? -1 : 1) || taskOrder(a, b))
 
   const rows: Row[] = []
@@ -345,7 +347,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
       const y1 = rowIndex.get(a.id)! * ROW + ROW / 2
       const x2 = x(bStart)
       const y2 = rowIndex.get(b.id)! * ROW + ROW / 2
-      const bad = bStart <= aEnd && b.status !== 'done'
+      const bad = bStart <= aEnd && !isClosed(b.status)
       const mid = Math.max(x1 + 6, Math.min(x2 - 6, x1 + 12))
       const d = x2 >= x1 + 12 ? `M${x1},${y1} H${mid} V${y2} H${x2 - 2}` : `M${x1},${y1} h8 V${(y1 + y2) / 2} H${x2 - 10} V${y2} H${x2 - 2}`
       return { key: `${a.id}-${b.id}`, d, bad }
@@ -504,9 +506,10 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
               const [s0, e0] = live('task', t.id, t.starts_on, t.due_on)
               const s = s0 ?? e0
               const en = e0 ?? s0
-              const late = t.status !== 'done' && !!t.due_on && t.due_on < today
-              // GitHub tasks only show: their dates are GitHub's, so the bar doesn't move.
-              const gh = t.source === 'github'
+              const late = !isClosed(t.status) && !!t.due_on && t.due_on < today
+              // A GitHub issue with GitHub dates only shows: the bar doesn't move. One without dates
+              // can be placed and dragged here, like any task.
+              const gh = datesLocked(t)
               return (
                 <div key={r.id} className="gantt__row gantt__row--task">
                   <div className="gantt__label gantt__label--task">
@@ -524,7 +527,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                         data-task-id={t.id}
                         data-status={t.status}
                         data-late={late || undefined}
-                        data-high={(t.priority === 'high' && t.status !== 'done') || undefined}
+                        data-high={(t.priority === 'high' && !isClosed(t.status)) || undefined}
                         role="button"
                         tabIndex={0}
                         aria-label={`${t.title}, ${s === en ? en : `${s} to ${en}`}`}
@@ -558,7 +561,7 @@ export function Gantt({ cal, linked, filter, people }: { cal: Cal; linked: Map<s
                     ) : (
                       edit && (
                         <span className="gantt__ghost soft small" style={{ left: Math.max(4, x(today) + day) }}>
-                          {gh ? 'No dates in GitHub.' : 'No dates. Click a day to set its due day.'}
+                          No dates. Click a day to set its due day.
                         </span>
                       )
                     )}

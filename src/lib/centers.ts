@@ -8,14 +8,20 @@ export interface DriveType {
   label: string
   /** Belt or chain pitch in mm, or the gear module (mm of pitch diameter per tooth). */
   pitch: number
+  /** Belts: how the pitch is written on the belt, like 5M in "500-5M-15". */
+  code?: string
+  /** Belts: distance from the pitch line to the tooth tips, per side. The pulley's outside is 2× this smaller than its pitch diameter. */
+  pld?: number
+  /** Fewest teeth that should grip the small pulley (belts), or the smallest safe wrap (chain), before it may skip. */
+  minMesh?: number
 }
 
 export const DRIVES: DriveType[] = [
-  { id: 'htd5', kind: 'belt', label: 'HTD 5 mm belt', pitch: 5 },
-  { id: 'gt3', kind: 'belt', label: 'HTD 3M / GT3 3 mm belt', pitch: 3 },
-  { id: 'gt2', kind: 'belt', label: 'GT2 2 mm belt', pitch: 2 },
-  { id: 'c25', kind: 'chain', label: '#25 chain', pitch: 6.35 },
-  { id: 'c35', kind: 'chain', label: '#35 chain', pitch: 9.525 },
+  { id: 'htd5', kind: 'belt', label: 'HTD 5 mm belt', pitch: 5, code: '5M', pld: 0.5715, minMesh: 6 },
+  { id: 'gt3', kind: 'belt', label: 'HTD 3M / GT3 3 mm belt', pitch: 3, code: '3M', pld: 0.381, minMesh: 6 },
+  { id: 'gt2', kind: 'belt', label: 'GT2 2 mm belt', pitch: 2, code: '2GT', pld: 0.254, minMesh: 6 },
+  { id: 'c25', kind: 'chain', label: '#25 chain', pitch: 6.35, minMesh: 120 },
+  { id: 'c35', kind: 'chain', label: '#35 chain', pitch: 9.525, minMesh: 120 },
   { id: 'dp20', kind: 'gear', label: '20 DP gear', pitch: 25.4 / 20 },
   { id: 'dp32', kind: 'gear', label: '32 DP gear', pitch: 25.4 / 32 },
   { id: 'mod1', kind: 'gear', label: 'Module 1 gear', pitch: 1 },
@@ -70,6 +76,35 @@ export function chainCenter(p: number, z1: number, z2: number, links: number) {
   const minC = (p / Math.sin(Math.PI / z1) + p / Math.sin(Math.PI / z2)) / 2
   return c < minC ? null : c
 }
+
+/** Outside of a timing pulley: its pitch diameter less the belt's pitch-line offset on both sides. */
+export const pulleyOutsideDiameter = (d: DriveType, z: number) => pulleyPitchDiameter(d.pitch, z) - 2 * (d.pld ?? 0)
+/** Outside of a roller-chain sprocket (the usual ANSI formula). */
+export const sprocketOutsideDiameter = (p: number, z: number) => p * (0.6 + 1 / Math.tan(Math.PI / z))
+
+export interface Wrap {
+  /** Wrap angle on the small pulley or sprocket, in degrees. */
+  angle: number
+  /** Teeth gripping the small one. */
+  teeth: number
+  /** The free span between the two, each side, in mm. */
+  span: number
+}
+
+/** How far the belt or chain wraps the small pulley at center distance c, and the free span length. */
+export function wrapAt(d: DriveType, z1: number, z2: number, c: number): Wrap {
+  const small = Math.min(z1, z2)
+  const big = Math.max(z1, z2)
+  const dia = d.kind === 'chain' ? (z: number) => sprocketPitchDiameter(d.pitch, z) : (z: number) => pulleyPitchDiameter(d.pitch, z)
+  const r1 = dia(small) / 2
+  const r2 = dia(big) / 2
+  const phi = Math.asin(Math.min(1, (r2 - r1) / c))
+  const angle = Math.PI - 2 * phi
+  return { angle: (angle * 180) / Math.PI, teeth: (small * angle) / (2 * Math.PI), span: Math.sqrt(Math.max(0, c * c - (r2 - r1) ** 2)) }
+}
+
+/** Whether the small pulley is gripped well enough at that center distance. */
+export const wrapOk = (d: DriveType, w: Wrap) => (d.kind === 'chain' ? w.angle >= (d.minMesh ?? 120) : w.teeth >= (d.minMesh ?? 6))
 
 export const pulleyPitchDiameter = (p: number, z: number) => (z * p) / Math.PI
 export const sprocketPitchDiameter = (p: number, z: number) => p / Math.sin(Math.PI / z)

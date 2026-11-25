@@ -23,7 +23,7 @@ import {
   type SwerveRatio,
   type Motor,
 } from './calc'
-import { threadDepth, threadsInWall, type Thread } from './threads'
+import { drillDepth, tapMaterial, threadDepth, threadsInWall, type TapMaterial, type Thread } from './threads'
 import { area, KERF, KINDS, type CutPlan, type Kind, type Match, type Piece, type Query } from './stock'
 
 const PI2 = 2 * Math.PI
@@ -223,13 +223,20 @@ export function gearFindWorking(d: DriveType, target: number, ratio: number): Li
 
 // ---------- Threads ----------
 
-export function threadWorking(th: Thread, wall: number | null): Line[] {
+export function threadWorking(th: Thread, wall: number | null, mat: TapMaterial = 'aluminum'): Line[] {
+  const m = tapMaterial(mat)
   const out: Line[] = [
     {
-      what: 'Tap at least',
-      formula: tex`\text{depth} = 1.5\,d`,
-      calc: tex`1.5 \times ${w(th.dia)} = ${w(threadDepth(th), 1)}${u('mm')}`,
-      why: 'd is the major diameter. Past about 1.5 diameters of engagement in aluminum the screw breaks before the thread strips, so deeper adds nothing.',
+      what: 'Thread at least',
+      formula: tex`\text{depth} = ${m.factor}\,d`,
+      calc: tex`${m.factor} \times ${w(th.dia)} = ${w(threadDepth(th, mat), 1)}${u('mm')}`,
+      why: 'd is the major diameter. Rule of thumb by material: steel 1d, brass or cast iron 1.5d, aluminum 2d, plastic 2.5d. Past about 3d nothing is gained: the first few threads carry almost all the load.',
+    },
+    {
+      what: 'Drill a blind hole',
+      formula: tex`\text{drill} = \text{depth} + 4p`,
+      calc: tex`${w(threadDepth(th, mat), 1)} + 4 \times ${w(th.pitch, 3)} = ${w(drillDepth(th, mat), 1)}${u('mm')}`,
+      why: "A plug tap's first 3 to 5 threads are tapered and cut no full thread, so the hole goes deeper than the threads. A bottoming tap needs only about 2 pitches more.",
     },
     th.system === 'imperial'
       ? { what: 'Pitch', formula: tex`p = \frac{25.4}{\text{TPI}}`, calc: tex`p = \frac{25.4}{${w(25.4 / th.pitch, 0)}} = ${w(th.pitch, 3)}${u('mm')}` }

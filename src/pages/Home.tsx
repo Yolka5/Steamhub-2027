@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Activity } from '../components/Activity'
 import { Icon, type IconName } from '../components/Icon'
@@ -6,6 +6,7 @@ import { Season } from '../components/Season'
 import { WorkshopNow } from '../components/WorkshopNow'
 import { YourTasks } from '../components/YourTasks'
 import { PushCard } from '../components/PushCard'
+import { HomeBlocks, RobotBlock, UpdatesBlock, useHomeLayout, type HomeBlock } from '../components/MentorHome'
 import { useAuth } from '../lib/auth'
 import { parseQuery, queryIsEmpty, sizeLabel, type Piece } from '../lib/stock'
 import { looksLikeThread } from '../lib/threads'
@@ -15,6 +16,7 @@ import { supabase } from '../lib/supabase'
 import { PartRow } from '../components/mfg'
 import { queueSort, type Part } from '../lib/mfg'
 import CncHome from './CncHome'
+import { SteamLabBlock } from './SteamLab'
 import { useSteamlabAccess } from '../lib/steamlab'
 import { count } from '../lib/words'
 
@@ -116,8 +118,15 @@ function TeamHome() {
   const navigate = useNavigate()
   const openPalette = useOpenPalette()
   const { pieces, loading } = useStore()
-  const { userId, name, canAssign } = useAuth()
+  const auth = useAuth()
+  const { userId, name, canAssign } = auth
+  // On the dev server, ?mentor=1 shows the mentor Home to anyone, to try it without changing roles.
+  const isMentor = auth.isMentor || (import.meta.env.DEV && new URLSearchParams(window.location.search).get('mentor') === '1')
   const steamlab = useSteamlabAccess(userId)
+  const [layout, setLayout] = useHomeLayout(userId, isMentor)
+  // Edit mode works on a draft: nothing is saved until Save, and Cancel puts it back.
+  const [draft, setDraft] = useState<HomeBlock[] | null>(null)
+  const editing = draft != null
   const asks = useAsksForMe(userId, canAssign)
   const [text, setText] = useState('')
 
@@ -125,11 +134,105 @@ function TeamHome() {
   const available = pieces.filter((p) => p.status === 'available').length
   const myParts = useMyParts(userId)
 
+  /** One piece of Home. Everyone gets them in a fixed order; mentors pick theirs. */
+  const piece = (b: HomeBlock): ReactNode => {
+    switch (b) {
+      case 'tasks':
+        return (
+          <div className="home__cal">
+            <PushCard home />
+            <YourTasks />
+          </div>
+        )
+      case 'activity':
+        return <Activity />
+      case 'season':
+        return <Season />
+      case 'workshop':
+        return <WorkshopNow />
+      case 'steamlab':
+        return <SteamLabBlock />
+      case 'updates':
+        return <UpdatesBlock />
+      case 'robot':
+        return <RobotBlock />
+      case 'links':
+        return (
+          <div className="quick">
+            {(steamlab ? [...QUICK, STEAMLAB_TILE] : QUICK).map((q) => (
+              <Link key={q.to} to={q.to === '/manufacturing' ? '/manufacturing/start' : q.to} className="quick__item" data-tabbar={q.tabbar || undefined} data-dock={q.dock || undefined}>
+                <Icon name={q.icon} size={22} />
+                <span className="quick__label">{q.label}</span>
+                <span className="soft small" dir="auto">
+                  {q.to === '/manufacturing' && myParts.length ? `${myParts.length} ${myParts.length === 1 ? 'part' : 'parts'} for you` : q.hint}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )
+      case 'answers':
+        return asks.length > 0 ? (
+          <section className="section">
+            <h2 className="section__title">Waiting for your answer</h2>
+            <ul className="rows">
+              {asks.map((a) => (
+                <li key={a.id}>
+                  <Link to={`/manufacturing/p/${a.part!.id}`} className="row">
+                    <span className="mfg-row__no num">{a.part!.part_no}</span>
+                    <span className="row__main">
+                      <span className="strong">{a.by_name} asks</span>
+                      <span className="soft small" dir="auto">
+                        {a.note}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : editing ? (
+          <p className="soft small">Nothing waiting for your answer right now.</p>
+        ) : null
+      case 'mine':
+        return myParts.length > 0 || mine.length > 0 ? (
+          <div className="home__mine">
+            {myParts.length > 0 && (
+              <section className="section">
+                <div className="mfg-group__head">
+                  <h2 className="section__title">Your parts</h2>
+                  {myParts.length > 5 && (
+                    <Link to="/manufacturing/mine" className="soft small">
+                      All {myParts.length}
+                    </Link>
+                  )}
+                </div>
+                <ul className="rows">
+                  {myParts.slice(0, 5).map((p) => (
+                    <li key={p.id}>
+                      <PartRow part={p} showMaker={false} showStatus={p.status === 'doing'} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {mine.length > 0 && <Reservations mine={mine} />}
+          </div>
+        ) : null
+    }
+  }
+
   return (
-    <div className="page home">
+    <div className={`page home${isMentor ? ' home--mentor' : ''}`}>
       <section className="hero">
         <Letters text="Steamhub" />
-        <p className="hero__sub soft">{name ? `Hi ${name.split(' ')[0]}. ` : ''}What do you need?</p>
+        <div className="hero__subrow">
+          <p className="hero__sub soft">{name ? `Hi ${name.split(' ')[0]}. ` : ''}What do you need?</p>
+          {isMentor && layout && !editing && (
+            <button type="button" className="q-btn q-btn--small" onClick={() => setDraft(layout)}>
+              <Icon name="edit" size={16} /> Customise
+            </button>
+          )}
+        </div>
         <form
           className="hero__search"
           onSubmit={(e) => {
@@ -161,74 +264,33 @@ function TeamHome() {
         </p>
       </section>
 
-      {/* Always there, even empty, so the grid never leaves its row free for another card. */}
-      <div className="home__cal">
-        <PushCard home />
-        <YourTasks />
-      </div>
-
-      <Activity />
-
-      <Season />
-
-      <WorkshopNow />
-
-      <div className="quick">
-        {(steamlab ? [...QUICK, STEAMLAB_TILE] : QUICK).map((q) => (
-          <Link key={q.to} to={q.to === '/manufacturing' ? '/manufacturing/start' : q.to} className="quick__item" data-tabbar={q.tabbar || undefined} data-dock={q.dock || undefined}>
-            <Icon name={q.icon} size={22} />
-            <span className="quick__label">{q.label}</span>
-            <span className="soft small" dir="auto">
-              {q.to === '/manufacturing' && myParts.length ? `${myParts.length} ${myParts.length === 1 ? 'part' : 'parts'} for you` : q.hint}
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      {asks.length > 0 && (
-        <section className="section">
-          <h2 className="section__title">Waiting for your answer</h2>
-          <ul className="rows">
-            {asks.map((a) => (
-              <li key={a.id}>
-                <Link to={`/manufacturing/p/${a.part!.id}`} className="row">
-                  <span className="mfg-row__no num">{a.part!.part_no}</span>
-                  <span className="row__main">
-                    <span className="strong">{a.by_name} asks</span>
-                    <span className="soft small" dir="auto">
-                      {a.note}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {(myParts.length > 0 || mine.length > 0) && (
-        <div className="home__mine">
-          {myParts.length > 0 && (
-            <section className="section">
-              <div className="mfg-group__head">
-                <h2 className="section__title">Your parts</h2>
-                {myParts.length > 5 && (
-                  <Link to="/manufacturing/mine" className="soft small">
-                    All {myParts.length}
-                  </Link>
-                )}
-              </div>
-              <ul className="rows">
-                {myParts.slice(0, 5).map((p) => (
-                  <li key={p.id}>
-                    <PartRow part={p} showMaker={false} showStatus={p.status === 'doing'} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {mine.length > 0 && <Reservations mine={mine} />}
-        </div>
+      {isMentor && layout ? (
+        <>
+          <HomeBlocks
+            blocks={draft ?? layout}
+            editing={editing}
+            onChange={setDraft}
+            render={(b) => piece(b)}
+            onCancel={() => setDraft(null)}
+            onSave={async () => {
+              await setLayout(draft!)
+              setDraft(null)
+            }}
+          />
+        </>
+      ) : (
+        !isMentor && (
+          <>
+            {/* Always there, even empty, so the grid never leaves its row free for another card. */}
+            {piece('tasks')}
+            {piece('activity')}
+            {piece('season')}
+            {piece('workshop')}
+            {piece('links')}
+            {piece('answers')}
+            {piece('mine')}
+          </>
+        )
       )}
     </div>
   )

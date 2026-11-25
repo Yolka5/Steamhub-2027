@@ -138,6 +138,12 @@ export default function CalendarPage() {
               Send today's update
             </Link>
           )}
+          {/* Not a lead, or already sent: still a way in, for a lead who's away today. */}
+          {unsent.length === 0 && !phone && (
+            <Link to="/calendar/update" className="q-btn">
+              Write an update
+            </Link>
+          )}
           {!phone && <CalTabs />}
           {!phone && (
             <button type="button" className="q-btn" onClick={() => setBig(true)}>

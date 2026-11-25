@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { MfgTabs } from '../../components/mfg'
+import { MfgBar, MfgTabs } from '../../components/mfg'
 import { LoadError, Sheet, useBusy, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { empty, useCounts } from '../../lib/counts'
@@ -22,8 +22,8 @@ export default function Robots() {
     const mine = subs.filter((s) => s.robot_id === r.id)
     const c = mine.reduce((acc, s) => {
       const k = counts.get(s.id) ?? empty
-      return { made: acc.made + k.made, done: acc.done + k.done }
-    }, { made: 0, done: 0 })
+      return { made: acc.made + k.made, done: acc.done + k.done, doing: acc.doing + k.doing }
+    }, { made: 0, done: 0, doing: 0 })
     return (
       <li key={r.id}>
         <Link to={`/manufacturing/r/${r.id}`} className="row row--tall">
@@ -33,14 +33,10 @@ export default function Robots() {
               {r.offseason && r.archived && <span className="soft small"> · off-season</span>}
             </span>
             <span className="soft small num">
-              {mine.length} {mine.length === 1 ? 'subsystem' : 'subsystems'} · {c.made} parts to make{c.made ? ` · ${c.done} done` : ''}
+              {mine.length} {mine.length === 1 ? 'subsystem' : 'subsystems'} · {c.made} parts to make{c.made ? ` · ${c.done} done` : ''}{c.doing ? ` · ${c.doing} in progress` : ''}
             </span>
           </span>
-          {c.made > 0 && (
-            <span className="mfg-bar" aria-hidden="true">
-              <span style={{ width: `${(c.done / c.made) * 100}%` }} />
-            </span>
-          )}
+          <MfgBar done={c.done} doing={c.doing} of={c.made} />
         </Link>
       </li>
     )

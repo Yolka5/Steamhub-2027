@@ -91,3 +91,14 @@ function PartRowBody({ part, showMaker, showStatus, assignee }: { part: Part; sh
     </>
   )
 }
+
+/** Done in green, then in progress in yellow, out of `of`. */
+export function MfgBar({ done, doing = 0, of }: { done: number; doing?: number; of: number }) {
+  if (!of) return null
+  return (
+    <span className="mfg-bar" aria-hidden="true">
+      <span style={{ width: `${(done / of) * 100}%` }} />
+      {doing > 0 && <span className="is-doing" style={{ width: `${(doing / of) * 100}%` }} />}
+    </span>
+  )
+}

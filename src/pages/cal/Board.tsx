@@ -26,6 +26,7 @@ import {
   todayIso,
   type CalGroup,
   type Task,
+  isClosed,
 } from '../../lib/cal'
 import { CNC_MACHINES, openParts, WORKSHOP_MACHINES } from '../../lib/calParts'
 import { useTasks } from '../../lib/useTasks'
@@ -104,7 +105,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
           // Mine: tasks I own, or with a subtask I own.
           .filter((t) => !filter.mine || mineIds.has(t.id) || cal.tasks.some((s) => s.parent_id === t.id && mineIds.has(s.id)))
           .sort(taskOrder)
-        return { g, shown, open: all.filter((t) => t.status !== 'done').length, done: all.length - all.filter((t) => t.status !== 'done').length }
+        return { g, shown, open: all.filter((t) => !isClosed(t.status)).length, done: all.filter((t) => isClosed(t.status)).length }
       })
       .filter((x) => !filter.mine || x.shown.length > 0)
   }, [cal.groups, cal.tasks, cal.phases, filter, mineIds, big])
@@ -121,11 +122,11 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
   const today = todayIso()
   const week = addDays(today, 7)
   const anchor = (id: string) => `cal-g-${id}`
-  const lateOf = (groupId: string) => cal.tasks.filter((t) => t.group_id === groupId && !t.parent_id && t.status !== 'done' && t.due_on && t.due_on < today).length
+  const lateOf = (groupId: string) => cal.tasks.filter((t) => t.group_id === groupId && !t.parent_id && !isClosed(t.status) && t.due_on && t.due_on < today).length
 
   /** Open, due this week and late, said only when there is something to say. */
   const countLine = (ids: string[]) => {
-    const open = cal.tasks.filter((t) => ids.includes(t.group_id) && !t.parent_id && t.status !== 'done')
+    const open = cal.tasks.filter((t) => ids.includes(t.group_id) && !t.parent_id && !isClosed(t.status))
     const late = open.filter((t) => t.due_on && t.due_on < today).length
     const soon = open.filter((t) => t.due_on && t.due_on >= today && t.due_on <= week).length
     if (!open.length) return null

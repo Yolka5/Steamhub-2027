@@ -728,7 +728,7 @@ export const CHAPTERS: Chapter[] = [
       {
         title: 'Tasks',
         how: [
-          <>Tap the circle to move a task along: Not started, In progress, Done.</>,
+          <>Tap the circle to move a task along: Not started, In progress, Done. Open the task for Delayed or Cancelled: cancelled tasks drop out of the counts.</>,
           <>Tap the name to open the task.</>,
           <>High priority tasks are tagged.</>,
           <>“Waits for” means it starts after another task. A task that slips moves the ones waiting for it.</>,

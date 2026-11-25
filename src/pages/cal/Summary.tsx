@@ -3,7 +3,6 @@ import { Icon } from '../../components/Icon'
 import { CalTabs, useCalSeason } from '../../components/cal'
 import { CommentsHost, targetOf, useOpenComments } from '../../components/Comments'
 import { LoadError, useToast } from '../../components/ui'
-import { useAuth } from '../../lib/auth'
 import { addDays, firstName, groupOrder, isoDay, longDay, sectionList, sectionName, todayIso, type CalComment } from '../../lib/cal'
 import { useCal } from '../../lib/useCal'
 import { usePhone } from '../../lib/usePhone'
@@ -17,7 +16,6 @@ export default function Summary() {
   const cal = useCal(season)
   const { people, nameOf } = usePeople()
   const openComments = useOpenComments()
-  const { userId } = useAuth()
   const toast = useToast()
   const phone = usePhone()
   const [params, setParams] = useSearchParams()
@@ -129,7 +127,7 @@ export default function Summary() {
                       ) : (
                         <p className="soft small cal-card__missing">
                           {day === today ? 'Not sent yet' : 'Not sent'}
-                          {day === today && g.lead_id === userId && (
+                          {day === today && (
                             <>
                               {' · '}
                               <Link to={`/calendar/update?g=${g.id}`}>Write it</Link>

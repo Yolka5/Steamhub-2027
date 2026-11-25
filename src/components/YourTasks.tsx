@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { TaskRow, useCalSeason } from './cal'
 import { TaskSheetHost } from './TaskSheet'
 import { useAuth } from '../lib/auth'
-import { addDays, taskOrder, todayIso } from '../lib/cal'
+import { addDays, taskOrder, todayIso, isClosed } from '../lib/cal'
 import { useCal } from '../lib/useCal'
 import { usePeople } from '../lib/useMfg'
 
@@ -22,11 +22,11 @@ export function YourTasks() {
   const week = addDays(today, 7)
   const mine = new Set(cal.owners.filter((o) => o.user_id === userId).map((o) => o.task_id))
   const list = cal.tasks
-    .filter((t) => mine.has(t.id) && t.status !== 'done' && (t.status === 'doing' || (t.due_on && t.due_on <= week)))
+    .filter((t) => mine.has(t.id) && !isClosed(t.status) && (t.status === 'doing' || (t.due_on && t.due_on <= week)))
     .sort(taskOrder)
   const led = cal.groups.filter((g) => g.lead_id === userId)
   const unsent = led.filter((g) => !cal.updates.some((u) => u.group_id === g.id && u.day === today))
-  const openCount = cal.tasks.filter((t) => mine.has(t.id) && t.status !== 'done').length
+  const openCount = cal.tasks.filter((t) => mine.has(t.id) && !isClosed(t.status)).length
 
   if (!list.length && !unsent.length) return null
 

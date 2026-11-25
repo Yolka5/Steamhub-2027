@@ -33,6 +33,7 @@ import {
   updateTask,
   type DateMove,
   type Task,
+  isClosed,
 } from '../lib/cal'
 import { partName, type Part } from '../lib/mfg'
 import { usePrototypes } from '../lib/proto'
@@ -273,7 +274,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
     }
     const groupName = new Map(cal.groups.map((g) => [g.id, g.name]))
     return cal.tasks
-      .filter((t) => !t.parent_id && !after.has(t.id) && !waitsFor.some((x) => x.id === t.id) && t.status !== 'done')
+      .filter((t) => !t.parent_id && !after.has(t.id) && !waitsFor.some((x) => x.id === t.id) && !isClosed(t.status))
       .sort((a, b) => (a.group_id === task.group_id ? -1 : 0) - (b.group_id === task.group_id ? -1 : 0) || a.title.localeCompare(b.title))
       .map((t) => ({ value: t.id, label: t.title, group: groupName.get(t.group_id) }))
   }, [cal.tasks, cal.waits, cal.groups, task.id, task.group_id, waitsFor])
@@ -293,7 +294,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         <p className="tsheet__gh soft small">
           <Icon name="link" size={16} />
           <span>
-            From GitHub{task.gh_number != null ? ` #${task.gh_number}` : ''}. It shows what Programming does in GitHub and updates by itself. Comments, waits and the list are Steamhub’s.
+            From GitHub{task.gh_number != null ? ` #${task.gh_number}` : ''}. It shows what Programming does in GitHub and updates by itself. Comments, waits and the list are Steamhub’s{task.gh_dated ? '' : ', and so are its dates until GitHub has some'}.
           </span>
           {task.gh_url && (
             <a href={task.gh_url} target="_blank" rel="noreferrer" className="q-btn q-btn--small">
@@ -371,8 +372,8 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         )}
 
         <span className="tsheet__label">Dates</span>
-        {gh ? (
-          <div className="soft">{task.starts_on || task.due_on ? rangeLabel(task.starts_on, task.due_on) : 'No dates in GitHub'}</div>
+        {gh && task.gh_dated ? (
+          <div className="soft">{rangeLabel(task.starts_on, task.due_on)}, from GitHub</div>
         ) : (
           <DateRange start={task.starts_on} end={task.due_on} onChange={setDates} endWord="Due" />
         )}
@@ -453,7 +454,7 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
       {!task.parent_id && (
         <section className="tsheet__block">
           <h3 className="tsheet__head">
-            Subtasks {subs.length > 0 && <span className="soft num">{subs.filter((s) => s.status === 'done').length}/{subs.length}</span>}
+            Subtasks {subs.length > 0 && <span className="soft num">{subs.filter((s) => s.status === 'done').length}/{subs.filter((s) => s.status !== 'cancelled').length}</span>}
           </h3>
           {subs.length > 0 && (
             <ul className="tsheet__subs">
@@ -525,9 +526,9 @@ function TaskBody({ task, cal }: { task: Task; cal: Cal }) {
         <span className="soft small">
           {group ? `${group.name} · ` : ''}
           {task.created_by ? `Added by ${firstName(nameOf(task.created_by))}` : ''}
-          {task.priority === 'high' && task.status !== 'done' ? ' ' : ''}
+          {task.priority === 'high' && !isClosed(task.status) ? ' ' : ''}
         </span>
-        {task.priority === 'high' && task.status !== 'done' && <HighTag />}
+        {task.priority === 'high' && !isClosed(task.status) && <HighTag />}
         {gh ? null : confirm ? (
           <span className="tsheet__confirm">
             <button type="button" className="q-btn" onClick={() => setConfirm(false)}>

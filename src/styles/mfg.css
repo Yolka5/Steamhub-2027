@@ -173,7 +173,7 @@
 }
 
 .mfg-bar {
-  display: block;
+  display: flex;
   flex: none;
   width: 6rem;
   height: 0.375rem;
@@ -184,9 +184,14 @@
 
 .mfg-bar > span {
   display: block;
+  flex: none;
   height: 100%;
   background: var(--meaning-b);
-  border-radius: inherit;
+}
+
+/* In progress sits right after done, in yellow, so both read at a glance. */
+.mfg-bar > span.is-doing {
+  background: var(--meaning-a);
 }
 
 .mfg-archived {
@@ -230,6 +235,37 @@
 
 .mfg-sub__status {
   margin-top: 0.4rem;
+}
+
+.mfg-sub__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.75rem;
+  margin-top: 0.15rem;
+}
+
+.mfg-sub__counts > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mfg-sub__release {
+  flex-basis: 100%;
+}
+
+.mfg-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.mfg-dot--done {
+  background: var(--meaning-b);
+}
+
+.mfg-dot--doing {
+  background: var(--meaning-a);
 }
 
 .mfg-sub .mfg-bar {
@@ -2268,4 +2304,61 @@
 
 .dtrain__issue:first-of-type {
   border-top: 0;
+}
+
+/* The parts order on a subsystem page. */
+.sp-sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 1.5rem;
+}
+
+/* The Handbook's approval checklist on a subsystem page, folded until someone starts it. */
+.sub-check__sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.sub-check__sum::-webkit-details-marker {
+  display: none;
+}
+
+.sub-check__sum::before {
+  content: '';
+  align-self: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(-45deg);
+  transition: transform 150ms var(--ease-out);
+}
+
+.sub-check[open] > .sub-check__sum::before {
+  transform: rotate(45deg);
+}
+
+.sub-check > p {
+  margin: 0.5rem 0 0;
+}
+
+.sub-check__others {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sub-check__others li {
+  display: grid;
+  grid-template-columns: 7rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
 }

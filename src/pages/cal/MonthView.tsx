@@ -1,10 +1,10 @@
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { useOpenTask } from '../../components/cal'
 import { Sheet } from '../../components/ui'
 import { useWho } from '../../lib/auth'
-import { addDays, daysBetween, dayLabel, eventStatus, groupColor, isoDay, longDay, occurrences, secStyle, STATUS_WORD, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task } from '../../lib/cal'
+import { addDays, daysBetween, dayLabel, eventStatus, groupColor, isoDay, longDay, occurrences, secStyle, STATUS_WORD, statusTone, timeLabel, toDate, todayIso, type CalGroup, type StatusTone, type Task, isClosed } from '../../lib/cal'
 import type { Cal } from '../../lib/useCal'
 import type { Profile } from '../../lib/mfg'
 import { usePhone } from '../../lib/usePhone'
@@ -12,7 +12,9 @@ import { inSections, type BoardFilter } from './Board'
 
 // Tasks, phases and events on the calendar. Computers: a month grid with bars across their days;
 // anything longer than a week is a thin bar in the "periods" strip at the top of the week, so long
-// blocks don't bury the days. Phones: an agenda, today first, only the days with something on them.
+// blocks don't bury the days. Phones: a small month like a phone calendar app, with short coloured
+// bars on each day; tap a day to list it underneath, swipe for the next month. Or the agenda list,
+// today first, only the days with something on them.
 // Every item is filled with the colour of who it's for (its group, else its section); whole-team
 // items stay grey. Status doesn't colour bars: done strikes through.
 
@@ -64,7 +66,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
         start,
         end,
         note: groups.get(t.group_id)?.name,
-        state: t.status === 'done' ? 'done' : t.due_on && t.due_on < today ? 'late' : t.priority === 'high' ? 'high' : undefined,
+        state: isClosed(t.status) ? 'done' : t.status === 'delayed' ? 'late' : t.due_on && t.due_on < today ? 'late' : t.priority === 'high' ? 'high' : undefined,
         open: () => open(t.id),
         color: colorOf(t.group_id),
       })
@@ -76,7 +78,7 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
         const end = p.ends_on ?? p.starts_on
         if (!start || !end || end < from || start > to) continue
         const g = groups.get(p.group_id)
-        items.push({ key: `p${p.id}`, kind: 'phase', title: `${g?.name}: ${p.name}`, start, end, state: p.status === 'done' ? 'done' : undefined, tone: statusTone(p.status, p.starts_on), open: () => {}, href: `/calendar/g/${p.group_id}`, color: colorOf(p.group_id) })
+        items.push({ key: `p${p.id}`, kind: 'phase', title: `${g?.name}: ${p.name}`, start, end, state: isClosed(p.status) ? 'done' : undefined, tone: statusTone(p.status, p.starts_on), open: () => {}, href: `/calendar/g/${p.group_id}`, color: colorOf(p.group_id) })
       }
     for (const e of cal.events) {
       if (!inTeam(e.group_id)) continue
@@ -111,8 +113,244 @@ function useItems(cal: Cal, filter: BoardFilter, from: string, to: string, phase
 
 export function MonthView({ cal, filter }: { cal: Cal; filter: BoardFilter; people: Profile[] }) {
   const phone = usePhone()
-  return phone ? <Agenda cal={cal} filter={filter} /> : <Month cal={cal} filter={filter} />
+  return phone ? <PhoneCalendar cal={cal} filter={filter} /> : <Month cal={cal} filter={filter} />
 }
+
+const PHONE_VIEW_KEY = 'cal-phone-view'
+
+/** Phones: the month (default) or the agenda list, remembered on this phone. */
+function PhoneCalendar({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
+  const [view, setViewState] = useState<'month' | 'list'>(() => {
+    try {
+      return localStorage.getItem(PHONE_VIEW_KEY) === 'list' ? 'list' : 'month'
+    } catch {
+      return 'month'
+    }
+  })
+  const setView = (v: 'month' | 'list') => {
+    setViewState(v)
+    try {
+      localStorage.setItem(PHONE_VIEW_KEY, v)
+    } catch {
+      /* private mode */
+    }
+  }
+  const picker = (
+    <div className="picks picks--seg cal-phone__view" role="radiogroup" aria-label="Show as">
+      <button type="button" role="radio" className="pick" aria-checked={view === 'month'} onClick={() => setView('month')}>
+        Month
+      </button>
+      <button type="button" role="radio" className="pick" aria-checked={view === 'list'} onClick={() => setView('list')}>
+        List
+      </button>
+    </div>
+  )
+  return view === 'month' ? <PhoneMonth cal={cal} filter={filter} picker={picker} /> : <Agenda cal={cal} filter={filter} picker={picker} />
+}
+
+const PHONE_LANES = 3
+const PHONE_PERIOD_LANES = 2
+
+/** Each item takes the first lane free for all its days this week. Over `max` lanes, it's counted as more. */
+function packWeek(list: Item[], ws: string, max: number) {
+  const col = (day: string) => daysBetween(ws, day)
+  const lanes: string[][] = []
+  const placed: { item: Item; lane: number; c0: number; c1: number }[] = []
+  const hidden = new Map<number, number>()
+  for (const item of list) {
+    const c0 = Math.max(0, col(item.start))
+    const c1 = Math.min(6, col(item.end))
+    let lane = lanes.findIndex((l) => l.slice(c0, c1 + 1).every((x) => !x))
+    if (lane === -1) {
+      lanes.push(Array(7).fill(''))
+      lane = lanes.length - 1
+    }
+    if (lane >= max) {
+      for (let c = c0; c <= c1; c++) hidden.set(c, (hidden.get(c) ?? 0) + 1)
+      continue
+    }
+    for (let c = c0; c <= c1; c++) lanes[lane][c] = item.key
+    placed.push({ item, lane, c0, c1 })
+  }
+  return { placed, hidden, used: Math.min(max, lanes.length) }
+}
+
+function PhoneMonth({ cal, filter, picker }: { cal: Cal; filter: BoardFilter; picker: ReactNode }) {
+  const [params, setParams] = useSearchParams()
+  const today = todayIso()
+  // The picked day lives in the link (?d=), and its month is the one shown.
+  const picked = params.get('d') ?? today
+  const first = toDate(picked)
+  first.setDate(1)
+  const monthStart = isoDay(first)
+  const gridStart = addDays(monthStart, -first.getDay())
+  const nextMonth = new Date(first.getFullYear(), first.getMonth() + 1, 1)
+  const prevMonth = new Date(first.getFullYear(), first.getMonth() - 1, 1)
+  const weeks = Math.ceil((first.getDay() + new Date(nextMonth.getTime() - 86_400_000).getDate()) / 7)
+  const gridEnd = addDays(gridStart, weeks * 7 - 1)
+  const items = useItems(cal, filter, gridStart, gridEnd)
+  // The day's list also has phases starting, running and ending.
+  const dayItems = useItems(cal, filter, picked, picked, true)
+  const newEvent = useNewEvent()
+  const who = useWho()
+  const open = useOpenTask()
+  const touch = useRef<{ x: number; y: number } | null>(null)
+
+  const pick = (d: string | null) => {
+    const next = new URLSearchParams(params)
+    if (d && d !== today) next.set('d', d)
+    else next.delete('d')
+    setParams(next, { replace: true })
+  }
+  // A new month opens on today when it holds today, else on its first day.
+  const toMonth = (m: Date) => {
+    const d = isoDay(m)
+    pick(today.slice(0, 7) === d.slice(0, 7) ? today : d)
+  }
+
+  const late =
+    picked === today
+      ? cal.tasks
+          .filter((t: Task) => !t.parent_id && !isClosed(t.status) && t.due_on && t.due_on < today)
+          .filter((t) => inSections(filter, cal.groups.find((g) => g.id === t.group_id)?.team))
+          .filter((t) => !filter.mine || cal.owners.some((o) => o.task_id === t.id && o.user_id === who?.userId))
+          .sort((a, b) => (a.due_on! < b.due_on! ? -1 : 1))
+      : []
+
+  return (
+    <div className="cal-pm">
+      <div className="cal-pm__bar">
+        {picker}
+        {picked !== today && (
+          <button type="button" className="q-btn q-btn--small cal-pm__end" onClick={() => pick(null)}>
+            Today
+          </button>
+        )}
+      </div>
+      <div className="cal-pm__month">
+        <button type="button" className="icon-btn" aria-label="Previous month" onClick={() => toMonth(prevMonth)}>
+          <Icon name="back" />
+        </button>
+        <h2 className="cal-pm__title">{first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>
+        <button type="button" className="icon-btn cal-flip" aria-label="Next month" onClick={() => toMonth(nextMonth)}>
+          <Icon name="back" />
+        </button>
+      </div>
+
+      <div
+        className="cal-pm__grid"
+        onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
+        onTouchEnd={(e) => {
+          const t0 = touch.current
+          touch.current = null
+          if (!t0) return
+          const dx = e.changedTouches[0].clientX - t0.x
+          const dy = e.changedTouches[0].clientY - t0.y
+          // A clear sideways swipe changes the month; anything else is a tap or a scroll.
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) toMonth(dx < 0 ? nextMonth : prevMonth)
+        }}
+      >
+        <div className="cal-pm__days" aria-hidden="true">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <span key={i}>{d}</span>
+          ))}
+        </div>
+        {Array.from({ length: weeks }, (_, w) => {
+          const ws = addDays(gridStart, w * 7)
+          const we = addDays(ws, 6)
+          const inWeek = items.filter((i) => i.end >= ws && i.start <= we)
+          const per = packWeek(inWeek.filter(isPeriod), ws, PHONE_PERIOD_LANES)
+          const day = packWeek(inWeek.filter((i) => !isPeriod(i)), ws, PHONE_LANES)
+          const hidden = new Map(day.hidden)
+          for (const [c, n] of per.hidden) hidden.set(c, (hidden.get(c) ?? 0) + n)
+          const moreRow = per.used + PHONE_LANES + 2
+          return (
+            <div key={ws} className="cal-pm__week" style={{ '--prows': per.used } as CSSProperties}>
+              {Array.from({ length: 7 }, (_, c) => {
+                const d = addDays(ws, c)
+                const out = toDate(d).getMonth() !== first.getMonth()
+                const n = items.filter((i) => i.start <= d && i.end >= d).length
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    className="cal-pm__cell"
+                    style={{ gridColumn: c + 1 }}
+                    data-out={out || undefined}
+                    data-today={d === today || undefined}
+                    aria-pressed={d === picked}
+                    aria-label={`${longDay(d)}${n ? `, ${n} on it` : ''}`}
+                    onClick={() => pick(d)}
+                  >
+                    <span className="cal-pm__no num">{toDate(d).getDate()}</span>
+                  </button>
+                )
+              })}
+              {[...per.placed.map((x) => ({ ...x, row: x.lane + 2, period: true })), ...day.placed.map((x) => ({ ...x, row: per.used + x.lane + 2, period: false }))].map(({ item, row, c0, c1, period }) => (
+                <span
+                  key={item.key}
+                  aria-hidden="true"
+                  className={`cal-pm__bar-item cal-bar-item cal-bar-item--${item.kind}${period ? ' cal-pm__bar-item--period' : ''}${item.color ? ' sec' : ''}`}
+                  style={{ gridColumn: `${c0 + 1} / ${c1 + 2}`, gridRow: row, ...(item.color ? secStyle(item.color) : {}) }}
+                  data-state={item.state}
+                  data-tone={item.tone}
+                  data-cont={item.start < ws || undefined}
+                  data-goes={item.end > we || undefined}
+                >
+                  {period ? '' : <bdi dir="auto">{item.title}</bdi>}
+                </span>
+              ))}
+              {[...hidden].map(([c, n]) => (
+                <span key={`m${c}`} className="cal-pm__more num" aria-hidden="true" style={{ gridColumn: c + 1, gridRow: moreRow }}>
+                  +{n}
+                </span>
+              ))}
+            </div>
+          )
+        })}
+      </div>
+
+      <section className="cal-pm__list" aria-live="polite">
+        <div className="cal-pm__list-head">
+          <h2 className="cal-pm__date">{picked === today ? `Today, ${longDay(picked)}` : longDay(picked)}</h2>
+          <button type="button" className="q-btn q-btn--small" onClick={() => newEvent(picked)}>
+            <Icon name="plus" size={16} /> Event
+          </button>
+        </div>
+        {late.length > 0 && (
+          <>
+            <h3 className="cal-agenda__date cal-agenda__date--late">Late</h3>
+            <ul className="rows cal-agenda__list">
+              {late.map((t) => (
+                <li key={t.id}>
+                  <button type="button" className="row cal-agenda__btn" onClick={() => open(t.id)}>
+                    <span className="cal-dot cal-dot--task" data-state="late" aria-hidden="true" />
+                    <span className="row__main">
+                      <span className="cal-agenda__title">
+                        <bdi dir="auto">{t.title}</bdi>
+                      </span>
+                      <span className="soft small">
+                        {cal.groups.find((g) => g.id === t.group_id)?.name} · was due {dayLabel(t.due_on!)}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {dayItems.length ? (
+          <DayList items={[...dayItems].sort((a, b) => kindRank(a) - kindRank(b) || ((a.note ?? '') < (b.note ?? '') ? -1 : 1))} />
+        ) : (
+          !late.length && <p className="soft cal-pm__empty">Nothing on this day.</p>
+        )}
+      </section>
+    </div>
+  )
+}
+
+/** A day's list: events (by time) first, then tasks, then phases. */
+const kindRank = (i: Item) => (i.kind === 'event' ? 0 : i.kind === 'task' ? 1 : 2)
 
 function useNewEvent() {
   const [params, setParams] = useSearchParams()
@@ -315,7 +553,7 @@ function DayList({ items, onPick }: { items: Item[]; onPick?: () => void }) {
 
 const WEEKS_STEP = 6
 
-function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
+function Agenda({ cal, filter, picker }: { cal: Cal; filter: BoardFilter; picker?: ReactNode }) {
   const today = todayIso()
   const [weeks, setWeeks] = useState(WEEKS_STEP)
   const to = addDays(today, weeks * 7)
@@ -326,7 +564,7 @@ function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
 
   // Late tasks first: what should already be done.
   const late = cal.tasks
-    .filter((t: Task) => !t.parent_id && t.status !== 'done' && t.due_on && t.due_on < today)
+    .filter((t: Task) => !t.parent_id && !isClosed(t.status) && t.due_on && t.due_on < today)
     .filter((t) => inSections(filter, cal.groups.find((g) => g.id === t.group_id)?.team))
     .filter((t) => !filter.mine || cal.owners.some((o) => o.task_id === t.id && o.user_id === who?.userId))
     .sort((a, b) => (a.due_on! < b.due_on! ? -1 : 1))
@@ -349,8 +587,9 @@ function Agenda({ cal, filter }: { cal: Cal; filter: BoardFilter }) {
 
   return (
     <div className="cal-agenda">
-      <div className="cal-month__bar">
-        <button type="button" className="q-btn q-btn--small" onClick={() => newEvent(today)}>
+      <div className="cal-pm__bar">
+        {picker}
+        <button type="button" className="q-btn q-btn--small cal-pm__end" onClick={() => newEvent(today)}>
           <Icon name="plus" size={16} /> Event
         </button>
       </div>

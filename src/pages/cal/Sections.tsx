@@ -142,7 +142,8 @@ function SectionRow({
   const own = cal.groups.filter((g) => g.team === s.key && g.kind === 'custom').sort((a, b) => a.sort - b.sort)
   const auto = cal.groups.filter((g) => g.team === s.key && g.kind !== 'team' && g.kind !== 'custom')
   const fixed = FIXED_SECTIONS.includes(s.key)
-  // Mechanics has no single lead: CNC, Workshop and each project lead their own.
+  // Every section can have a lead (Mechanics: Tom Moyal). Its groups (CNC, Workshop, projects) can
+  // also have their own, who get their own reminder.
   const ledGroups = cal.groups.filter((g) => g.team === s.key && g.kind !== 'team' && g.lead_id)
   const tasks = cal.tasks.filter((t) => cal.groups.some((g) => g.id === t.group_id && g.team === s.key)).length
 

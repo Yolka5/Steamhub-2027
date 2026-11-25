@@ -1,7 +1,7 @@
 // Brings Programming's GitHub work into the Calendar as tasks (CALENDAR_V2_PLAN.md, part 4).
 // Two ways, by what's saved in settings 'github':
-//  - A Project board (Programming uses the org board "2026OffSeason"): every card on it, from any
-//    repo, draft cards too. Status, people, dates and sub-issues come from the board. Cards taken
+//  - A Project board (Programming uses the org board "2026OffSeason"): every top-level card on it,
+//    from any repo, draft cards too. Sub-issues stay out, so the Calendar isn't buried in them. Cards taken
 //    off the board leave the Calendar. This is the main way.
 //  - Only a repo: its issues, as before.
 // GitHub → Steamhub only: GitHub stays the truth for name, status and owners; Steamhub keeps its own
@@ -13,7 +13,8 @@
 //    set), every 15 minutes in the day as a safety net (pg_cron), and on Sync now.
 //  - Cheap: only issues changed since the last run, with an ETag, so "nothing changed" costs nothing
 //    against GitHub's limit. A Project board's columns come from GraphQL, read only for changed issues.
-//  - Issues become tasks; sub-issues become their subtasks (deeper ones flattened under the top one).
+//  - Issues become tasks. On the board way, sub-issues stay out and the "[offseason Project]:" tag
+//    comes off titles. Repo way: sub-issues become subtasks.
 //  - Status: the board column when there is a board (Todo / In Progress / Done), else open or closed.
 //  - Owners: GitHub assignees, matched by the github username on profiles. Unknown ones are kept on
 //    the task as their GitHub name until someone links them.
@@ -311,6 +312,9 @@ const BOARD_QUERY = (root: 'organization' | 'user') => `query($login: String!, $
   } } }
 }`
 
+/** "[offseason Project]: Auto GUI" → "Auto GUI". The bracket tag is the same on every card. */
+const cleanTitle = (t: string | null | undefined) => (t ?? '').replace(/^\s*\[[^\]]*\]\s*:?\s*/, '').trim() || 'Untitled'
+
 const addDays = (day: string, n: number) => {
   const d = new Date(`${day}T12:00:00Z`)
   d.setUTCDate(d.getUTCDate() + n)
@@ -376,21 +380,12 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
   const personOf = new Map<string, string>((profiles ?? []).map((p: { github: string; id: string }) => [p.github.toLowerCase(), p.id]))
 
   // ----- What each card says -----
-  const onBoard = new Map<number, BoardItem>(cards.map((it) => [keyOf(it)!, it]))
-  const parentKey = (it: BoardItem) => {
-    const p = it.content?.parent?.databaseId
-    return p != null && onBoard.has(p) ? p : null
-  }
-  // Subtasks hang under the top card of their chain that's on the board.
-  const topOf = (k: number) => {
-    let cur = k
-    for (let guard = 0; guard < 10; guard++) {
-      const p = parentKey(onBoard.get(cur)!)
-      if (p == null) break
-      cur = p
-    }
-    return cur
-  }
+  // Only top-level issues come in. Programming opens lots of sub-issues, more so in the season, and
+  // they'd bury the Calendar. A sub-issue is one with a parent on GitHub, or titled "[… Sub-Task]".
+  const isSub = (it: BoardItem) => it.content?.parent?.databaseId != null || /^\s*\[[^\]]*sub[\s-]*task[^\]]*\]/i.test(it.content?.title ?? '')
+  const subKeys = new Set(cards.filter(isSub).map((it) => keyOf(it)!))
+  const tops = cards.filter((it) => !isSub(it))
+  const onBoard = new Map<number, BoardItem>(tops.map((it) => [keyOf(it)!, it]))
   const read = (it: BoardItem) => {
     const values = it.fieldValues.nodes.filter((v): v is FieldValue => !!v)
     const statusCol = values.find((v) => v.name && v.field?.name?.toLowerCase() === 'status')?.name ?? null
@@ -408,7 +403,7 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
     const status = closed ? 'done' : (statusOfColumn(statusCol) ?? 'todo')
     const logins = (it.content?.assignees?.nodes ?? []).map((a) => a.login)
     return {
-      title: (it.content?.title ?? 'Untitled').slice(0, 300),
+      title: cleanTitle(it.content?.title).slice(0, 300),
       status,
       starts_on: start,
       due_on: end,
@@ -421,12 +416,11 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
   }
 
   // ----- Write only what changed -----
-  const { data: had } = await db.from('tasks').select('id, gh_id, title, status, starts_on, due_on, gh_number, gh_url, gh_people, parent_id, group_id, task_owners(user_id)').eq('source', 'github')
-  type Row = { id: string; gh_id: number; title: string; status: string; starts_on: string | null; due_on: string | null; gh_number: number | null; gh_url: string | null; gh_people: string[] | null; parent_id: string | null; group_id: string; task_owners: { user_id: string }[] }
+  const { data: had } = await db.from('tasks').select('id, gh_id, title, status, starts_on, due_on, gh_dated, gh_number, gh_url, gh_people, parent_id, group_id, task_owners(user_id)').eq('source', 'github')
+  type Row = { id: string; gh_id: number; title: string; status: string; starts_on: string | null; due_on: string | null; gh_dated: boolean; gh_number: number | null; gh_url: string | null; gh_people: string[] | null; parent_id: string | null; group_id: string; task_owners: { user_id: string }[] }
   const byKey = new Map<number, Row>(((had ?? []) as Row[]).map((t) => [Number(t.gh_id), t]))
 
-  // Top cards first, so subtasks can point at them.
-  const ordered = [...cards].sort((a, b) => Number(parentKey(a) != null) - Number(parentKey(b) != null))
+  const ordered = tops
   let changed = 0
   let last = ''
   for (const it of ordered) {
@@ -435,36 +429,36 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
     const prev = byKey.get(key)
     // The first time, cards closed long ago stay out: they'd only fill the done list.
     if (!prev && r.closedLongAgo) continue
-    const pk = parentKey(it)
-    const parent = pk != null ? byKey.get(topOf(key)) ?? null : null
+    // GitHub's dates win when it has some. Without them, dates set in Steamhub (on the Gantt) stay.
+    const dated = !!(r.starts_on || r.due_on)
     const fields = {
       title: r.title,
       status: r.status,
-      starts_on: r.starts_on,
-      due_on: r.due_on,
+      ...(dated ? { starts_on: r.starts_on, due_on: r.due_on } : prev?.gh_dated ? { starts_on: null, due_on: null } : {}),
+      gh_dated: dated,
       gh_number: r.gh_number,
       gh_url: r.gh_url,
       gh_people: r.gh_people,
-      parent_id: parent?.id ?? null,
+      parent_id: null,
       source: 'github',
     }
     let id: string
     if (prev) {
       const prevOwners = prev.task_owners.map((o) => o.user_id).sort()
       const same =
-        prev.title === fields.title && prev.status === fields.status && prev.starts_on === fields.starts_on && prev.due_on === fields.due_on &&
+        prev.title === fields.title && prev.status === fields.status && prev.gh_dated === dated && (!dated || (prev.starts_on === r.starts_on && prev.due_on === r.due_on)) &&
         prev.gh_number === fields.gh_number && prev.gh_url === fields.gh_url && (prev.gh_people ?? []).slice().sort().join() === fields.gh_people.join() &&
-        prev.parent_id === fields.parent_id && prevOwners.join() === r.owners.join() && (!parent || prev.group_id === parent.group_id)
+        prev.parent_id === fields.parent_id && prevOwners.join() === r.owners.join()
       if (same) continue
-      // Which group a task sits in is Steamhub's; a subtask follows its parent.
-      const { error } = await db.from('tasks').update(parent ? { ...fields, group_id: parent.group_id } : fields).eq('id', prev.id)
+      // Which group a task sits in is Steamhub's.
+      const { error } = await db.from('tasks').update(fields).eq('id', prev.id)
       if (error) throw new Error(error.message)
       id = prev.id
     } else {
       const { data, error } = await db
         .from('tasks')
-        .insert({ ...fields, gh_id: key, group_id: parent ? parent.group_id : groupFor(it), priority: 'normal', notes: '', sort: Date.now() / 1000 })
-        .select('id, gh_id, title, status, starts_on, due_on, gh_number, gh_url, gh_people, parent_id, group_id')
+        .insert({ ...fields, gh_id: key, group_id: groupFor(it), priority: 'normal', notes: '', sort: Date.now() / 1000 })
+        .select('id, gh_id, title, status, starts_on, due_on, gh_dated, gh_number, gh_url, gh_people, parent_id, group_id')
         .single()
       if (error) throw new Error(error.message)
       byKey.set(key, { ...data, task_owners: [] })
@@ -474,6 +468,16 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
     if (r.owners.length) await db.from('task_owners').insert(r.owners.map((user_id) => ({ task_id: id, user_id })))
     changed++
     last = r.gh_number != null ? `#${r.gh_number} ${r.title}` : r.title
+  }
+
+  // ----- Sub-issues brought in before leave the Calendar -----
+  const subs = [...byKey.entries()].filter(([k]) => subKeys.has(k)).map(([k, t]) => [k, t.id] as const)
+  if (subs.length) {
+    const { error } = await db.from('tasks').delete().in('id', subs.map(([, id]) => id))
+    if (error) throw new Error(error.message)
+    for (const [k] of subs) byKey.delete(k)
+    changed += subs.length
+    if (!last) last = `${subs.length} sub-issues taken out`
   }
 
   // ----- Cards taken off the board (or archived) leave the Calendar -----

@@ -11,7 +11,7 @@ export type Team = string
  */
 export type GroupKind = 'team' | 'cnc' | 'workshop' | 'subsystem' | 'project' | 'custom'
 export type PhaseKind = 'prototypes' | 'cad' | 'manufacturing' | 'custom'
-export type TaskStatus = 'todo' | 'doing' | 'done'
+export type TaskStatus = 'todo' | 'doing' | 'done' | 'delayed' | 'cancelled'
 export type Priority = 'low' | 'normal' | 'high'
 /** 'other' is shown as Event, the default. Competitions are the plan's milestones. */
 export type EventKind = 'other' | 'competition'
@@ -141,10 +141,14 @@ export function suggestSection(title: string): string | null {
   return null
 }
 
-export const STATUSES: TaskStatus[] = ['todo', 'doing', 'done']
-export const STATUS_WORD: Record<TaskStatus, string> = { todo: 'Not started', doing: 'In progress', done: 'Done' }
-/** Tapping the status on a row moves it on. */
-export const NEXT_STATUS: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', done: 'todo' }
+export const STATUSES: TaskStatus[] = ['todo', 'doing', 'done', 'delayed', 'cancelled']
+export const STATUS_WORD: Record<TaskStatus, string> = { todo: 'Not started', doing: 'In progress', done: 'Done', delayed: 'Delayed', cancelled: 'Cancelled' }
+/** Tapping the status on a row moves it on. Delayed picks back up; Cancelled starts over. */
+export const NEXT_STATUS: Record<TaskStatus, TaskStatus> = { todo: 'doing', doing: 'done', done: 'todo', delayed: 'doing', cancelled: 'todo' }
+/** Nothing left to do: done, or cancelled. Cancelled things drop out of counts and open lists. */
+export const isClosed = (s: TaskStatus | null | undefined) => s === 'done' || s === 'cancelled'
+/** Counted in "x of y done": everything but cancelled. */
+export const counts = (s: TaskStatus) => s !== 'cancelled'
 
 export const PRIORITIES: Priority[] = ['low', 'normal', 'high']
 export const PRIORITY_WORD: Record<Priority, string> = { low: 'Low', normal: 'Normal', high: 'High' }
@@ -245,6 +249,8 @@ export interface Task {
   gh_url?: string | null
   /** GitHub logins of assignees not linked to a profile yet. */
   gh_people?: string[]
+  /** GitHub gave it dates, so they follow GitHub. Without, its dates are Steamhub's to set. */
+  gh_dated?: boolean
   prototype_id: string | null
   part_id: string | null
   sort: number
@@ -477,6 +483,9 @@ export interface DateMove {
   due_on: string | null
 }
 
+/** A GitHub issue whose dates come from GitHub: Steamhub shows them but doesn't move them. */
+export const datesLocked = (t: { source?: string | null; gh_dated?: boolean }) => t.source === 'github' && !!t.gh_dated
+
 /** The first day a task can start once everything it waits for is done. */
 const endOf = (t: Pick<Task, 'starts_on' | 'due_on'>) => t.due_on ?? t.starts_on
 
@@ -485,9 +494,9 @@ const endOf = (t: Pick<Task, 'starts_on' | 'due_on'>) => t.due_on ?? t.starts_on
  * now starts on or before its predecessor's end moves later just enough to start the day after.
  * Tasks with room to spare stay put. Returns every change, `moved` first.
  */
-export function pushWaiting(moved: DateMove, tasks: (Pick<Task, 'id' | 'starts_on' | 'due_on'> & { source?: string | null })[], waits: Wait[]): DateMove[] {
-  // GitHub tasks keep GitHub's dates: nothing in Steamhub moves them.
-  const fixed = new Set(tasks.filter((t) => t.source === 'github').map((t) => t.id))
+export function pushWaiting(moved: DateMove, tasks: (Pick<Task, 'id' | 'starts_on' | 'due_on'> & { source?: string | null; gh_dated?: boolean })[], waits: Wait[]): DateMove[] {
+  // GitHub tasks with GitHub dates keep them: nothing in Steamhub moves them.
+  const fixed = new Set(tasks.filter(datesLocked).map((t) => t.id))
   const now = new Map(tasks.map((t) => [t.id, { id: t.id, starts_on: t.starts_on, due_on: t.due_on }]))
   now.set(moved.id, { ...moved })
   const changes = new Map<string, DateMove>([[moved.id, { ...moved }]])
@@ -542,7 +551,7 @@ export function pushPhases(moved: { id: string; starts_on: string | null; ends_o
 /** The phase a group is in: the first one In progress, or else the first not done. */
 export function currentPhase(phases: Phase[], groupId: string) {
   const mine = phases.filter((p) => p.group_id === groupId).sort((a, b) => a.sort - b.sort)
-  return mine.find((p) => p.status === 'doing') ?? mine.find((p) => p.status !== 'done') ?? null
+  return mine.find((p) => p.status === 'doing') ?? mine.find((p) => !isClosed(p.status)) ?? null
 }
 
 /**
@@ -554,7 +563,7 @@ export function phaseBars(phases: Phase[], groupId: string) {
   const out = new Map<string, 'doing' | 'next'>()
   for (const p of mine) if (p.status === 'doing') out.set(p.id, 'doing')
   if (!out.size) {
-    const next = mine.find((p) => p.status !== 'done')
+    const next = mine.find((p) => !isClosed(p.status))
     if (next) out.set(next.id, 'next')
   }
   return out
@@ -566,7 +575,7 @@ export function phaseBars(phases: Phase[], groupId: string) {
  * Status colour. Not started stays grey while its start day is ahead (or it has no dates), and turns
  * red once the start day has passed and it still hasn't started.
  */
-export type StatusTone = 'wait' | 'late' | 'doing' | 'done'
+export type StatusTone = 'wait' | 'late' | 'doing' | 'done' | 'delayed' | 'cancelled'
 export function statusTone(status: TaskStatus, startsOn: string | null, dueOn: string | null = null, today = todayIso()): StatusTone {
   if (status !== 'todo') return status
   const start = startsOn ?? dueOn
@@ -605,6 +614,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
  */
 export function timePill(item: { start: string | null; end: string | null; status: TaskStatus; doneDay?: string | null }, today = todayIso()): TimePill {
   const { start, end, status } = item
+  if (status === 'cancelled') return { tone: 'none', fill: 0, label: 'Cancelled' }
   if (!start && !end) return { tone: 'none', fill: 0, label: 'Set dates' }
   const label = start && end ? pillRange(start, end) : dayLabel((end ?? start)!)
   if (status === 'done') {
@@ -726,12 +736,12 @@ export async function moveTasks(moves: DateMove[]): Promise<Res<Task[]>> {
  */
 export async function setTaskStatus(t: Task, status: TaskStatus, who: Who, ctx: { tasks: Task[]; waits: Wait[]; owners: Owner[] }) {
   const res = await updateTask(t.id, { status })
-  if (res.error || status !== 'done') return res
+  if (res.error || !isClosed(status)) return res
   const statusOf = (id: string) => (id === t.id ? 'done' : ctx.tasks.find((x) => x.id === id)?.status)
   for (const w of ctx.waits.filter((x) => x.waits_for_id === t.id)) {
     const next = ctx.tasks.find((x) => x.id === w.task_id)
-    if (!next || next.status === 'done') continue
-    const ready = ctx.waits.filter((x) => x.task_id === next.id).every((x) => statusOf(x.waits_for_id) === 'done')
+    if (!next || isClosed(next.status)) continue
+    const ready = ctx.waits.filter((x) => x.task_id === next.id).every((x) => isClosed(statusOf(x.waits_for_id)))
     if (!ready) continue
     const owners = ctx.owners.filter((o) => o.task_id === next.id).map((o) => o.user_id)
     await notify(owners, 'task_ready', `${next.title} can start: ${t.title} is done`, `/calendar?task=${next.id}`, who.userId)
@@ -999,7 +1009,7 @@ const PRI_RANK: Record<Priority, number> = { high: 0, normal: 1, low: 2 }
 
 /** Open first, then by due day (none last), high priority first on the same day. */
 export function taskOrder(a: Task, b: Task) {
-  const done = Number(a.status === 'done') - Number(b.status === 'done')
+  const done = Number(isClosed(a.status)) - Number(isClosed(b.status))
   if (done) return done
   const ad = a.due_on ?? '9999'
   const bd = b.due_on ?? '9999'

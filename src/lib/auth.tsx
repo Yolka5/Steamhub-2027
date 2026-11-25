@@ -17,6 +17,10 @@ interface Auth {
   isCaptain: boolean
   /** Admin, captain or mentor: may open the admin's pages to look. Only the admin gets the buttons. */
   seesAll: boolean
+  /** A mentor (People: Mentor switch). */
+  isMentor: boolean
+  /** Mentors, the captain, admins and the Mechanics lead may delete robots and subsystems. */
+  canDeleteRobots: boolean
   /** Workshop leads and admins hand out parts (WORKSHOP_TASKS.md). */
   canAssign: boolean
   /** The shared workshop PC account. */
@@ -46,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() => savedSession())
   const [ready, setReady] = useState(() => savedSession() != null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [mechLead, setMechLead] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data, error }) => {
@@ -84,6 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
   }, [uid])
 
+  // The Mechanics lead is a Calendar setting, so it's asked of the database rather than the profile.
+  useEffect(() => {
+    if (!uid) return setMechLead(false)
+    supabase.rpc('can_delete_robots').then(({ data }) => setMechLead(data === true))
+  }, [uid])
+
   const meta = session?.user.user_metadata ?? {}
   const fullName: string | null = meta.full_name ?? meta.name ?? session?.user.email?.split('@')[0] ?? null
 
@@ -96,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: !!profile?.is_admin,
     isCaptain: !!profile?.captain && !profile?.banned,
     seesAll: !!profile?.is_admin || ((!!profile?.captain || !!profile?.mentor) && !profile?.banned),
+    isMentor: !!profile?.mentor && !profile?.banned,
+    canDeleteRobots: !profile?.banned && (!!profile?.is_admin || !!profile?.captain || !!profile?.mentor || mechLead),
     canAssign: !!profile?.is_admin || !!profile?.workshop_lead,
     shared: !!profile?.shared,
     room: profile ? (profile.shared && profile.room ? profile.room : null) : uid ? savedRoom() : null,

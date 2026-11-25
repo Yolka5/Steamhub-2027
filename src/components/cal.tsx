@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useWho } from '../lib/auth'
-import { addDays, dayLabel, firstName, NEXT_STATUS, setTaskStatus, STATUS_WORD, todayIso, type Task, type TaskStatus } from '../lib/cal'
+import { addDays, dayLabel, firstName, NEXT_STATUS, setTaskStatus, STATUS_WORD, todayIso, type Task, type TaskStatus, isClosed } from '../lib/cal'
 import type { Progress } from '../lib/calLinked'
 import { useSeasons } from '../lib/proto'
 import { usePhone } from '../lib/usePhone'
@@ -67,6 +67,8 @@ export function StatusIcon({ status }: { status: TaskStatus }) {
     <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" className="cal-status__icon">
       <circle cx="11" cy="11" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
       {status === 'doing' && <path d="M11 4.5a6.5 6.5 0 0 1 0 13z" fill="currentColor" />}
+      {status === 'delayed' && <path d="M11 6.5v5l3 2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />}
+      {status === 'cancelled' && <path d="M5 17L17 5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
       {status === 'done' && (
         <>
           <circle cx="11" cy="11" r="8.5" fill="currentColor" />
@@ -117,9 +119,9 @@ export function StatusButton({ task, cal }: { task: Task; cal: Pick<Cal, 'tasks'
 export function DueLabel({ task }: { task: Pick<Task, 'due_on' | 'starts_on' | 'status'> }) {
   if (!task.due_on) return null
   const today = todayIso()
-  const late = task.status !== 'done' && task.due_on < today
+  const late = !isClosed(task.status) && task.due_on < today
   // Due in the next three days: check this.
-  const soon = task.status !== 'done' && !late && task.due_on <= addDays(today, 3)
+  const soon = !isClosed(task.status) && !late && task.due_on <= addDays(today, 3)
   return (
     <span className="cal-due num" data-late={late || undefined} data-soon={soon || undefined}>
       {dayLabel(task.due_on)}
@@ -139,12 +141,12 @@ export function TaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: Cal
   const waitsFor = cal.waits
     .filter((w) => w.task_id === task.id)
     .map((w) => cal.tasks.find((t) => t.id === w.waits_for_id))
-    .filter((t): t is Task => !!t && t.status !== 'done')
+    .filter((t): t is Task => !!t && !isClosed(t.status))
   const group = showGroup ? cal.groups.find((g) => g.id === task.group_id)?.name : null
   const meta = [
     group,
     owners.filter(Boolean).join(', '),
-    subs.length ? `${subs.filter((s) => s.status === 'done').length}/${subs.length}` : '',
+    subs.length ? `${subs.filter((s) => s.status === 'done').length}/${subs.filter((s) => s.status !== 'cancelled').length}` : '',
     task.status === 'doing' ? 'In progress' : '',
   ].filter(Boolean)
   return (
@@ -164,7 +166,7 @@ export function TaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: Cal
         )}
       </button>
       <span className="cal-row__end">
-        {task.priority === 'high' && task.status !== 'done' && <HighTag />}
+        {task.priority === 'high' && !isClosed(task.status) && <HighTag />}
         <DueLabel task={task} />
       </span>
     </li>
@@ -174,7 +176,8 @@ export function TaskRow({ task, cal, nameOf, showGroup }: { task: Task; cal: Cal
 export function ProgressBar({ p }: { p: Progress | undefined }) {
   if (!p || p.share == null) return null
   return (
-    <span className="cal-bar" role="img" aria-label={`${Math.round(p.share * 100)}%`}>
+    <span className="cal-bar" role="img" aria-label={`${Math.round(p.share * 100)}% done${p.doing ? `, ${Math.round(p.doing * 100)}% in progress` : ''}`}>
+      {!!p.doing && <span className="cal-bar__doing" style={{ left: `${p.share * 100}%`, width: `${p.doing * 100}%` }} />}
       <span className="cal-bar__fill" style={{ width: `${Math.round(p.share * 100)}%` }} />
     </span>
   )

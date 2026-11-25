@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { NumField } from '../../components/NumField'
 import { Copy } from '../../components/ui'
@@ -10,11 +10,15 @@ import {
   gearPairsNear,
   gearPitchDiameter,
   optionsNear,
+  pulleyOutsideDiameter,
   pulleyPitchDiameter,
+  sprocketOutsideDiameter,
   sprocketPitchDiameter,
+  wrapAt,
+  wrapOk,
   type DriveType,
 } from '../../lib/centers'
-import { COMMON_ORDER, THREADS, findThreads, threadDepth, threadsInWall, type Thread } from '../../lib/threads'
+import { COMMON_ORDER, TAP_MATERIALS, THREADS, drillDepth, findThreads, tapMaterial, threadDepth, threadsInWall, type TapMaterial, type Thread } from '../../lib/threads'
 import { f, Seg } from './shared'
 import { Working } from '../../components/Working'
 import { beltFindWorking, beltHaveWorking, chainFindWorking, chainHaveWorking, gearFindWorking, gearWorking, threadWorking } from '../../lib/workings'
@@ -127,7 +131,7 @@ export function CenterTab() {
           {drive.kind === 'chain' && mode === 'have' && <NumField label="Chain links" value={count} min={10} step={1} onChange={setCount} />}
           {!gearFind && (
             <p className="soft small">
-              Ratio {f(Math.max(a, b) / Math.min(a, b), 3)}:1. Pitch diameters {f(pitchDia(drive, a), 2)} and {f(pitchDia(drive, b), 2)} mm.
+              Ratio {f(Math.max(a, b) / Math.min(a, b), 3)}:1. {pitchWords(drive)}.
             </p>
           )}
           {lengthOff && <p className="error small">That length isn't a whole number of {drive.pitch} mm teeth. Check the label: the first number is the pitch length.</p>}
@@ -148,6 +152,71 @@ export function CenterTab() {
         )}
       </div>
     </div>
+  )
+}
+
+/** "5 mm pitch (0.197 in)", or for chain "0.250 in pitch (6.35 mm)". */
+function pitchWords(d: DriveType) {
+  if (d.kind === 'chain') return `${inch(d.pitch)} in pitch (${f(d.pitch, 2)} mm)`
+  if (d.kind === 'gear') return d.id.startsWith('dp') ? `${f(25.4 / d.pitch, 0)} DP, module ${f(d.pitch, 3)}` : `Module ${f(d.pitch, 2)}`
+  return `${f(d.pitch, 0)} mm pitch (${inch(d.pitch)} in)`
+}
+
+/** A belt's or chain's length, the way you'd order it. */
+function lengthWords(d: DriveType, count: number) {
+  const L = count * d.pitch
+  return d.kind === 'belt' ? `${f(L, 0)} mm, sold as ${f(L, 0)}-${d.code ?? `${d.pitch}M`}` : `${f(L / 25.4, 2)} in (${f(L, 0)} mm)`
+}
+
+function outsideDia(d: DriveType, z: number) {
+  return d.kind === 'chain' ? sprocketOutsideDiameter(d.pitch, z) : pulleyOutsideDiameter(d, z)
+}
+
+/** Everything useful about one belt or chain at its center distance. */
+function DriveDetails({ drive, a, b, count, center }: { drive: DriveType; a: number; b: number; count: number; center: number }) {
+  const belt = drive.kind === 'belt'
+  const w = wrapAt(drive, a, b, center)
+  const ok = wrapOk(drive, w)
+  const thing = belt ? 'Pulley' : 'Sprocket'
+  return (
+    <>
+      <h3 className="calc-sub">
+        {count} {belt ? 'tooth belt' : 'link chain'} in detail
+      </h3>
+      <dl className="facts num">
+        <dt>Pitch</dt>
+        <dd>{pitchWords(drive)}</dd>
+        <dt>Length</dt>
+        <dd>
+          {count} {belt ? 'teeth' : 'links'}, {lengthWords(drive, count)}
+        </dd>
+        {[a, b].map((z, i) => (
+          <FragmentPair key={i} label={`${thing} ${i + 1}, ${z}T`} value={`${f(pitchDia(drive, z), 2)} mm pitch, ${f(outsideDia(drive, z), 2)} mm outside`} />
+        ))}
+        <dt>Wrap on the small one</dt>
+        <dd>
+          {f(w.angle, 0)}°{belt ? `, ${f(w.teeth, 1)} teeth gripping` : ''}
+        </dd>
+        <dt>Free span</dt>
+        <dd>{f(w.span, 1)} mm each side</dd>
+      </dl>
+      {!ok && (
+        <p className="calc-warn small">
+          {belt
+            ? `Only ${f(w.teeth, 1)} teeth grip the small pulley. Under ${drive.minMesh} it can skip under load: use a bigger small pulley, a longer center distance or an idler.`
+            : `The chain wraps the small sprocket only ${f(w.angle, 0)}°. Under ${drive.minMesh}° it can jump teeth: move them apart or add an idler.`}
+        </p>
+      )}
+    </>
+  )
+}
+
+function FragmentPair({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </>
   )
 }
 
@@ -173,6 +242,7 @@ function BeltChainResult({ drive, a, b, target, step }: { drive: DriveType; a: n
             <thead>
               <tr>
                 <th>{drive.kind === 'belt' ? 'Belt' : 'Chain'}</th>
+                <th>Length</th>
                 <th>Center distance (mm)</th>
                 <th>(in)</th>
                 <th>Off by (mm)</th>
@@ -181,10 +251,11 @@ function BeltChainResult({ drive, a, b, target, step }: { drive: DriveType; a: n
             <tbody>
               {opts.map((o, i) => (
                 <tr key={o.count} className={i === best ? 'is-sel' : ''}>
-                  <td>
+                  <td className="nowrap">
                     {o.count} {unit}
                     {drive.kind === 'chain' && o.count % 2 === 1 && <span className="tag tag--reserved"> Half link</span>}
                   </td>
+                  <td className="nowrap">{drive.kind === 'belt' ? `${f(o.count * drive.pitch, 0)} mm` : `${f((o.count * drive.pitch) / 25.4, 2)} in`}</td>
                   <td className={i === best ? 'is-sel' : ''}>
                     <Copy value={mm(o.center)} />
                   </td>
@@ -204,6 +275,7 @@ function BeltChainResult({ drive, a, b, target, step }: { drive: DriveType; a: n
           ? 'Exact pitch-line math, no added stretch. Click a distance to copy it into Onshape.'
           : 'Standard chain length formula. Odd link counts need a half link, so pick an even one when you can. Leave room for a tensioner.'}
       </p>
+      {best != null && <DriveDetails drive={drive} a={a} b={b} count={opts[best].count} center={opts[best].center} />}
       <Working id="cd-find" lines={drive.kind === 'belt' ? beltFindWorking(drive, a, b, target, step) : chainFindWorking(drive, a, b, target)} />
     </>
   )
@@ -237,27 +309,29 @@ function HaveResult({ drive, a, b, count }: { drive: DriveType; a: number; b: nu
           </p>
           <p className="soft num">
             {inch(center)} in center to center
-            {belt ? ` · pitch length ${f(count * drive.pitch, 0)} mm` : ''}
             {!belt && count % 2 === 1 && <span className="tag tag--reserved"> Half link</span>}
           </p>
+          <DriveDetails drive={drive} a={a} b={b} count={count} center={center} />
           {near.length > 0 && (
             <div className="table-wrap">
               <table className="ctable num">
                 <thead>
                   <tr>
-                    <th>If you had instead</th>
+                    <th>Instead</th>
+                    <th>Length</th>
                     <th>Center distance (mm)</th>
                     <th>(in)</th>
-                    <th>Change (mm)</th>
+                    <th>Change</th>
                   </tr>
                 </thead>
                 <tbody>
                   {near.map(({ n, c }) => (
                     <tr key={n}>
-                      <td>
+                      <td className="nowrap">
                         {n} {unit}
                         {!belt && n % 2 === 1 && <span className="tag tag--reserved"> Half link</span>}
                       </td>
+                      <td className="nowrap">{belt ? `${f(n * drive.pitch, 0)} mm` : `${f((n * drive.pitch) / 25.4, 2)} in`}</td>
                       <td>
                         <Copy value={mm(c)} />
                       </td>
@@ -380,10 +454,52 @@ function GearResult({ drive, a, b }: { drive: DriveType; a: number; b: number })
 
 type Row = (string | number)[]
 
-function SheetTable({ title, head, rows, note, highlight }: { title: string; head: string[]; rows: Row[]; note?: string; highlight?: Set<string> }) {
+/** Which sheets are folded, kept per browser. Imperial starts folded: the team rarely uses it. */
+const FOLD_KEY = 'sheet-folded'
+function useFolded(title: string, start: boolean) {
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') as Record<string, boolean>
+      return saved[title] ?? start
+    } catch {
+      return start
+    }
+  })
+  const toggle = (v: boolean) => {
+    setOpen(v)
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOLD_KEY) ?? '{}') as Record<string, boolean>
+      localStorage.setItem(FOLD_KEY, JSON.stringify({ ...saved, [title]: v }))
+    } catch {
+      // Private mode: this visit only.
+    }
+  }
+  return [open, toggle] as const
+}
+
+/** A cheat sheet that opens and closes from its title. A search hit opens it. */
+function Fold({ title, start = true, force, children }: { title: string; start?: boolean; force?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useFolded(title, start)
   return (
-    <section>
-      <h2 className="section__title">{title}</h2>
+    <details className="sheet-fold" open={open || force}>
+      <summary
+        className="sheet-fold__sum"
+        onClick={(e) => {
+          e.preventDefault()
+          setOpen(!(open || force))
+        }}
+      >
+        <h2 className="section__title">{title}</h2>
+      </summary>
+      {children}
+    </details>
+  )
+}
+
+function SheetTable({ title, head, rows, note, highlight, start }: { title: string; head: string[]; rows: Row[]; note?: string; highlight?: Set<string>; start?: boolean }) {
+  const hit = rows.some((r) => highlight?.has(String(r[0])))
+  return (
+    <Fold title={title} start={start} force={hit}>
       <div className="table-wrap">
         <table className="ctable num">
           <thead>
@@ -405,7 +521,50 @@ function SheetTable({ title, head, rows, note, highlight }: { title: string; hea
         </table>
       </div>
       {note && <p className="calc-note soft">{note}</p>}
-    </section>
+    </Fold>
+  )
+}
+
+/** The rules of thumb behind "Thread at least", as a table. */
+function DepthRules() {
+  return (
+    <Fold title="Thread depth rules of thumb">
+      <div className="table-wrap">
+        <table className="ctable">
+          <thead>
+            <tr>
+              <th>Tapped into</th>
+              <th>Thread at least</th>
+              <th>M3</th>
+              <th>M4</th>
+              <th>M5</th>
+              <th>M6</th>
+            </tr>
+          </thead>
+          <tbody>
+            {TAP_MATERIALS.map((m) => (
+              <tr key={m.key}>
+                <td>{m.label}</td>
+                <td className="num">{m.factor} × d</td>
+                {[3, 4, 5, 6].map((d) => (
+                  <td key={d} className="num">
+                    {+(m.factor * d).toFixed(1)} mm
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="calc-note soft sheet-rules">
+        <li>d is the screw's diameter: 5 mm for M5.</li>
+        <li>Past about 3 × d nothing is gained. The first few threads carry almost all the load, so a deeper hole only takes longer to tap.</li>
+        <li>Blind hole: drill about 4 pitches deeper than the threads for a plug tap (its tip is tapered), 2 pitches for a bottoming tap. M5: 10 mm of thread, drill 13 mm.</li>
+        <li>Thin wall, under 3 threads of it: use a rivnut, a threaded insert or a through bolt with a nut.</li>
+        <li>Plastic and 3D prints: heat-set inserts hold far better than tapped plastic, and survive taking the screw out again.</li>
+        <li>Through a tube: tap one wall only if it gives 3 threads, otherwise go through both walls with a bolt and nyloc.</li>
+      </ul>
+    </Fold>
   )
 }
 
@@ -441,6 +600,21 @@ const HEX: Row[] = [
 /** Type a thread, get the holes. The answer is the biggest thing on the screen. */
 function TapLookup({ text, setText, matches }: { text: string; setText: (s: string) => void; matches: Thread[] }) {
   const [wall, setWall] = useState('')
+  const [mat, setMat] = useState<TapMaterial>(() => {
+    try {
+      return tapMaterial(localStorage.getItem('tap-material')).key
+    } catch {
+      return 'aluminum'
+    }
+  })
+  const pickMat = (m: TapMaterial) => {
+    setMat(m)
+    try {
+      localStorage.setItem('tap-material', m)
+    } catch {
+      // Private mode: this visit only.
+    }
+  }
   const [pick, setPick] = useState(0)
   const t = matches.length ? matches[Math.min(pick, matches.length - 1)] : undefined
   const wallMm = Number(wall.replace(',', '.'))
@@ -530,12 +704,24 @@ function TapLookup({ text, setText, matches }: { text: string; setText: (s: stri
               </span>
             </div>
             <div className="tap__stat">
-              <span className="stat__l">Tap at least</span>
+              <span className="stat__l">Thread at least</span>
               <span className="tap__value tap__value--sm num">
-                <Copy value={+threadDepth(t).toFixed(1)}>{threadDepth(t).toFixed(1)}</Copy>
+                <Copy value={+threadDepth(t, mat).toFixed(1)}>{threadDepth(t, mat).toFixed(1)}</Copy>
                 <span className="stat__u"> mm deep</span>
               </span>
-              <span className="soft small">1.5 × diameter, full strength in aluminum</span>
+              <span className="soft small num">
+                {tapMaterial(mat).note}. Blind hole: drill {drillDepth(t, mat).toFixed(1)} mm deep
+              </span>
+            </div>
+          </div>
+          <div className="tap__mat">
+            <span className="soft small">Tapped into</span>
+            <div className="picks picks--seg picks--wrap" role="radiogroup" aria-label="Tapped into">
+              {TAP_MATERIALS.map((m) => (
+                <button key={m.key} type="button" role="radio" className="pick" aria-checked={mat === m.key} onClick={() => pickMat(m.key)}>
+                  {m.label}
+                </button>
+              ))}
             </div>
           </div>
           {fits != null && (
@@ -547,7 +733,7 @@ function TapLookup({ text, setText, matches }: { text: string; setText: (s: stri
                   : `Fits ${Math.floor(fits)} threads in ${wallMm} mm.`}
             </p>
           )}
-          <Working id="tap" lines={threadWorking(t, fits != null ? wallMm : null)} />
+          <Working id="tap" lines={threadWorking(t, fits != null ? wallMm : null, mat)} />
         </div>
       )}
     </section>
@@ -571,6 +757,7 @@ export function SheetTab() {
     <>
       <TapLookup text={text} setText={setText} matches={matches} />
       <div className="sheet-threads">
+      <DepthRules />
       <SheetTable
         title="Metric screws"
         head={head}
@@ -592,6 +779,7 @@ export function SheetTab() {
       <div className="sheet-threads">
       <SheetTable
         title="Imperial screws"
+        start={false}
         head={head}
         rows={THREADS.filter((t) => t.system === 'imperial').map(threadRow)}
         highlight={highlight}

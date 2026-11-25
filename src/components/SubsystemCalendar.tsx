@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ProgressBar, TaskRow, useCalSeason } from './cal'
 import { TaskSheetHost } from './TaskSheet'
-import { currentPhase, isoDay, taskOrder } from '../lib/cal'
+import { currentPhase, isoDay, taskOrder, isClosed } from '../lib/cal'
 import { DatePill, StatusPill } from './CalPhase'
 import { useLinked } from '../lib/calLinked'
 import { useCal } from '../lib/useCal'
@@ -21,7 +21,7 @@ export function SubsystemCalendar({ season, number, projectSub }: { season: numb
   if (!g) return null
   const phases = cal.phases.filter((p) => p.group_id === g.id).sort((a, b) => a.sort - b.sort)
   const cur = currentPhase(cal.phases, g.id)
-  const open = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id && t.status !== 'done').sort(taskOrder)
+  const open = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id && !isClosed(t.status)).sort(taskOrder)
 
   return (
     <section className="section sub-cal">

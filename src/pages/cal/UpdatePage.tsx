@@ -4,11 +4,13 @@ import { Select } from '../../components/Select'
 import { useCalSeason } from '../../components/cal'
 import { LoadError, useBusy, useToast } from '../../components/ui'
 import { useAuth, useWho } from '../../lib/auth'
-import { isoDay, groupOrder, longDay, saveUpdate, sectionName, todayIso } from '../../lib/cal'
+import { firstName, isoDay, groupOrder, longDay, saveUpdate, sectionName, todayIso } from '../../lib/cal'
+import { usePeople } from '../../lib/useMfg'
 import { putRows, useCal } from '../../lib/useCal'
 
-// The lead's end of the day: one text box, one Send. It's filed under the group (not a phase: small
-// phase updates are phase notes). Sending again the same day replaces it.
+// The end of the day: one text box, one Send. Usually the lead's, but anyone can write a group's
+// update when the lead is away. It's filed under the group (not a phase: small phase updates are
+// phase notes). Sending again the same day replaces it.
 
 export default function UpdatePage() {
   const season = useCalSeason()
@@ -31,6 +33,8 @@ export default function UpdatePage() {
     : undefined
   const doneToday = group ? cal.tasks.filter((t) => t.group_id === group.id && t.status === 'done' && !!t.done_at && isoDay(new Date(t.done_at)) === today) : []
 
+  const { people } = usePeople()
+  const leadName = firstName(people.find((p) => p.id === group?.lead_id)?.name)
   const [text, setText] = useState('')
   useEffect(() => setText(existing?.text ?? ''), [existing?.text, group?.id])
 
@@ -102,7 +106,8 @@ export default function UpdatePage() {
             aria-label={`${group.name} update for today`}
           />
           <p className="soft small">
-            Goes under {group.name}. Everyone can read it on Updates.
+            Goes under {group.name}
+            {leadName && group.lead_id !== userId ? `, for ${leadName} while they're away` : ''}. Everyone can read it on Updates.
             {doneToday.length > 0 && ` Done today: ${doneToday.map((t) => t.title).join(', ')}.`}
           </p>
           <button type="submit" className="q-btn q-btn--main q-btn--wide">
@@ -117,8 +122,8 @@ export default function UpdatePage() {
         </form>
       ) : (
         <div className="mfg-empty">
-          <p className="empty">You don't lead a group yet.</p>
-          <p className="soft">Pick a group above to write its update, or set its lead on the group page.</p>
+          <p className="empty">Pick a group above.</p>
+          <p className="soft">Anyone can write a group's update, for days its lead is away.</p>
           <Link to="/calendar" className="q-btn">
             Calendar
           </Link>

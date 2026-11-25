@@ -153,6 +153,8 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
   const rpms = Array.from({ length: 12 }, (_, i) => 500 * (i + 1)).filter((x) => x <= motor.freeRpm * 1.05)
   const table = mechanismAtRpm(mech, motor, robot.voltage, r, rpms)
   const curve = motorCurve(motor, robot.voltage, duty)
+  const full = duty < 1 ? motorCurve(motor, robot.voltage, 1) : null
+  const pctOut = Math.round(duty * 100)
 
   return (
     <div className="curves">
@@ -171,7 +173,6 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
           <Help text={HELP.curveMech} />
         </label>
         <NumField help={HELP.curveRatio} label="Gear ratio to test" unit=":1" value={r} min={0.1} step={1} onChange={setRatio} />
-        <NumField help={HELP.curveDuty} label="Curve duty cycle" value={duty} min={0.05} max={1} step={0.05} onChange={setDuty} />
       </div>
       <p className="calc-note soft">
         {mech.name}: {motor.name}, {mech.motors} motor{mech.motors > 1 ? 's' : ''}, {f(res.load, 2)} Nm at the output. The load is the same at every speed, so stator current
@@ -225,12 +226,36 @@ export function CurvesTab({ robot, initial }: { robot: Robot; initial?: string |
 
       {table.length > 0 && <Working id="curves" lines={curvesWorking(mech, motor, robot.voltage, r, table[Math.min(3, table.length - 1)].rpm, duty)} />}
 
-      <h2 className="section__title">{motor.name} motor curve</h2>
+      <h2 className="section__title">
+        {motor.name} motor curve{duty < 1 ? ` at ${pctOut}%` : ''}
+      </h2>
       <Help text={HELP.curveMotor} className="help--block" />
+      <div className="curves__out">
+        <NumField help={HELP.curveDuty} label="Motor output" unit="%" value={pctOut} min={5} max={100} step={5} whole onChange={(v) => setDuty(Math.min(1, Math.max(0.05, v / 100)))} />
+        <div className="picks picks--seg" role="radiogroup" aria-label="Motor output">
+          {[25, 50, 75, 100].map((p) => (
+            <button key={p} type="button" role="radio" className="pick num" aria-checked={pctOut === p} onClick={() => setDuty(p / 100)}>
+              {p}%
+            </button>
+          ))}
+        </div>
+      </div>
+      {duty < 1 && (
+        <p className="calc-note soft num">
+          At {pctOut}% the motor gets {f(duty * robot.voltage, 1)} V of {f(robot.voltage, 1)} V: free speed {f(curve[curve.length - 1].rpm, 0)} RPM and stall torque{' '}
+          {f(curve[0].torque, 2)} Nm, both {pctOut}% of full. Peak power is {f(Math.max(...curve.map((c) => c.power)), 0)} W, about {Math.round(duty * duty * 100)}% of full.
+        </p>
+      )}
       <LineChart
         series={[
           { name: 'Torque', slot: 1, unit: 'Nm', points: curve.map((c) => [c.rpm, c.torque]) },
           { name: 'Power', slot: 3, unit: 'W', points: curve.map((c) => [c.rpm, c.power]) },
+          ...(full
+            ? [
+                { name: 'Torque at 100%', slot: 1, unit: 'Nm', dashed: true, points: full.map((c) => [c.rpm, c.torque] as [number, number]) },
+                { name: 'Power at 100%', slot: 3, unit: 'W', dashed: true, points: full.map((c) => [c.rpm, c.power] as [number, number]) },
+              ]
+            : []),
           { name: 'Stator A', slot: 2, unit: 'A', off: true, points: curve.map((c) => [c.rpm, c.stator]) },
           { name: 'Battery A', slot: 5, unit: 'A', off: true, points: curve.map((c) => [c.rpm, c.battery]) },
           { name: 'Efficiency', slot: 6, unit: '%', fmt: whole, off: true, points: curve.map((c) => [c.rpm, c.efficiency * 100]) },

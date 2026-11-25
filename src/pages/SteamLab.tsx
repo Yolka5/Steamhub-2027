@@ -54,7 +54,15 @@ export default function SteamLab() {
   return <Lab />
 }
 
-function Lab() {
+/** The whole SteamLab on a mentor's Home: the same view, under a section title instead of the page's. */
+export function SteamLabBlock() {
+  const { userId } = useAuth()
+  const access = useSteamlabAccess(userId)
+  if (!access) return null
+  return <Lab embedded />
+}
+
+function Lab({ embedded = false }: { embedded?: boolean }) {
   const { userId } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
@@ -249,10 +257,10 @@ function Lab() {
   }
 
   return (
-    <div className="page page--wide steamlab">
+    <div className={embedded ? 'steamlab steamlab--home' : 'page page--wide steamlab'}>
       <div className="sl-head">
         <div>
-          <h1 className="page__title">SteamLab</h1>
+          {embedded ? <h2 className="section__title">SteamLab</h2> : <h1 className="page__title">SteamLab</h1>}
           {robotNames && <p className="soft sl-head__sub">{robotNames}</p>}
         </div>
         <div className="sl-day">

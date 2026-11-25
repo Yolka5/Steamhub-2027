@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Phase } from './cal'
+import { isClosed, type Phase } from './cal'
 import { countParts } from './counts'
 import { notify, type Part } from './mfg'
 import { usePrototypes } from './proto'
@@ -18,6 +18,8 @@ import { count } from './words'
 export interface Progress {
   /** 0 to 1, or null when there's nothing to count yet. */
   share: number | null
+  /** The share in progress right now, drawn in yellow after the done share. */
+  doing?: number | null
   line: string
   /** Asked when the data says the phase is finished. */
   suggest: string | null
@@ -100,7 +102,8 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
           const ready = (c.made > 0 && c.done === c.made && c.got === c.bought) || !!sub?.assembled
           out.set(ph.id, {
             share: c.made ? c.done / c.made : null,
-            line: c.made ? `${c.done} of ${count(c.made, 'part')} made${c.bought ? ` · ${c.got} of ${c.bought} bought in` : ''}` : 'Nothing released yet',
+            doing: c.made ? c.doing / c.made : null,
+            line: c.made ? `${c.done} of ${count(c.made, 'part')} made${c.doing ? ` · ${c.doing} in progress` : ''}${c.bought ? ` · ${c.got} of ${c.bought} bought in` : ''}` : 'Nothing released yet',
             suggest: ready ? `Every part is made${c.bought ? ' and in' : ''}. Finish ${ph.name}?` : null,
             key: `m:${c.done}/${c.made}/${c.got}/${c.bought}`,
             doneAt: latest(mineParts.map((p) => p.done_at)),
@@ -108,11 +111,13 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
         }
         continue
       }
-      const list = cal.tasks.filter((t) => t.phase_id === ph.id && !t.parent_id)
+      const list = cal.tasks.filter((t) => t.phase_id === ph.id && !t.parent_id && t.status !== 'cancelled')
       const done = list.filter((t) => t.status === 'done').length
+      const doing = list.filter((t) => t.status === 'doing').length
       out.set(ph.id, {
         share: list.length ? done / list.length : null,
-        line: list.length ? `${done} of ${count(list.length, 'task')} done` : 'No tasks yet',
+        doing: list.length ? doing / list.length : null,
+        line: list.length ? `${done} of ${count(list.length, 'task')} done${doing ? ` · ${doing} in progress` : ''}` : 'No tasks yet',
         suggest: list.length && done === list.length ? `Every task is done. Finish ${ph.name}?` : null,
         key: `t:${done}/${list.length}`,
         doneAt: latest(list.map((t) => t.done_at)),
@@ -123,7 +128,7 @@ export function useLinked(season: number | null, cal: Pick<Cal, 'groups' | 'phas
 }
 
 /** A suggestion is shown until the phase is finished, or "Not yet" was pressed at the same progress. */
-export const showSuggest = (ph: Phase, p: Progress | undefined) => !!p?.suggest && ph.status !== 'done' && ph.dismissed_for !== p.key
+export const showSuggest = (ph: Phase, p: Progress | undefined) => !!p?.suggest && !isClosed(ph.status) && ph.dismissed_for !== p.key
 
 /** The group's lead hears about each suggestion once, whoever's screen noticed it first. */
 export function useSuggestNotify(cal: Pick<Cal, 'groups' | 'phases'>, linked: Map<string, Progress>, me: string | null) {

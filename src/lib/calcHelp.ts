@@ -93,7 +93,7 @@ export const HELP = {
   curvesIntro: "Pick a mechanism and a gear ratio. See the motor's dyno-style curve and what your mechanism draws at every motor speed.",
   curveMech: 'Pick one of the mechanisms on the Robot tab. Its motor, load and limits are used.',
   curveRatio: 'Type the total gear ratio you want to look at. The table and the charts use it.',
-  curveDuty: 'Share of battery voltage given to the motor, 0 to 1. 1 is full voltage. A lower value lowers the stall torque and the free speed together.',
+  curveDuty: 'What you give the motor in code: motor.set(0.5) is 50%. It is the share of battery voltage the motor gets. A lower value lowers the stall torque and the free speed together, so peak power falls with its square: 50% gives about a quarter.',
   curveTable:
     'The load is the same at every RPM, so the stator current stays flat. As you raise the RPM, the motor needs more voltage, so the duty cycle and the battery current rise in a straight line.',
   curveMotor:

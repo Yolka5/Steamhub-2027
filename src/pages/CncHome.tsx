@@ -35,7 +35,8 @@ function groupOf(p: Part): Omit<Group, 'parts' | 'urgent'> {
   return { key: `${mat}|${t}`, title: `${mat} ${fmtMm(t)} mm`, thickness: t }
 }
 
-export default function CncHome() {
+/** Home on the CNC PC (titled CNC), and the CNC Dashboard section for everyone else. */
+export default function CncHome({ title = 'CNC' }: { title?: string }) {
   const { tasks, robots, live, loading, error, reload, put } = useTasks()
   const rules = useTaskRules()
   const actions = useTaskActions(put, tasks)
@@ -112,7 +113,7 @@ export default function CncHome() {
   return (
     <div className="page cnc">
       <div className="page__head">
-        <h1 className="page__title">CNC</h1>
+        <h1 className="page__title">{title}</h1>
       </div>
       <p className="soft num cnc__summary">{loading ? 'Loading' : summary}</p>
 

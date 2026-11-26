@@ -188,6 +188,22 @@ export interface UploadSummary {
   bad: number
   /** Files in a folder upload that couldn't be read. */
   skipped?: number
+  /** Screws, nuts, washers and rivets in the CAD, listed on Screws instead of the bought parts. */
+  screws?: number
+}
+
+/**
+ * A fastener by its CAD name: screws, bolts, nuts, washers, rivets, "M5x20", "SHCS". These go to a
+ * subsystem's Screws list, not its bought parts. A lead screw or ball screw is a mechanism, so it stays.
+ */
+export const isScrew = (name: string) =>
+  !/\b(lead|ball|acme)[\s-]?screws?\b|\bleadscrew/i.test(name) &&
+  /\b(screws?|bolts?|[SBF]H(?:S)?CS|SHSS|cap[\s-]?screw|set[\s-]?screw|socket[\s-]?head|button[\s-]?head|countersunk|nuts?|nylock|nyloc|washers?|rivets?)\b|\bM\d+(?:\.\d+)?\s*[x×]\s*\d|#\d+-\d+\b|\b\d\/\d+-\d+\b/i.test(name)
+
+/** One screw line from the CAD, kept in the hardware table as "screw:<name>". */
+export interface CadScrew {
+  name: string
+  qty: number
 }
 
 export interface Who {

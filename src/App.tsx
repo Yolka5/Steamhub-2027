@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type MouseEvent } from 'react'
 import { PaletteContext } from './lib/palette'
 import { supabase } from './lib/supabase'
 import { flushSync } from 'react-dom'
-import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Icon, type IconName } from './components/Icon'
 import { AccountMenu } from './components/AccountMenu'
 import { BackButton } from './components/BackButton'
@@ -31,8 +31,7 @@ import RobotPage from './pages/mfg/Robot'
 import SubsystemPage from './pages/mfg/SubsystemPage'
 import PartPage from './pages/mfg/PartPage'
 import Wishlist from './pages/mfg/Wishlist'
-import Bolts from './pages/mfg/Bolts'
-import Guide from './pages/mfg/Guide'
+import Screws from './pages/mfg/Screws'
 import Board, { MfgStart } from './pages/mfg/Board'
 import PersonList from './pages/mfg/PersonList'
 import LabelPage from './pages/mfg/Label'
@@ -76,6 +75,8 @@ interface NavItem {
 const HOME: NavItem = { to: '/', label: 'Home', icon: 'home', end: true }
 const STOCK: NavItem = { to: '/stock', label: 'Stock', icon: 'stock' }
 const MFG: NavItem = { to: '/manufacturing', label: 'Manufacturing', icon: 'gear' }
+/** The CNC room's Home, for everyone else. The CNC PC has it as Home, so it doesn't get this too. */
+const CNC: NavItem = { to: '/cnc', label: 'CNC Dashboard', icon: 'cut' }
 const PROTO: NavItem = { to: '/prototypes', label: 'Prototypes', icon: 'flask' }
 const CAL: NavItem = { to: '/calendar', label: 'Calendar', icon: 'calendar' }
 const TOOLS: NavItem = { to: '/tools', label: 'Tools', icon: 'wrench', also: ['/calculators'] }
@@ -83,7 +84,7 @@ const HANDBOOK: NavItem = { to: '/handbook', label: 'Handbook', icon: 'book' }
 /** Mentors, leads and admins only (STEAMLAB.md). */
 const STEAMLAB: NavItem = { to: '/steamlab', label: 'SteamLab', icon: 'chart' }
 
-const NAV: NavItem[] = [HOME, STOCK, MFG, PROTO, CAL, TOOLS, HANDBOOK]
+const NAV: NavItem[] = [HOME, STOCK, MFG, CNC, PROTO, CAL, TOOLS, HANDBOOK]
 /** Manufacturing opens where you'd want it: the board, your list or the workshop list (MfgStart). */
 const linkTo = (n: NavItem) => (n === MFG ? '/manufacturing/start' : n.to)
 /**
@@ -97,7 +98,7 @@ const TABS_RIGHT: { item: NavItem; label: string }[] = [
 ]
 const PEOPLE: NavItem = { to: '/people', label: 'People', icon: 'people' }
 /** Behind More on phones. SteamLab and People join for those who can open them. */
-const MORE: NavItem[] = [PROTO, TOOLS, HANDBOOK]
+const MORE: NavItem[] = [CNC, PROTO, TOOLS, HANDBOOK]
 /**
  * The portrait TV in the CAD room: every section in the bottom bar, Calculator on its own because
  * it's one of the three pages used there most. Add moves up to the top bar.
@@ -107,6 +108,7 @@ const TV_TABS: { item: NavItem; label: string }[] = [
   { item: HOME, label: 'Home' },
   { item: STOCK, label: 'Stock' },
   { item: MFG, label: 'Make' },
+  { item: CNC, label: 'CNC' },
   { item: PROTO, label: 'Prototypes' },
   { item: CAL, label: 'Calendar' },
   { item: CALC, label: 'Calculator' },
@@ -229,7 +231,9 @@ export default function App() {
   const steamlab = useSteamlabAccess(userId)
   const tall = useTall()
   const homeReload = useTvIdle(tall)
-  const nav = steamlab ? [...NAV, STEAMLAB] : NAV
+  const notCncRoom = (n: NavItem) => n !== CNC || room !== 'cnc'
+  const nav = (steamlab ? [...NAV, STEAMLAB] : NAV).filter(notCncRoom)
+  const tvTabs = (steamlab ? [...TV_TABS, { item: STEAMLAB, label: 'SteamLab' }] : TV_TABS).filter((t) => notCncRoom(t.item))
   const location = useLocation()
 
   // How often each section is opened, so two weeks after kickoff the unused ones can go.
@@ -260,7 +264,7 @@ export default function App() {
     setPaletteOpen(false)
     setMoreOpen(false)
   }, [location.pathname, location.search])
-  const more = [...MORE, ...(steamlab ? [STEAMLAB] : []), ...(seesAll ? [PEOPLE] : [])].map((n) => ({
+  const more = [...MORE.filter(notCncRoom), ...(steamlab ? [STEAMLAB] : []), ...(seesAll ? [PEOPLE] : [])].map((n) => ({
     to: linkTo(n),
     label: n.label,
     icon: n.icon,
@@ -352,7 +356,7 @@ export default function App() {
           <BackButton />
           <Routes>
             <Route path="/" element={<Home key={homeReload} />} />
-            <Route path="/cnc" element={<CncHome />} />
+            <Route path="/cnc" element={<CncHome title="CNC Dashboard" />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/stock/add" element={<AddStock />} />
             <Route path="/stock/photos" element={<NeedsPhoto />} />
@@ -375,8 +379,10 @@ export default function App() {
             <Route path="/manufacturing/r/:id" element={<RobotPage />} />
             <Route path="/manufacturing/s/:id" element={<SubsystemPage />} />
             <Route path="/manufacturing/p/:id" element={<PartPage />} />
-            <Route path="/manufacturing/s/:id/bolts" element={<Bolts />} />
-            <Route path="/manufacturing/s/:id/guide" element={<Guide />} />
+            <Route path="/manufacturing/s/:id/screws" element={<Screws />} />
+            {/* Old links: Bolts was renamed, and the assembly guide is gone. */}
+            <Route path="/manufacturing/s/:id/bolts" element={<OldSubLink />} />
+            <Route path="/manufacturing/s/:id/guide" element={<OldSubLink />} />
             <Route path="/manufacturing/wishlist" element={<Wishlist />} />
             <Route path="/manufacturing/label" element={<LabelPage />} />
             <Route path="/manufacturing/drawings" element={<DrawingsPage />} />
@@ -406,9 +412,9 @@ export default function App() {
         </main>
 
         {tall ? (
-          <nav className="tabbar tabbar--tv" aria-label="Main" style={{ gridTemplateColumns: `repeat(${TV_TABS.length + (steamlab ? 1 : 0)}, minmax(0, 1fr))` }}>
+          <nav className="tabbar tabbar--tv" aria-label="Main" style={{ gridTemplateColumns: `repeat(${tvTabs.length}, minmax(0, 1fr))` }}>
             <Indicator selector='.tab[aria-current="page"]' />
-            {(steamlab ? [...TV_TABS, { item: STEAMLAB, label: 'SteamLab' }] : TV_TABS).map(({ item: n, label }) => (
+            {tvTabs.map(({ item: n, label }) => (
               <Link key={n.to} to={linkTo(n)} className="tab" aria-current={isActive(n, location.pathname) ? 'page' : undefined}>
                 <Icon name={n.icon} size={26} />
                 {n === HOME ? navLabel(n) : label}
@@ -462,6 +468,12 @@ function PublicGuide() {
       </main>
     </div>
   )
+}
+
+/** Bolts became Screws and the assembly guide is gone: their old links land on Screws. */
+function OldSubLink() {
+  const { id } = useParams()
+  return <Navigate to={`/manufacturing/s/${id}/screws`} replace />
 }
 
 /** A mistyped or old link: say so, and offer the way back, instead of a blank page. */

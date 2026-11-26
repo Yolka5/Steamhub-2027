@@ -119,7 +119,7 @@ function GitHub({ cal }: { cal: Cal }) {
     <section className="section imp">
       <h2 className="section__title">GitHub</h2>
       <p className="soft">
-        Every issue on Programming’s GitHub board shows up as a Programming task. Sub-issues stay in GitHub, so the Calendar isn’t buried in them. Name, status and people follow GitHub. Dates do too
+        The parent issues on Programming’s GitHub board, the ones with sub-issues, show up as Programming tasks. Sub-issues and lone issues stay in GitHub, so the Calendar isn’t buried in them. Name, status and people follow GitHub. Dates do too
         when GitHub has them; when it doesn’t, place the issue on the Gantt here. It reads GitHub every 15 minutes in the day, and within seconds once a webhook is set. A new season means a new board: paste its
         link below.
       </p>
@@ -156,7 +156,7 @@ function GitHub({ cal }: { cal: Cal }) {
             <label className="ctl">
               <span className="ctl__name">Project board</span>
               <input className="field" value={project} onChange={(e) => setProject(e.target.value)} placeholder="https://github.com/orgs/frc1577/projects/3" autoComplete="off" />
-              <span className="soft small">Every issue on it, from any repo, without its sub-issues. Its Status column (Todo, In Progress, Done) and date fields set the task. Issues taken off the board leave the Calendar.</span>
+              <span className="soft small">Its parent issues, from any repo. Sub-issues and issues with none stay out. Its Status column (Todo, In Progress, Done) and date fields set the task. Issues taken off the board leave the Calendar.</span>
             </label>
             <label className="ctl">
               <span className="ctl__name">Or only a repo, without a board</span>

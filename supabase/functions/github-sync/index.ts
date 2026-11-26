@@ -1,8 +1,9 @@
 // Brings Programming's GitHub work into the Calendar as tasks (CALENDAR_V2_PLAN.md, part 4).
 // Two ways, by what's saved in settings 'github':
-//  - A Project board (Programming uses the org board "2026OffSeason"): every top-level card on it,
-//    from any repo, draft cards too. Sub-issues stay out, so the Calendar isn't buried in them. Cards taken
-//    off the board leave the Calendar. This is the main way.
+//  - A Project board (Programming uses the org board "2026OffSeason"): only its parent issues, the
+//    ones with sub-issues, from any repo. Sub-issues, lone issues and draft cards stay out, so the
+//    Calendar shows the plan and isn't buried in small tasks. Cards taken off the board leave the
+//    Calendar. This is the main way.
 //  - Only a repo: its issues, as before.
 // GitHub → Steamhub only: GitHub stays the truth for name, status and owners; Steamhub keeps its own
 // comments, waits, list and which group a task sits in.
@@ -13,7 +14,7 @@
 //    set), every 15 minutes in the day as a safety net (pg_cron), and on Sync now.
 //  - Cheap: only issues changed since the last run, with an ETag, so "nothing changed" costs nothing
 //    against GitHub's limit. A Project board's columns come from GraphQL, read only for changed issues.
-//  - Issues become tasks. On the board way, sub-issues stay out and the "[offseason Project]:" tag
+//  - Issues become tasks. On the board way, only parent issues come in and the "[offseason Project]:" tag
 //    comes off titles. Repo way: sub-issues become subtasks.
 //  - Status: the board column when there is a board (Todo / In Progress / Done), else open or closed.
 //  - Owners: GitHub assignees, matched by the github username on profiles. Unknown ones are kept on
@@ -292,6 +293,7 @@ type BoardItem = {
     labels?: { nodes: { name: string }[] }
     milestone?: { dueOn: string | null } | null
     parent?: { databaseId: number } | null
+    subIssuesSummary?: { total: number } | null
   } | null
 }
 
@@ -305,7 +307,7 @@ const BOARD_QUERY = (root: 'organization' | 'user') => `query($login: String!, $
         ... on ProjectV2ItemFieldIterationValue { startDate duration field { ... on ProjectV2FieldCommon { name } } }
       } }
       content {
-        ... on Issue { databaseId number title url state closedAt assignees(first: 10) { nodes { login } } labels(first: 20) { nodes { name } } milestone { dueOn } parent { databaseId } }
+        ... on Issue { databaseId number title url state closedAt assignees(first: 10) { nodes { login } } labels(first: 20) { nodes { name } } milestone { dueOn } parent { databaseId } subIssuesSummary { total } }
         ... on DraftIssue { title assignees(first: 10) { nodes { login } } }
       }
     }
@@ -380,9 +382,14 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
   const personOf = new Map<string, string>((profiles ?? []).map((p: { github: string; id: string }) => [p.github.toLowerCase(), p.id]))
 
   // ----- What each card says -----
-  // Only top-level issues come in. Programming opens lots of sub-issues, more so in the season, and
-  // they'd bury the Calendar. A sub-issue is one with a parent on GitHub, or titled "[… Sub-Task]".
-  const isSub = (it: BoardItem) => it.content?.parent?.databaseId != null || /^\s*\[[^\]]*sub[\s-]*task[^\]]*\]/i.test(it.content?.title ?? '')
+  // Only parent issues come in: top-level issues that have sub-issues. Programming opens lots of small
+  // issues, more so in the season, and they'd bury the Calendar. Everything else (sub-issues, issues
+  // with no sub-issues, draft cards) stays out, and leaves the Calendar if it came in before.
+  const isSub = (it: BoardItem) =>
+    it.type !== 'ISSUE' ||
+    !(it.content?.subIssuesSummary?.total ?? 0) ||
+    it.content?.parent?.databaseId != null ||
+    /^\s*\[[^\]]*sub[\s-]*task[^\]]*\]/i.test(it.content?.title ?? '')
   const subKeys = new Set(cards.filter(isSub).map((it) => keyOf(it)!))
   const tops = cards.filter((it) => !isSub(it))
   const onBoard = new Map<number, BoardItem>(tops.map((it) => [keyOf(it)!, it]))
@@ -470,14 +477,16 @@ async function syncBoard(db: any, token: string, link: string): Promise<{ change
     last = r.gh_number != null ? `#${r.gh_number} ${r.title}` : r.title
   }
 
-  // ----- Sub-issues brought in before leave the Calendar -----
-  const subs = [...byKey.entries()].filter(([k]) => subKeys.has(k)).map(([k, t]) => [k, t.id] as const)
+  // ----- Sub-issues and lone issues brought in before leave the Calendar -----
+  // Not when the board has no parent issues at all: that's more likely GitHub answering oddly than
+  // Programming dropping every sub-issue, and it would empty the Calendar.
+  const subs = tops.length ? [...byKey.entries()].filter(([k]) => subKeys.has(k)).map(([k, t]) => [k, t.id] as const) : []
   if (subs.length) {
     const { error } = await db.from('tasks').delete().in('id', subs.map(([, id]) => id))
     if (error) throw new Error(error.message)
     for (const [k] of subs) byKey.delete(k)
     changed += subs.length
-    if (!last) last = `${subs.length} sub-issues taken out`
+    if (!last) last = `${subs.length} non-parent issues taken out`
   }
 
   // ----- Cards taken off the board (or archived) leave the Calendar -----

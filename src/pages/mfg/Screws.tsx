@@ -5,13 +5,21 @@ import { Select } from '../../components/Select'
 import { Sheet, useToast } from '../../components/ui'
 import { useWho } from '../../lib/auth'
 import { hardwareRows, JOINT_WORD, resToSvg, saveHardwareStock, useHardwareStock, type JointRow, type Stock } from '../../lib/guide'
-import { ago, fileSafe, fmtMm, saveFile } from '../../lib/mfg'
+import { ago, fileSafe, fmtMm, saveFile, type CadScrew } from '../../lib/mfg'
 import { useAnalysis, useHardwareState } from '../../lib/useAnalysis'
 
-// Every place holes line up across parts, what fastener goes there, and what to collect.
-// Found from the assembly at upload; a joint's type can be changed and everything updates.
+// A subsystem's screws, in two parts:
+//  - In the CAD: every screw, nut, washer and rivet the assembly STEP has drawn. The import puts
+//    them here instead of in the bought parts (upload.ts, saveScrews), so they're counted and
+//    collected in one place.
+//  - From the holes: places where holes line up across parts with no screw drawn in them, and what
+//    goes there. Only a single assembly file has positions for this. A joint's type can be changed
+//    and everything updates.
 
-export default function Bolts() {
+/** Ten percent spare, for screws that roll under the bench. */
+const take = (qty: number) => Math.ceil(qty * 1.1)
+
+export default function Screws() {
   const { id = '' } = useParams()
   const { sub, robot, analysis, file, state } = useAnalysis(id)
   const { values, set } = useHardwareState(id)
@@ -25,6 +33,15 @@ export default function Bolts() {
     for (const [k, v] of Object.entries(values)) if (k.startsWith('type:')) t[k.slice(5)] = String(v.type)
     return t
   }, [values])
+  const cad = useMemo(
+    () =>
+      Object.entries(values)
+        .filter(([k]) => k.startsWith('screw:'))
+        .map(([, v]) => v as unknown as CadScrew)
+        .filter((x) => x && typeof x.name === 'string')
+        .sort((x, y) => x.name.localeCompare(y.name, undefined, { numeric: true })),
+    [values],
+  )
   const H = useMemo(() => (analysis && stock ? hardwareRows(analysis.joints, types, stock) : null), [analysis, types, stock])
 
   if (!sub || !robot || state === 'loading' || !stock) return <div className="page">{<p className="soft">Loading</p>}</div>
@@ -32,25 +49,55 @@ export default function Bolts() {
   const main = H?.rows.filter((r) => r.j.type !== 'open' && r.j.type !== 'tapOpen') ?? []
   const open = H?.rows.filter((r) => r.j.type === 'open' || r.j.type === 'tapOpen') ?? []
   const count = (rs: JointRow[]) => rs.reduce((s, r) => s + r.j.count, 0)
+  const holes = state === 'ready' && !!H
+  const cadTotal = cad.reduce((n, x) => n + x.qty, 0)
+
+  const toggle = async (key: string) => {
+    if (!who) return
+    const st = values[key] as { done?: boolean } | undefined
+    const err = await set(key, st?.done ? { done: false } : { done: true, by: who.name }, who.name)
+    if (err) toast(err)
+  }
 
   const csv = () => {
-    if (!H) return
     const q = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const lines = [
-      ['Item', 'Needed', 'Take (+10%)', 'Collected by'],
-      ...H.list.map((x) => [x.name, x.qty, x.take, (values[`item:${x.name}`]?.by as string) ?? '']),
-      [],
-      ['Joint', 'Qty', 'Through', 'Stack (mm)', 'Hardware', 'Note'],
-      ...H.rows.filter((r) => r.type !== 'none').map((r) => [JOINT_WORD[r.type], r.j.count, r.j.parts.map((p) => `${p.partNo} (Ø${fmtMm(p.d)}, ${fmtMm(p.len)} mm)`).join(' + '), r.j.type === 'shaft' ? '' : fmtMm(r.j.grip), r.hw.text, r.j.note ?? '']),
-    ]
-    saveFile(`${fileSafe(`${robot.name} ${sub.number} ${sub.name} bolts`)}.csv`, lines.map((l) => l.map(q).join(',')).join('\r\n'), 'text/csv')
+    const by = (key: string) => (values[key] as { done?: boolean; by?: string } | undefined)?.done ? ((values[key]?.by as string) ?? 'yes') : ''
+    const lines: unknown[][] = [['Screw', 'In the CAD', 'Take (+10%)', 'Collected by'], ...cad.map((x) => [x.name, x.qty, take(x.qty), by(`item:cad:${x.name}`)])]
+    if (H)
+      lines.push(
+        [],
+        ['From the holes', 'Needed', 'Take (+10%)', 'Collected by'],
+        ...H.list.map((x) => [x.name, x.qty, x.take, by(`item:${x.name}`)]),
+        [],
+        ['Joint', 'Qty', 'Through', 'Stack (mm)', 'Hardware', 'Note'],
+        ...H.rows.filter((r) => r.type !== 'none').map((r) => [JOINT_WORD[r.type], r.j.count, r.j.parts.map((p) => `${p.partNo} (Ø${fmtMm(p.d)}, ${fmtMm(p.len)} mm)`).join(' + '), r.j.type === 'shaft' ? '' : fmtMm(r.j.grip), r.hw.text, r.j.note ?? '']),
+      )
+    saveFile(`${fileSafe(`${robot.name} ${sub.number} ${sub.name} screws`)}.csv`, lines.map((l) => l.map(q).join(',')).join('\r\n'), 'text/csv')
+  }
+
+  const item = (key: string, name: string, line: string) => {
+    const st = values[key] as { done?: boolean; by?: string } | undefined
+    return (
+      <li key={key} className="row hw-item" data-done={st?.done || undefined}>
+        <span className="row__main">
+          <span className="strong">{name}</span>
+          <span className="soft small num">
+            {line}
+            {st?.done && st.by ? ` · collected by ${st.by}` : ''}
+          </span>
+        </span>
+        <button type="button" className={`q-btn q-btn--small${st?.done ? ' hw-item__got' : ''}`} onClick={() => toggle(key)}>
+          {st?.done && <Icon name="check" size={16} />} Got it
+        </button>
+      </li>
+    )
   }
 
   return (
     <div className="page">
       <div className="page__head">
         <div>
-          <h1 className="page__title">Bolts</h1>
+          <h1 className="page__title">Screws</h1>
           <p className="soft sub-meta">
             <Link to={`/manufacturing/s/${sub.id}`}>
               {sub.number} {sub.name}
@@ -60,13 +107,10 @@ export default function Bolts() {
           </p>
         </div>
         <div className="page__actions">
-          <Link to={`/manufacturing/s/${sub.id}/guide`} className="q-btn">
-            Assembly guide
-          </Link>
           <button type="button" className="q-btn" onClick={() => setEditing(true)}>
             Hardware we stock
           </button>
-          {H && (
+          {(cad.length > 0 || H) && (
             <button type="button" className="q-btn" onClick={csv}>
               <Icon name="download" size={18} /> CSV
             </button>
@@ -74,65 +118,49 @@ export default function Bolts() {
         </div>
       </div>
 
-      {state !== 'ready' || !H ? (
+      {!cad.length && !holes && (
         <div className="mfg-help">
           <p>
             {state === 'error'
-              ? "The bolt table couldn't be loaded. Drop the assembly STEP again on the subsystem page."
-              : 'No bolt table yet. It needs the whole assembly as one STEP file, which has every part in its place. A folder of separate part files has no positions.'}
+              ? "The screw table couldn't be loaded. Drop the assembly STEP again on the subsystem page."
+              : 'No screws yet. They come in with the assembly STEP on the subsystem page: screws, nuts and washers drawn in the CAD are listed here instead of with the bought parts.'}
           </p>
+          <p className="soft small">One assembly file also finds holes that line up with no screw in them, and says what goes there. A folder of separate part files has no positions for that.</p>
+          <Link to={`/manufacturing/s/${sub.id}`} className="q-btn">
+            {sub.number} {sub.name}
+          </Link>
         </div>
-      ) : (
-        <>
-          {file && !file.latest && <p className="mfg-note mfg-note--warn">This is from an older upload. The latest one was separate part files, which have no bolt positions.</p>}
+      )}
 
-          <section className="section">
-            <div className="mfg-bar-head">
+      {cad.length > 0 && (
+        <section className="section">
+          <h2 className="section__title">
+            In the CAD <span className="soft num">{cadTotal}</span>
+          </h2>
+          <p className="soft small sp-hint">Every screw, nut and washer drawn in the assembly, with 10% spare to take.</p>
+          <ul className="rows">{cad.map((x) => item(`item:cad:${x.name}`, x.name, `${x.qty} in the CAD, take ${take(x.qty)}`))}</ul>
+        </section>
+      )}
+
+      {holes && H && (
+        <>
+          {file && !file.latest && <p className="mfg-note mfg-note--warn">The holes below are from an older upload. The latest one was separate part files, which have no positions.</p>}
+
+          {H.list.length > 0 && (
+            <section className="section">
               <h2 className="section__title">
-                What to collect <span className="soft num">{H.list.length}</span>
+                From the holes <span className="soft num">{H.list.length}</span>
               </h2>
-            </div>
-            <p className="soft small sp-hint">Totals for every joint below, plus 10% spare.</p>
-            <ul className="rows">
-              {H.list.map((x) => {
-                const st = values[`item:${x.name}`] as { done?: boolean; by?: string } | undefined
-                return (
-                  <li key={x.name} className="row hw-item" data-done={st?.done || undefined}>
-                    <span className="row__main">
-                      <span className="strong">{x.name}</span>
-                      <span className="soft small num">
-                        {x.qty} needed, take {x.take}
-                        {st?.done && st.by ? ` · collected by ${st.by}` : ''}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      className={`q-btn q-btn--small${st?.done ? ' hw-item__got' : ''}`}
-                      onClick={async () => {
-                        if (!who) return
-                        const err = await set(`item:${x.name}`, st?.done ? { done: false } : { done: true, by: who.name }, who.name)
-                        if (err) toast(err)
-                      }}
-                    >
-                      {st?.done ? (
-                        <>
-                          <Icon name="check" size={16} /> Got it
-                        </>
-                      ) : (
-                        'Got it'
-                      )}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
+              <p className="soft small sp-hint">What the joints below need, plus 10% spare. Skip what's already in the CAD list above.</p>
+              <ul className="rows">{H.list.map((x) => item(`item:${x.name}`, x.name, `${x.qty} needed, take ${x.take}`))}</ul>
+            </section>
+          )}
 
           <section className="section">
             <h2 className="section__title">
               Joints <span className="soft num">{count(main)}</span>
             </h2>
-            <p className="soft small sp-hint">Holes that line up across parts. Orange in the picture is the parts, blue dots are where the bolts go. Change a type if it's wrong.</p>
+            <p className="soft small sp-hint">Holes that line up across parts. Orange in the picture is the parts, blue dots are where the screws go. Change a type if it's wrong.</p>
             <ul className="joints">
               {main.map((r) => (
                 <JointItem key={`${r.j.type}|${r.j.key}`} r={r} onType={(t) => who && set(`type:${r.j.type}|${r.j.key}`, { type: t }, who.name)} />
@@ -143,7 +171,7 @@ export default function Bolts() {
           {open.length > 0 && (
             <details className="more mfg-archived">
               <summary>
-                Holes with nothing on the other side ({count(open)}): usually where it bolts to the robot or to a part outside this STEP
+                Holes with nothing on the other side ({count(open)}): usually where it fastens to the robot or to a part outside this STEP
               </summary>
               <ul className="joints">
                 {open.map((r) => (
@@ -236,13 +264,13 @@ function StockForm({ stock, onDone }: { stock: Stock; onDone: () => void }) {
         save()
       }}
     >
-      <p className="soft small">Bolt lengths are picked from these. Empty means the usual set (6 to 120 mm, 1/4" to 4").</p>
+      <p className="soft small">Screw lengths for the joints are picked from these. Empty means the usual set (6 to 120 mm, 1/4" to 4").</p>
       <label className="ctl">
-        <span className="ctl__name">Metric bolt lengths (mm)</span>
+        <span className="ctl__name">Metric screw lengths (mm)</span>
         <input className="field num" data-autofocus value={metric} onChange={(e) => setMetric(e.target.value)} placeholder="8, 10, 12, 16, 20, 25, 30, 35, 40" />
       </label>
       <label className="ctl">
-        <span className="ctl__name">Inch bolt lengths (inches)</span>
+        <span className="ctl__name">Inch screw lengths (inches)</span>
         <input className="field num" value={inch} onChange={(e) => setInch(e.target.value)} placeholder="3/8, 1/2, 3/4, 1, 1-1/4, 1-1/2" />
       </label>
       <div className="ctl">
@@ -256,7 +284,7 @@ function StockForm({ stock, onDone }: { stock: Stock; onDone: () => void }) {
         </div>
       </div>
       <label className="ctl">
-        <span className="ctl__name">Bolt heads and sizes we use</span>
+        <span className="ctl__name">Screw heads and sizes we use</span>
         <input className="field" value={heads} onChange={(e) => setHeads(e.target.value)} placeholder="Socket cap M3-M6, button head M5, #10-32, 1/4-20" />
       </label>
       <label className="ctl">

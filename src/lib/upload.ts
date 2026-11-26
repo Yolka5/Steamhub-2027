@@ -1,4 +1,4 @@
-import { bentThickness, fileSafe, fromMethod, guessMaterial, gzip, logPart, MACHINES, notify, partName, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
+import { bentThickness, fileSafe, fromMethod, guessMaterial, gzip, isScrew, logPart, MACHINES, notify, partName, type CadScrew, type Part, type Subsystem, type UploadSummary, type Who } from './mfg'
 import type { Analysis, Res, WorkerMsg, WorkerPart } from './step/worker'
 import { supabase } from './supabase'
 
@@ -9,6 +9,9 @@ import { supabase } from './supabase'
 //  - new name: a new part with the next free number, in design
 //  - missing from the file: cancelled. The lead hears about it if it was in progress or done
 // Numbers are never reused or reshuffled.
+// Screws, nuts, washers and rivets don't become parts: they go to the subsystem's Screws list
+// (hardware rows "screw:<name>"), replaced on every upload. Ones that came in as bought parts before
+// are moved there too.
 
 export interface UploadResult {
   summary?: UploadSummary
@@ -19,7 +22,7 @@ interface Parsed {
   items: WorkerPart[]
   rootName: string
   skipped: string[]
-  /** Works out the bolt table and guide with Steamhub's numbers. Single assembly files only. */
+  /** Works out the screw table's joints with Steamhub's numbers. Single assembly files only. */
   analyze: (parts: Record<string, { no: string; method: string }>, stock: unknown) => Promise<{ analysis: Analysis; chunks: Res[][] }>
   close: () => void
 }
@@ -67,7 +70,7 @@ function parse(files: File[], onProgress: (t: string) => void): Promise<Parsed> 
 const half = (_k: string, v: unknown) => (typeof v === 'number' ? Math.round(v * 2) / 2 : v)
 const TOM_METHOD: Record<string, string> = { CNC: 'CNC', Mill: 'Milling', Lathe: 'Lathe', '3D print': '3D print', Bought: 'Bought' }
 
-/** Bolt table and assembly guide for a single assembly file, saved next to the part files. */
+/** The screw table's joints for a single assembly file, saved next to the part files. */
 async function saveAnalysis(parsed: Parsed, sub: Subsystem, uploadId: string, onProgress: (t: string) => void) {
   const [{ data: rows }, { data: stock }] = await Promise.all([
     supabase.from('parts').select('sig, part_no, machine').eq('subsystem_id', sub.id),
@@ -75,12 +78,9 @@ async function saveAnalysis(parsed: Parsed, sub: Subsystem, uploadId: string, on
   ])
   const parts: Record<string, { no: string; method: string }> = {}
   for (const r of rows ?? []) parts[r.sig] = { no: String(r.part_no), method: TOM_METHOD[r.machine] ?? 'Milling' }
-  const { analysis, chunks } = await parsed.analyze(parts, stock?.value ?? null)
-  onProgress('Saving the bolt table and guide')
+  const { analysis } = await parsed.analyze(parts, stock?.value ?? null)
+  onProgress('Saving the screw table')
   const dir = `${sub.id}/${uploadId}`
-  await pool(chunks, 4, async (c, i) => {
-    await supabase.storage.from('parts').upload(`${dir}/guide-${i}.json.gz`, await gzip(JSON.stringify(c, half)), { contentType: 'application/gzip' })
-  })
   const path = `${dir}/analysis.json.gz`
   const up = await supabase.storage.from('parts').upload(path, await gzip(JSON.stringify(analysis, half)), { contentType: 'application/gzip' })
   if (up.error) throw new Error(up.error.message)
@@ -121,11 +121,16 @@ export async function uploadStep(fileList: File[], sub: Subsystem, existing: Par
   }
 }
 
-async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existing: Part[], who: Who, onProgress: (t: string) => void): Promise<UploadResult> {
-  const { items, skipped } = parsed
-  if (!items.length) return { error: skipped.length ? "None of these files could be read as STEP." : 'No parts found in this file. Export the assembly, not a single Part Studio.' }
+async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, allExisting: Part[], who: Who, onProgress: (t: string) => void): Promise<UploadResult> {
+  const { skipped } = parsed
+  const screwItems = parsed.items.filter((i) => !i.custom && isScrew(i.name))
+  const items = parsed.items.filter((i) => !screwItems.includes(i))
+  // Screws brought in as bought parts by an older upload: they move to Screws.
+  const oldScrews = allExisting.filter((p) => p.machine === 'Bought' && isScrew(p.name))
+  const existing = allExisting.filter((p) => !oldScrews.includes(p))
+  if (!parsed.items.length) return { error: skipped.length ? "None of these files could be read as STEP." : 'No parts found in this file. Export the assembly, not a single Part Studio.' }
 
-  // One assembly file is kept for the bolt table and assembly guide later. Loose part files are
+  // One assembly file is kept for the screw table's joints later. Loose part files are
   // not: they carry no positions, so those two can't use them anyway.
   const single = steps.length === 1 ? steps[0] : null
   const label = single ? single.name : `${steps.length} part files`
@@ -143,6 +148,10 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
     .select()
     .single()
   if (upErr) return { error: upErr.message }
+
+  // ----- Screws -----
+  const screwErr = await saveScrews(sub.id, screwItems, who)
+  if (!screwErr && oldScrews.length) await supabase.from('parts').delete().in('id', oldScrews.map((p) => p.id))
 
   // ----- Match -----
   const live = existing.slice()
@@ -315,6 +324,7 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
     gone: gone.length,
     bad: items.filter((i) => i.bad).length,
     skipped: skipped.length,
+    screws: screwItems.reduce((n, i) => n + i.qty, 0),
   }
   await supabase.from('step_uploads').update({ summary }).eq('id', upload.id)
   if (toLead.length > 3) await notify([sub.lead_id], 'upload', `${toLead.length} released parts changed in the new STEP`, subLink, who.userId)
@@ -323,14 +333,34 @@ async function afterParse(parsed: Parsed, steps: File[], sub: Subsystem, existin
       await saveAnalysis(parsed, sub, upload.id, onProgress)
       await removeOldAnalyses(sub.id, upload.id)
     } catch (e) {
-      errors.push(`Parts saved, but the bolt table and guide failed: ${e instanceof Error ? e.message : e}`)
+      errors.push(`Parts saved, but the screw table's joints failed: ${e instanceof Error ? e.message : e}`)
     }
   }
   // Storage is the free plan's tightest limit: every upload used to leave its files behind.
   await removeQuietly('parts', replaced)
   if (stepPath) await removeOldSteps(sub.id, stepPath)
+  if (screwErr) errors.push(`Parts saved, but the screw list failed: ${screwErr}`)
   if (errors.length) return { summary, error: errors[0] }
   return { summary }
+}
+
+/** The CAD's screws, one row per name with the total count, in place of the last upload's. */
+async function saveScrews(subId: string, list: { name: string; qty: number }[], who: Who) {
+  const by = new Map<string, CadScrew>()
+  for (const i of list) {
+    const name = i.name.trim()
+    const k = name.toLowerCase()
+    const cur = by.get(k)
+    if (cur) cur.qty += i.qty
+    else by.set(k, { name, qty: i.qty })
+  }
+  const del = await supabase.from('hardware').delete().eq('subsystem_id', subId).like('key', 'screw:%')
+  if (del.error) return del.error.message
+  if (!by.size) return null
+  const now = new Date().toISOString()
+  const rows = [...by.values()].map((x) => ({ subsystem_id: subId, key: `screw:${x.name}`, value: x, updated_by_name: who.name, updated_at: now }))
+  const { error } = await supabase.from('hardware').upsert(rows)
+  return error?.message ?? null
 }
 
 /** The part number at the start of a CAD name: "3035 - Wheels Shaft", "3035_Bracket", "3035 Spacer". */
@@ -352,7 +382,7 @@ async function removeOldSteps(subId: string, keep: string) {
   )
 }
 
-/** The bolt table and guide pictures of older uploads, once the new ones are saved. */
+/** The screw tables of older uploads (and their old guide pictures), once the new one is saved. */
 async function removeOldAnalyses(subId: string, keepUpload: string) {
   const { data: old } = await supabase.from('step_uploads').select('id').eq('subsystem_id', subId).neq('id', keepUpload).not('analysis_path', 'is', null)
   for (const u of old ?? []) {

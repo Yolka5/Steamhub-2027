@@ -130,7 +130,7 @@ export default function Summary() {
                           {day === today && (
                             <>
                               {' · '}
-                              <Link to={`/calendar/update?g=${g.id}`}>Write it</Link>
+                              <Link to={day === today ? `/calendar/update?g=${g.id}` : `/calendar/update?g=${g.id}&d=${day}`}>Write it</Link>
                             </>
                           )}
                         </p>

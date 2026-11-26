@@ -95,8 +95,6 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
   const groups = useMemo(() => {
     return [...cal.groups]
       .filter((g) => inSections(filter, g.team))
-      // The big view is the plan: groups with phases only.
-      .filter((g) => !big || cal.phases.some((p) => p.group_id === g.id))
       .sort(groupOrder)
       .map((g) => {
         const all = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id)
@@ -108,6 +106,9 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
         return { g, shown, open: all.filter((t) => !isClosed(t.status)).length, done: all.filter((t) => isClosed(t.status)).length }
       })
       .filter((x) => !filter.mine || x.shown.length > 0)
+      // The big view is the plan, for every section: groups with phases, or with open tasks
+      // (Programming, Strategy and the rest plan in tasks, not phases).
+      .filter((x) => !big || x.open > 0 || cal.phases.some((p) => p.group_id === x.g.id))
   }, [cal.groups, cal.tasks, cal.phases, filter, mineIds, big])
 
   if (!groups.length)
@@ -144,9 +145,11 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
   /** Each phase on its own line, its tasks folded under it, then the group's tasks with no phase. */
   const phases = (g: CalGroup) => {
     const list = cal.phases.filter((p) => p.group_id === g.id).sort((a, b) => a.sort - b.sort)
+    const loose = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id && !t.phase_id && passes(t))
+    // The big view still shows a project planned in tasks only.
+    if (!list.length && big) return <SectionedTasks tasks={loose} cal={cal} nameOf={nameOf} people={people} groupId={g.id} showDone={false} />
     if (!list.length) return <p className="soft small cal-group__none">No phases yet.</p>
     const bars = phaseBars(cal.phases, g.id)
-    const loose = cal.tasks.filter((t) => t.group_id === g.id && !t.parent_id && !t.phase_id && passes(t))
     return (
       <>
         <LineHead />
@@ -238,7 +241,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
         {!isFolded && (
           <div className="cal-group__body">
             {machines && !big && partsLine(machines)}
-            {phased ? phases(g) : tasks(item)}
+            {phased ? phases(g) : tasks(item, !big)}
           </div>
         )}
       </section>
@@ -305,7 +308,7 @@ export function Board({ cal, linked, filter, people, big }: { cal: Cal; linked: 
             )}
             {!isFolded && (
               <>
-                {!big && host.shown.length > 0 && tasks(host, false)}
+                {host.shown.length > 0 && (!big || host.open > 0) && tasks(host, false)}
                 {season.length > 0 && <div className="cal-group__kids">{season.map(card)}</div>}
                 {custom.length > 0 && <div className="cal-group__kids">{custom.map(card)}</div>}
                 {projects.length > 0 && (

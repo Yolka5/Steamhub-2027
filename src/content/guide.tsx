@@ -545,7 +545,7 @@ export const CHAPTERS: Chapter[] = [
           </>,
           <>Mark them urgent if they’re needed first.</>,
         ],
-        tip: 'The subsystem page also has Bolts (every bolt the joints need, plus 10% spare) and an Assembly guide that goes part by part. Both need the whole assembly as one STEP file.',
+        tip: 'The subsystem page also has Screws: every screw, nut and washer in the CAD, plus 10% spare to take. Screws come off the bought parts list on import. One assembly STEP file also finds holes with no screw drawn in them.',
         shot: { name: 'make-release', alt: 'Two parts ticked in a subsystem, with a checkbox marked 1, Release marked 2 and Urgent marked 3.' },
       },
       {

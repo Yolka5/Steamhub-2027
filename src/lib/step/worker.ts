@@ -1,4 +1,4 @@
-import { StepFile, buildProject, buildScene, buildSequence, findJoints, partFrame, renderScene, setHardwareStock, toFrame } from './engine'
+import { StepFile, buildProject, buildScene, findJoints, partFrame, renderScene, setHardwareStock, toFrame } from './engine'
 import { partStep } from './partStep'
 
 // Parses a whole assembly STEP off the main thread, so the page never freezes.
@@ -51,7 +51,7 @@ export interface AStep {
   tools: string[]
 }
 
-/** Bolt table and assembly guide for one upload. Step pictures live in chunk files of `chunk` steps. */
+/** The screw table's joints for one upload. Steps and chunks are left from the old assembly guide, now always empty. */
 export interface Analysis {
   v: 1
   steps: AStep[]
@@ -118,7 +118,7 @@ async function partsOf(text: string, single: boolean, progress: (t: string) => v
   })
 }
 
-// The last single-file parse, kept so the bolt table and guide can be worked out once the
+// The last single-file parse, kept so the screw table's joints can be worked out once the
 // upload knows Steamhub's part numbers. Loose part files have no positions, so they get none.
 let kept: { S: StepFile; P: Awaited<ReturnType<typeof buildProject>> } | null = null
 
@@ -137,11 +137,9 @@ function analyze(req: AnalyzeRequest['analyze']) {
     it.method = m.method
     it.custom = m.method !== 'Bought'
   }
-  post({ type: 'progress', text: 'Finding bolts' })
+  post({ type: 'progress', text: 'Finding screw holes' })
   const scene = buildScene(P as never)
   const joints = findJoints(P as never) as (Omit<AJoint, 'thumb'> & { pts?: number[][]; groups?: unknown; inst?: unknown })[]
-  post({ type: 'progress', text: 'Working out the build order' })
-  const Q = buildSequence(P as never, scene, joints, {}) as { steps: (AStep & Record<string, unknown>)[]; tools: string[] }
   const zero = (scene as { inst: unknown[] }).inst.map(() => [0, 0, 0])
 
   const outJoints: AJoint[] = joints.map((j) => {
@@ -151,34 +149,10 @@ function analyze(req: AnalyzeRequest['analyze']) {
     return { type: j.type, size: j.size, count: j.count, parts: j.parts, grip: j.grip, key: j.key, note: j.note, tapDepth: j.tapDepth, blind: j.blind, thumb }
   })
 
-  post({ type: 'progress', text: 'Drawing the guide' })
-  const seen = new Map<string, number>()
-  const steps: AStep[] = []
-  const pics: Res[] = []
-  Q.steps.forEach((st, i) => {
-    const base = `${st.phase}|${st.title}`
-    const n = (seen.get(base) ?? 0) + 1
-    seen.set(base, n)
-    steps.push({ key: n > 1 ? `${base}|${n}` : base, phase: st.phase, title: st.title, text: st.text, tools: (st.tools as string[]) || [] })
-    const offsets = (scene as { inst: unknown[] }).inst.map((_, k) => ((st.offsets as Record<number, number[]> | null)?.[k]) || [0, 0, 0])
-    pics.push(
-      renderScene(scene, {
-        ...PICTURE,
-        offsets,
-        visible: st.final ? null : st.vis,
-        current: st.final ? null : st.current,
-        labels: st.labels || [],
-        arrows: st.arrows || [],
-        markers: st.markers || [],
-      }) as Res,
-    )
-    if (i % 20 === 0) post({ type: 'progress', text: `Drawing the guide ${i + 1}/${Q.steps.length}` })
-  })
   const cover = renderScene(scene, { ...PICTURE, offsets: zero }) as Res
-  const chunks: Res[][] = []
-  for (let i = 0; i < pics.length; i += CHUNK) chunks.push(pics.slice(i, i + CHUNK))
-  const analysis: Analysis = { v: 1, steps, tools: Q.tools, joints: outJoints, chunk: CHUNK, W: PICTURE.W, H: PICTURE.H, cover }
-  post({ type: 'analysis', analysis, chunks })
+  // The assembly guide is gone (2026-11-26), so no build order or step pictures: joints only.
+  const analysis: Analysis = { v: 1, steps: [], tools: [], joints: outJoints, chunk: CHUNK, W: PICTURE.W, H: PICTURE.H, cover }
+  post({ type: 'analysis', analysis, chunks: [] })
 }
 
 // One assembly file is the normal case. Onshape can also export every part as its own file;

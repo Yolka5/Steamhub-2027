@@ -190,7 +190,6 @@ export default function SubsystemPage() {
   const unchecked = needsReview(parts, reviews).length
 
   const last = uploads[0]
-  const analyzed = uploads.some((u) => u.analysis_path)
 
   return (
     <div className="page">
@@ -224,16 +223,11 @@ export default function SubsystemPage() {
           </p>
         </div>
         <div className="sub-side">
-          {analyzed && (
-            <div className="page__actions">
-              <Link to={`/manufacturing/s/${sub.id}/bolts`} className="q-btn">
-                <Icon name="screw" size={18} /> Bolts
-              </Link>
-              <Link to={`/manufacturing/s/${sub.id}/guide`} className="q-btn">
-                <Icon name="book" size={18} /> Assembly guide
-              </Link>
-            </div>
-          )}
+          <div className="page__actions">
+            <Link to={`/manufacturing/s/${sub.id}/screws`} className="q-btn">
+              <Icon name="screw" size={18} /> Screws
+            </Link>
+          </div>
         <label className="ctl sub-lead">
           <span className="ctl__name">Lead</span>
           <Select className="field--inline" value={sub.lead_id ?? ''} onChange={setLead} options={[{ value: '', label: 'No lead' }, ...people.map((p) => ({ value: p.id, label: p.name }))]} />
@@ -598,6 +592,7 @@ function Drop({ onFile, last }: { onFile: (f: File[], progress: (t: string) => v
             summary.changed && `${summary.changed} changed`,
             summary.gone && `${summary.gone} gone (cancelled)`,
             summary.same && `${summary.same} unchanged`,
+            summary.screws && `${summary.screws} screws moved to Screws`,
           ]
             .filter(Boolean)
             .join(', ')}

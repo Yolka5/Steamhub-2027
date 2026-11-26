@@ -1608,7 +1608,7 @@ function findJoints(P) {
   for (const h of holes.filter(h => h.shaftEnd)) {
     const ends = (!h.blindA && !h.blindB) ? 2 : 1;
     const sz = hwTap(h.d) || (h.d >= 4.9 && h.d <= 5.07 ? 'M6' : null) || hwClear(h.d) || 'M5';
-    joints.push({ inst: [h.ii], shaftEnds: ends, type: 'shaft', size: sz, count: ends, parts: [{ partNo: h.partNo, name: h.name, sig: h.sig, d: h.d, len: h.len }], pts: [h.A, h.B].slice(0, ends), grip: 0, key: 'shaft|' + h.sig + '|' + h.d.toFixed(2), note: `Ø${fmt(h.d)} bore: tap ${sz} in the shaft end, bolt + washer holds the shaft in` });
+    joints.push({ inst: [h.ii], shaftEnds: ends, type: 'shaft', size: sz, count: ends, parts: [{ partNo: h.partNo, name: h.name, sig: h.sig, d: h.d, len: h.len }], pts: [h.A, h.B].slice(0, ends), grip: 0, key: 'shaft|' + h.sig + '|' + h.d.toFixed(2), note: `Ø${fmt(h.d)} bore: tap ${sz} in the shaft end, screw + washer holds the shaft in` });
   }
   return mergeJoints(joints.filter(Boolean));
 }
@@ -1627,7 +1627,7 @@ function classifyJoint(stack) {
   const first = stack[0], last = stack[stack.length - 1];
   if (stack.length === 1) {
     const s = first; const tap = hwTap(s.h.d);
-    if ((s.capLo || s.capHi) && tap) return { type: 'tapOpen', size: tap, parts, pts, inst, grip: 0, tapDepth: s.t1 - s.t0, key, note: 'Tapped hole with nothing bolted to it in this CAD' };
+    if ((s.capLo || s.capHi) && tap) return { type: 'tapOpen', size: tap, parts, pts, inst, grip: 0, tapDepth: s.t1 - s.t0, key, note: 'Tapped hole with nothing screwed into it in this CAD' };
     return { pts, inst, type: 'open', size: hwClear(s.h.d) || (isRivetHole(s.h.d) ? 'M5' : null) || tap || ('Ø' + fmt(s.h.d)), parts, grip, key, note: 'Hole with no mating part in this CAD (mounts to something outside this mechanism)' };
   }
   // tapped end: the end part has a tap-drill hole, the others are clearance holes for that size
@@ -1638,7 +1638,7 @@ function classifyJoint(stack) {
     const tz = tryTap(end, restOf(end));
     if (tz && (thickPart(end) || end.capLo || end.capHi)) {
       const clearGrip = restOf(end).reduce((a, s) => a + (s.t1 - s.t0), 0);
-      return { pts, inst, tapII: end.h.ii, type: 'tap', size: tz, parts, grip: clearGrip, tapDepth: end.t1 - end.t0, blind: !!(end.capLo || end.capHi), key, note: `Bolt through ${restOf(end).map(s => s.h.partNo).join(' + ')} into the tapped hole in ${end.h.partNo}` };
+      return { pts, inst, tapII: end.h.ii, type: 'tap', size: tz, parts, grip: clearGrip, tapDepth: end.t1 - end.t0, blind: !!(end.capLo || end.capHi), key, note: `Screw through ${restOf(end).map(s => s.h.partNo).join(' + ')} into the tapped hole in ${end.h.partNo}` };
     }
   }
   // rivet: rivet-size holes, thin stack
@@ -1646,7 +1646,7 @@ function classifyJoint(stack) {
   const sizes = stack.map(s => hwClear(s.h.d) || (isRivetHole(s.h.d) ? 'M5' : null) || hwTap(s.h.d));
   const size = sizes.filter(Boolean).sort((a, b) => nomD(a) - nomD(b))[0] || 'M5';
   const tube = stack.some(s => /tube|profile/i.test(s.h.name) || (s.t1 - s.t0) > 30);
-  return { pts, inst, type: 'nut', size, parts, grip, key, note: 'Bolt through all parts with a washer and nylock nut' + (tube ? '. Put a crush block or tube plug inside the tube so it doesn\'t crush.' : '') };
+  return { pts, inst, type: 'nut', size, parts, grip, key, note: 'Screw through all parts with a washer and nylock nut' + (tube ? '. Put a crush block or tube plug inside the tube so it doesn\'t crush.' : '') };
 }
 function mergeJoints(js) {
   const m = new Map();
@@ -1667,15 +1667,15 @@ function jointHardware(j, type) {
   if (type === 'nut') {
     const need = j.grip + wHead + HW.washer[sz] + HW.nut[sz] + 1;
     const L = pickLen(need);
-    return { items: [[`${sz} × ${L || '?'} bolt`, 1], [`${sz} ${nutName}`, 1], [`${sz} washer`, pc ? 2 : 1]], text: `${sz} × ${L || '?'} + washer + ${HW.nutKind === 'plain' ? 'nut' : 'nylock'}`, ok: !!L };
+    return { items: [[`${sz} × ${L || '?'} screw`, 1], [`${sz} ${nutName}`, 1], [`${sz} washer`, pc ? 2 : 1]], text: `${sz} × ${L || '?'} + washer + ${HW.nutKind === 'plain' ? 'nut' : 'nylock'}`, ok: !!L };
   }
   if (type === 'tap' || type === 'tapOpen') {
     const grip = type === 'tap' ? j.grip : 0; const depth = j.tapDepth || 1.5 * D;
     const minL = grip + wHead + 1.5 * D, maxL = grip + wHead + (j.blind ? depth - 1 : depth + 2);
     let L = pickLen(minL, maxL) || pickLen(grip + wHead + Math.min(depth, D), maxL);
-    return { items: [[`${sz} × ${L || '?'} bolt`, 1], ...(pc ? [[`${sz} washer`, 1]] : [])], text: `${sz} × ${L || '?'} into tap${L ? '' : ' (check thread length)'}`, ok: !!L };
+    return { items: [[`${sz} × ${L || '?'} screw`, 1], ...(pc ? [[`${sz} washer`, 1]] : [])], text: `${sz} × ${L || '?'} into tap${L ? '' : ' (check thread length)'}`, ok: !!L };
   }
-  if (type === 'shaft') { const L = pickLen(1.5 * D + HW.washer[sz] + 2); return { items: [[`${sz} × ${L} bolt (button head)`, 1], [`${sz} washer`, 1]], text: `${sz} × ${L} button head + washer`, ok: true }; }
+  if (type === 'shaft') { const L = pickLen(1.5 * D + HW.washer[sz] + 2); return { items: [[`${sz} × ${L} screw (button head)`, 1], [`${sz} washer`, 1]], text: `${sz} × ${L} button head + washer`, ok: true }; }
   if (type === 'rivet') {
     const g = HW.rivetGrips.find(([a, b]) => j.grip >= a - 1e-6 && j.grip <= b + 1e-6);
     return { items: [[`4.8 mm rivet, grip ${g ? fmt(g[0]) + '–' + fmt(g[1]) + ' mm (' + g[2] + ')' : fmt(j.grip) + ' mm'}`, 1]], text: `4.8 mm rivet, grip ${g ? fmt(g[0]) + '–' + fmt(g[1]) : fmt(j.grip)} mm`, ok: !!g };

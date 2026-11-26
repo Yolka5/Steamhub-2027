@@ -611,6 +611,13 @@
   gap: 0.5rem 0.75rem;
 }
 
+.finder__dims {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
+  gap: 0.5rem;
+  max-width: calc(var(--n, 3) * 11rem);
+}
+
 .finder__more > summary {
   display: flex;
   gap: 0.5rem;

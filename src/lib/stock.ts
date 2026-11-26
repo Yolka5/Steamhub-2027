@@ -132,7 +132,8 @@ export function needsPhoto(p: Piece): boolean {
 
 export interface Query {
   id?: string
-  kind?: Kind | 'round'
+  /** 'od' is an OD or ID typed with no shape picked: round tubes, rods and hex. */
+  kind?: Kind | 'round' | 'od'
   a?: number
   b?: number
   wall?: number
@@ -238,6 +239,7 @@ const near = (want: number | undefined, have: number | null, tol: number) =>
 function kindMatches(want: Query['kind'], have: Kind) {
   if (!want) return true
   if (want === 'round') return have === 'round_tube' || have === 'round_rod'
+  if (want === 'od') return have === 'round_tube' || have === 'round_rod' || have === 'hex'
   return want === have
 }
 
@@ -251,6 +253,9 @@ export function fitsSection(q: Query, p: Piece, tol: number): boolean {
     const straight = near(q.a, p.a, tol) && near(q.b, p.b, tol)
     const turned = near(q.a, p.b, tol) && near(q.b, p.a, tol)
     if (!straight && !turned) return false
+  } else if (q.a != null && (p.kind === 'rect_tube' || p.kind === 'angle')) {
+    // One side typed: a 20x40 is just as much 20 as a 40x20.
+    if (!near(q.a, p.a, tol) && !near(q.a, p.b, tol)) return false
   } else if (!near(q.a, p.a, tol)) return false
   if (!near(q.wall, p.wall, Math.min(tol, 0.3))) return false
   if (q.inner != null) {
@@ -289,7 +294,7 @@ export function findMatches(pieces: Piece[], q: Query, tol: number, includeTaken
 
 /** Same search with wider size tolerance, minus what already matched. */
 export function nearMatches(pieces: Piece[], q: Query, tol: number, exclude: Set<string>): Match[] {
-  if (q.id || (q.a == null && q.b == null)) return []
+  if (q.id || (q.a == null && q.b == null && q.inner == null)) return []
   return findMatches(pieces, q, Math.max(tol * 4, 2)).filter((m) => !exclude.has(m.piece.id)).slice(0, 8)
 }
 

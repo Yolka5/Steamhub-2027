@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Indicator } from '../components/Indicator'
 import { PieceCard } from '../components/PieceCard'
 import { PieceTable } from '../components/PieceTable'
@@ -32,20 +32,54 @@ function savedView(): 'cards' | 'table' {
   }
 }
 
+type Dim = 'a' | 'b' | 'wall' | 'inner' | 'length'
+type Shape = '' | 'round' | 'rect_tube' | 'angle' | 'flat' | 'hex'
+
+// One box per size. A blank box means any value. The words follow the shape picked.
+const FIELDS: Record<Shape, { key: Dim; label: string }[]> = {
+  '': [{ key: 'a', label: 'OD' }, { key: 'inner', label: 'ID' }, { key: 'length', label: 'Length' }],
+  round: [{ key: 'a', label: 'OD' }, { key: 'inner', label: 'ID' }, { key: 'length', label: 'Length' }],
+  hex: [{ key: 'a', label: 'Across flats' }, { key: 'inner', label: 'Bore' }, { key: 'length', label: 'Length' }],
+  rect_tube: [
+    { key: 'a', label: 'Width' },
+    { key: 'b', label: 'Height' },
+    { key: 'wall', label: 'Wall' },
+    { key: 'length', label: 'Length' },
+  ],
+  angle: [
+    { key: 'a', label: 'Leg A' },
+    { key: 'b', label: 'Leg B' },
+    { key: 'wall', label: 'Thickness' },
+    { key: 'length', label: 'Length' },
+  ],
+  flat: [{ key: 'a', label: 'Width' }, { key: 'wall', label: 'Thickness' }, { key: 'length', label: 'Length' }],
+}
+const DIMS: Dim[] = ['a', 'b', 'wall', 'inner', 'length']
+
+const toNum = (v: string | null) => {
+  if (v == null || v.trim() === '') return undefined
+  const n = Number(v.trim().replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
 /** What the search understood, in words, so a typo is obvious. */
-function describe(q: Query): string[] {
+function describe(q: Query, shape: Shape): string[] {
   const out: string[] = []
-  if (q.id) return [q.id]
-  if (q.kind) out.push(q.kind === 'round' ? 'Round' : KINDS[q.kind as Kind].label)
-  if (q.a != null) {
-    if (q.inner != null) out.push(`Ø${q.a} / ${q.inner}`)
-    else if (q.b != null) out.push(`${q.a} × ${q.b}`)
-    else out.push(q.kind === 'flat' ? `${q.a} wide` : `${q.a}`)
+  if (shape) out.push(shape === 'round' ? 'Round' : KINDS[shape as Kind].label)
+  for (const f of FIELDS[shape]) {
+    const v = q[f.key]
+    if (v != null && f.key !== 'length') out.push(`${f.label} ${v}`)
   }
-  if (q.wall != null) out.push(`wall ${q.wall}`)
-  if (q.material) out.push(q.material)
   if (q.length != null) out.push(`at least ${q.length} mm`)
   return out
+}
+
+/** Old one-line searches (from Home, Ctrl K or a saved link) turned into the boxes. */
+function shapeOf(q: Query): Shape {
+  if (q.kind === 'round' || q.kind === 'round_tube' || q.kind === 'round_rod') return 'round'
+  if (q.kind === 'rect_tube' || q.kind === 'angle' || q.kind === 'flat' || q.kind === 'hex') return q.kind
+  if (q.b != null || q.wall != null) return 'rect_tube'
+  return ''
 }
 
 export default function Stock() {
@@ -54,19 +88,26 @@ export default function Stock() {
   const phone = usePhone()
   const [reserving, setReserving] = useState<Piece | null>(null)
 
-  const text = params.get('q') ?? ''
-  const kindPick = params.get('k') ?? ''
+  const navigate = useNavigate()
+  const legacy = params.get('q')
+  const shape = (FIELDS[(params.get('k') ?? '') as Shape] ? params.get('k') ?? '' : '') as Shape
   const tol = Number(params.get('tol') ?? '0.5')
   const showAll = params.get('all') === '1'
   const viewParam = params.get('view')
   const view: 'cards' | 'table' = viewParam === 'table' || viewParam === 'cards' ? viewParam : savedView()
 
-  const set = (key: string, value: string) => {
-    const next = new URLSearchParams(params)
-    if (value) next.set(key, value)
-    else next.delete(key)
-    setParams(next, { replace: true })
-  }
+  // Always from the latest link: the router updates it a moment late, and fast typing would
+  // otherwise write over a box with an old copy.
+  const set = (key: string, value: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set(key, value)
+        else next.delete(key)
+        return next
+      },
+      { replace: true },
+    )
   const setView = (v: 'cards' | 'table') => {
     try {
       localStorage.setItem(VIEW_KEY, v)
@@ -76,12 +117,78 @@ export default function Stock() {
     set('view', v)
   }
 
-  const q = useMemo(() => {
-    const parsed = parseQuery(text)
-    if (kindPick && !parsed.id) parsed.kind = kindPick as Query['kind']
-    return parsed
-  }, [text, kindPick])
+  // A one-line search in the link becomes the boxes. A piece or plate number opens that page.
+  useEffect(() => {
+    if (legacy == null) return
+    const parsed = parseQuery(legacy)
+    if (parsed.id) {
+      const plate = /^(AL|PC|WD)-/.test(parsed.id) ? parsed.id.replace(/-0*(\d+)$/, (_, n: string) => n.padStart(2, '0')) : null
+      navigate(plate ? `/stock/plates?q=${plate}` : `/stock/${parsed.id}`, { replace: true })
+      return
+    }
+    const k = shapeOf(parsed)
+    const got = Object.fromEntries(
+      DIMS.map((d) => [d, parsed[d] != null && FIELDS[k].some((f) => f.key === d) ? String(parsed[d]) : '']),
+    ) as Record<Dim, string>
+    setValues(got)
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('q')
+        if (k) next.set('k', k)
+        for (const d of DIMS) if (got[d]) next.set(d, got[d])
+        return next
+      },
+      { replace: true },
+    )
+  }, [legacy, navigate, setParams])
 
+  // The boxes keep their own text, so typing never waits on the link.
+  const [values, setValues] = useState(() => Object.fromEntries(DIMS.map((d) => [d, params.get(d) ?? ''])) as Record<Dim, string>)
+  const setValue = (d: Dim, v: string) => {
+    setValues((x) => ({ ...x, [d]: v }))
+    set(d, v.trim())
+  }
+  const q = useMemo(() => {
+    const out: Query = {}
+    for (const f of FIELDS[shape]) {
+      const v = toNum(values[f.key])
+      if (v != null) out[f.key] = v
+    }
+    if (shape) out.kind = shape
+    // OD and ID with no shape picked: round tubes, rods and hex, never a profile.
+    else if (out.a != null || out.inner != null) out.kind = 'od'
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape, values.a, values.b, values.wall, values.inner, values.length])
+
+  // A new shape keeps the boxes it shares with the old one.
+  const pickShape = (k: Shape) => {
+    const keep = (d: Dim) => FIELDS[k].some((f) => f.key === d)
+    setValues((x) => Object.fromEntries(DIMS.map((d) => [d, keep(d) ? x[d] : ''])) as Record<Dim, string>)
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (k) next.set('k', k)
+        else next.delete('k')
+        for (const d of DIMS) if (!keep(d)) next.delete(d)
+        return next
+      },
+      { replace: true },
+    )
+  }
+  const clear = () => {
+    setValues(Object.fromEntries(DIMS.map((d) => [d, ''])) as Record<Dim, string>)
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const d of DIMS) next.delete(d)
+        next.delete('k')
+        return next
+      },
+      { replace: true },
+    )
+  }
   const matches = useMemo(() => findMatches(pieces, q, tol, showAll), [pieces, q, tol, showAll])
   const near = useMemo(
     () => (matches.length < 3 ? nearMatches(pieces, q, tol, new Set(matches.map((m) => m.piece.id))) : []),
@@ -119,9 +226,7 @@ export default function Stock() {
             </label>
     </>
   )
-  // AL07, PC02, WD13 are written on CNC plates, which live on their own page.
-  const plateCode = q.id && /^(AL|PC|WD)-/.test(q.id) ? q.id.replace(/-0*(\d+)$/, (_, n: string) => n.padStart(2, '0')) : null
-  const words = plateCode ? [plateCode] : describe(q)
+  const words = describe(q, shape)
   const available = pieces.filter((p) => p.status === 'available').length
 
   return (
@@ -148,17 +253,6 @@ export default function Stock() {
       </div>
 
       <div className="finder">
-        <input
-          className="field field--big num"
-          type="search"
-          inputMode="text"
-          enterKeyHint="search"
-          autoFocus={window.matchMedia('(pointer: fine)').matches}
-          placeholder="20x40x1 700 · round 20/16 500 · TB-014"
-          value={text}
-          onChange={(e) => set('q', e.target.value)}
-          aria-label="What do you need"
-        />
         <div className="finder__row">
           <div className={`picks picks--seg${phone ? ' picks--wrap' : ''}`} role="radiogroup" aria-label="Shape">
             <Indicator />
@@ -168,8 +262,8 @@ export default function Stock() {
                 type="button"
                 role="radio"
                 className="pick"
-                aria-checked={kindPick === k.value}
-                onClick={() => set('k', k.value)}
+                aria-checked={shape === k.value}
+                onClick={() => pickShape(k.value as Shape)}
               >
                 {k.label}
               </button>
@@ -186,6 +280,24 @@ export default function Stock() {
             options
           )}
         </div>
+        <div className="finder__dims" style={{ '--n': FIELDS[shape].length } as CSSProperties}>
+          {FIELDS[shape].map((f, i) => (
+            <label key={f.key} className="ctl">
+              <span className="ctl__name">{f.label}</span>
+              <input
+                className="field field--big num"
+                type="text"
+                inputMode="decimal"
+                enterKeyHint="search"
+                autoComplete="off"
+                autoFocus={i === 0 && window.matchMedia('(pointer: fine)').matches}
+                placeholder="Any"
+                value={values[f.key]}
+                onChange={(e) => setValue(f.key, e.target.value)}
+              />
+            </label>
+          ))}
+        </div>
         <p className="finder__said soft">
           {words.length ? (
             <>
@@ -195,21 +307,20 @@ export default function Stock() {
           ) : (
             `${count(available, 'piece')} available. `
           )}
-          {matches.length > 0 && (words.length ? `${matches.length} fit, least waste first.` : '')}
+          {matches.length > 0 && (words.length ? `${matches.length} fit, ${q.length != null ? 'least waste' : 'smallest'} first. ` : '')}
+          {words.length > 0 && (
+            <button type="button" className="text-btn" onClick={clear}>
+              Clear
+            </button>
+          )}
         </p>
-        {words.length > 0 && !q.id && <Working id="stock-search" title="How the search works" lines={stockSearchWorking(q, tol, matches[0])} />}
+        {words.length > 0 && <Working id="stock-search" title="How the search works" lines={stockSearchWorking(q, tol, matches[0])} />}
       </div>
 
       {error && <p className="error">Couldn't load stock: {error}</p>}
       {loading && <p className="soft">Loading stock</p>}
 
-      {plateCode && (
-        <p className="empty">
-          {plateCode} is a plate number. <Link to={`/stock/plates?q=${plateCode}`}>Find it in Plates</Link>
-        </p>
-      )}
-
-      {!plateCode && !loading && matches.length === 0 && words.length > 0 && (
+      {!loading && matches.length === 0 && words.length > 0 && (
         <p className="empty">Nothing in stock fits exactly.{near.length ? ' Close sizes below.' : ''}</p>
       )}
 
